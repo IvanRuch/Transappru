@@ -1,11 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 import DocumentPicker from "react-native-document-picker";
 import axios from "axios";
 import RNFS from 'react-native-fs';
 //import RNFetchBlob from 'rn-fetch-blob'
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 class Auto extends React.Component {
@@ -858,10 +859,10 @@ class Auto extends React.Component {
 
       <View style={styles.container}>
 
-        <Text style={{ paddingLeft: 20, paddingTop: 20, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>{this.state.auto_data.auto_number}</Text>
+        <Text style={styles.header}>{this.state.auto_data.auto_number}</Text>
 
         <TouchableHighlight
-          style={{ position: 'absolute', top: 20, right: 20, padding: 10, }}
+          style={styles.header_back}
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
@@ -1373,7 +1374,7 @@ class Auto extends React.Component {
 }
 
 // ...
-
+/*
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1419,5 +1420,5 @@ const styles = StyleSheet.create({
   }
 
 });
-
+*/
 export default Auto;

@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator, FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 class MenuAdd extends React.Component {
@@ -608,6 +609,8 @@ class AutoList extends React.Component {
 
   screenFocus = () => {
     console.log('AutoList screenFocus')
+
+    AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
 
 
@@ -617,7 +620,7 @@ class AutoList extends React.Component {
     this.props.navigation.addListener('focus', () => this.screenFocus())
     this.props.navigation.addListener('beforeRemove', () => { console.log('AutoList screenBeforeRemove'); return; })
 
-    AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
+    //AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
 
   /* */
@@ -723,11 +726,11 @@ class AutoList extends React.Component {
 
       <View style={styles.container}>
 
-        <Text style={{ paddingLeft: 20, paddingTop: 20, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>Мой автопарк</Text>
+        <Text style={styles.header}>Мой автопарк</Text>
 
         {/*
         <TouchableHighlight
-          style={{ position: 'absolute', top: 20, right: 20, padding: 10, }}
+          style={styles.header_back}
           onPress={() => {
             console.log('-> move to Main')
             this.props.navigation.navigate('Main')
@@ -824,6 +827,8 @@ class AutoList extends React.Component {
               flex: 1,
               alignItems: 'center',
               justifyContent: 'center',
+              marginTop: 50,
+              marginBottom: 20,
             }}>
 
               <View style={{
@@ -1161,40 +1166,5 @@ class AutoList extends React.Component {
     );
   }
 }
-
-// ...
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#2c2c2c',
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-  },
-
-  service: {
-      flexDirection: "row",
-      flex: 1,
-      height: 90,
-      margin: 10,
-      borderRadius: 8,
-      padding: 15,
-      alignItems: "stretch",
-      shadowColor: "#000",
-      shadowOffset: {
-        width: 0,
-        height: 20
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 8,
-      elevation: 5
-  },
-  auto: {
-    width: 52,
-    height: 32,
-    marginBottom: 10,
-  },
-
-});
 
 export default AutoList;

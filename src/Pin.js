@@ -104,6 +104,7 @@ class Pin extends React.Component {
         <Text>ожидайте sms-сообщение с кодом</Text>
           <TextInput
             keyboardType='numeric'
+            textAlign={'center'}
             style={{ height: 60, width: 100, fontSize: 34, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
             maxLength={4}
             placeholder='0000'

@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 class DriverList extends React.Component {
@@ -18,8 +19,6 @@ class DriverList extends React.Component {
       modalEditDriverVisible: false,
       modalEditDriverButtonDisabled: true,
       modalEditDriverMode: '',
-
-
     };
   }
 
@@ -271,7 +270,7 @@ class DriverList extends React.Component {
             justifyContent: 'center',
             flexDirection: "column",
           }}>
-            <Image source={require('../images/driver.png')} style={styles.auto}/>
+            <Image source={require('../images/driver.png')} />
           </View>
           <View style={{
             flex: 5,
@@ -297,10 +296,10 @@ class DriverList extends React.Component {
 
       <View style={styles.container}>
 
-        <Text style={{ paddingLeft: 20, paddingTop: 11, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>Водители</Text>
+        <Text style={styles.header}>Водители</Text>
 
         <TouchableHighlight
-          style={{ position: 'absolute', top: 20, right: 20, padding: 10, }}
+          style={styles.header_back}
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
@@ -394,6 +393,8 @@ class DriverList extends React.Component {
               flex: 1,
               alignItems: 'stretch',
               justifyContent: 'center',
+              marginTop: 50,
+              marginBottom: 20,              
             }}>
 
               <View style={{
@@ -605,17 +606,5 @@ class DriverList extends React.Component {
     );
   }
 }
-
-// ...
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#2c2c2c',
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-  },
-
-});
 
 export default DriverList;

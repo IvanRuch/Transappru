@@ -164,6 +164,7 @@ class Auth extends React.Component {
         <Text>чтобы войти или зарегистрироваться</Text>
         <TextInput
           keyboardType='phone-pad'
+          textAlign={'center'}
           style={{ height: 60, width: 275, fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
           maxLength={12}
           placeholder = '+70000000000'

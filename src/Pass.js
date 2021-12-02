@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 class Pass extends React.Component {
@@ -488,7 +489,7 @@ class Pass extends React.Component {
           alignItems: 'flex-end',
           justifyContent: 'flex-end',
         }}>
-          <Image source={require('../images/emojione-v1_right-arrow.png')}/>
+          {/*<Image source={require('../images/emojione-v1_right-arrow.png')}/>*/}
         </View>
       </View>
     );
@@ -500,10 +501,10 @@ class Pass extends React.Component {
 
       <View style={styles.container}>
 
-        <Text style={{ paddingLeft: 20, paddingTop: 20, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>Добавить адрес {this.state.name}</Text>
+        <Text style={styles.header}>Добавить адрес {this.state.name}</Text>
 
         <TouchableHighlight
-          style={{ position: 'absolute', top: 20, right: 20, padding: 10, }}
+          style={styles.header_back}
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
@@ -667,23 +668,5 @@ class Pass extends React.Component {
   }
 
 }
-
-// ...
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#2c2c2c',
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-  },
-
-  auto: {
-    width: 52,
-    height: 32,
-    marginBottom: 10,
-  },
-
-});
 
 export default Pass;

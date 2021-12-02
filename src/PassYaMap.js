@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-community/async-storage';
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 import YaMap from 'react-native-yamap';
@@ -104,10 +105,10 @@ class PassYaMap extends React.Component {
     return (
       <View style={styles.container}>
 
-        <Text style={{ paddingLeft: 20, paddingTop: 20, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>Добавить адрес</Text>
+        <Text style={styles.header}>Добавить адрес</Text>
 
         <TouchableHighlight
-          style={{ position: 'absolute', top: 20, right: 20, padding: 10, }}
+          style={styles.header_back}
           onPress={() => {
             console.log('-> move to Pass')
             this.props.navigation.navigate('Pass')
@@ -229,14 +230,5 @@ class PassYaMap extends React.Component {
     );
   };
 }
-
-const styles = StyleSheet.create({
-    container: {
-    flex: 1,
-    backgroundColor: '#2c2c2c',
-    alignItems: 'stretch',
-    justifyContent: 'flex-start',
-  },
-});
 
 export default PassYaMap;
