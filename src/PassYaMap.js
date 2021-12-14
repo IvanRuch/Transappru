@@ -111,7 +111,7 @@ class PassYaMap extends React.Component {
           style={styles.header_back}
           onPress={() => {
             console.log('-> move to Pass')
-            this.props.navigation.navigate('Pass')
+            this.props.navigation.navigate('Pass', { address_map_data: this.state.address_map_data })
           }}>
           <Image source={require('../images/back.png')} />
         </TouchableHighlight>

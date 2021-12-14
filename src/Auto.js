@@ -956,6 +956,8 @@ class Auto extends React.Component {
               flex: 1,
               alignItems: 'stretch',
               justifyContent: 'center',
+              marginTop: 50,
+              marginBottom: 20,              
             }}>
 
               <View style={{

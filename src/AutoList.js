@@ -610,6 +610,8 @@ class AutoList extends React.Component {
   screenFocus = () => {
     console.log('AutoList screenFocus')
 
+    this.setState({marked_cnt: 0})
+
     AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
 
