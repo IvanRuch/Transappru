@@ -1078,6 +1078,7 @@ class AutoList extends React.Component {
                   <MenuUser />
                 </TouchableHighlight>
               </View>
+              {/*
               <View style={{
                 flex: 1,
                 height: 80,
@@ -1092,6 +1093,7 @@ class AutoList extends React.Component {
                   <MenuMessenger />
                 </TouchableHighlight>
               </View>
+              */}
             </View>
 
           ) : (
@@ -1116,6 +1118,7 @@ class AutoList extends React.Component {
                   <SelMenuDelItem />
                 </TouchableHighlight>
               </View>
+              {/*
               <View style={{
                 flex: 1,
                 height: 80,
@@ -1130,6 +1133,7 @@ class AutoList extends React.Component {
                   <SelMenuAddDriver />
                 </TouchableHighlight>
               </View>
+              */}
               <View style={{
                 flex: 1,
                 height: 80,
