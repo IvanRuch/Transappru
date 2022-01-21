@@ -197,10 +197,14 @@ class Pass extends React.Component {
     console.log(item)
     console.log('index = ' + index)
 
+    console.log('item.p7 = ' + item.p7)
+
     this.setState({address: item.p7,
                    mos_ru_street: item.id,
                    mos_ru_street_p7: item.p7,
-                   street_list: []})
+                   street_list: []}, () => this.changeAddress(item.p7 + ' '))
+
+    this.refs.addressInput.focus();
   };
 
   markAddress = (item, index) => {
@@ -615,6 +619,7 @@ class Pass extends React.Component {
             paddingRight: 70,
           }}>
             <TextInput
+              ref="addressInput"
               //onEndEditing={(e: any) => { this.endEditingUserData( e.nativeEvent.text, 'firm' ) } }
               //onChangeText={(value) => this.changeUserData(value, 'firm')}
               style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
@@ -649,7 +654,7 @@ class Pass extends React.Component {
 
         </ScrollView>
 
-        {/* ******** */}
+        {/* ********  */}
         {
           this.state.mos_ru_address ? (
             <TouchableHighlight
