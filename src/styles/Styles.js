@@ -8,7 +8,7 @@ export default StyleSheet.create({
     alignItems: 'stretch',
     justifyContent: 'flex-start',
   },
-  
+
   auto: {
     width: 52,
     height: 32,
@@ -31,6 +31,12 @@ export default StyleSheet.create({
         paddingTop: 20,
       }
     })
+  },
+
+  sub_header: {
+    paddingLeft: 20,
+    fontSize: 15,
+    color: "#8C8C8C"
   },
 
   header_back: {

@@ -957,7 +957,7 @@ class Auto extends React.Component {
               alignItems: 'stretch',
               justifyContent: 'center',
               marginTop: 50,
-              marginBottom: 20,              
+              marginBottom: 20,
             }}>
 
               <View style={{
@@ -1066,7 +1066,6 @@ class Auto extends React.Component {
               flexDirection: "row",
               padding: 10,
               height: 130,
-              paddingRight: 1000,
             }}>
 
               <Pressable onPress={() => this.checkTab('files')}>

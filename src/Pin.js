@@ -47,7 +47,7 @@ class Pin extends React.Component {
           }
           else
           {
-            if(data.phone_inn_bind == 1)
+            if(data.phone_inn_bind == 1 || data.is_manager == 1)
             {
               this.props.navigation.navigate('AutoList')
             }
