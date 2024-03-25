@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from './styles/Styles.js';
 import Api from "./utils/Api";
@@ -15,6 +15,7 @@ class User extends React.Component {
       user_contact_list: [],
       user_contact_data: { id: '', fio: '', email: '', phone: '', position: '' },
 
+      modalDelUserVisible: false,
       modalDelContactVisible: false,
       modalEditContactButtonDisabled: true,
       modalEditContactMode: '',
@@ -55,6 +56,32 @@ class User extends React.Component {
         user_data_new[field] = value
 
     this.setState({user_data: user_data_new})
+  }
+
+  /* удаление контакта */
+  delUser = (value) => {
+    console.log('delUser. value = ' + value)
+
+    Api.post('/del-user', { token: value })
+       .then(res => {
+
+          const data = res.data;
+          console.log(data);
+
+          if(data.auth_required == 1)
+          {
+            this.props.navigation.navigate('Auth')
+          }
+          else
+          {
+            console.log('Ваш профиль был удален');
+            this.props.navigation.navigate('DelUser')
+          }
+        })
+        .catch(error => {
+          console.log('error.response.status = ' + error.response.status);
+          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+        });
   }
 
   /* удаление контакта */
@@ -247,24 +274,24 @@ class User extends React.Component {
       this.setState({indicator: true})
 
       Api.post('/get-contact-list', { token: value })
-         .then(res => {
+              .then(res => {
 
-            const data = res.data;
-            console.log(data);
+                  const data = res.data;
+                  console.log(data);
 
-            if(data.auth_required == 1)
-            {
-              this.props.navigation.navigate('Auth')
-            }
-            else
-            {
-              this.setState({indicator: false, user_data: data.user_data, user_contact_list: data.user_contact_list})
-            }
-          })
-          .catch(error => {
-              console.log('error.response.status = ' + error.response.status);
-              if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
+                  if(data.auth_required == 1)
+                  {
+                    this.props.navigation.navigate('Auth')
+                  }
+                  else
+                  {
+                    this.setState({indicator: false, user_data: data.user_data, user_contact_list: data.user_contact_list})
+                  }
+                })
+                .catch(error => {
+                    console.log('error.response.status = ' + error.response.status);
+                    if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+                });
     }
   }
 
@@ -323,6 +350,82 @@ class User extends React.Component {
           }}>
           <Image source={require('../images/back.png')} />
         </TouchableHighlight>
+
+        {/* модальное окно подтверждения удаления профиля */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={this.state.modalDelUserVisible}
+          onRequestClose={() => {
+            //Alert.alert("Modal has been closed.");
+            this.setState({modalDelUserVisible: false})
+          }}
+        >
+          <View style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+
+            <View style={{
+              //flex: 1,
+              backgroundColor: '#8C8C8C',
+              borderRadius: 25,
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              //marginTop: 70
+            }}>
+
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Вы действительно хотите удалить профиль?</Text>
+
+              <Text style={{ paddingLeft: 14, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Все ваши данные будут удалены вместе с ним</Text>
+
+              <View style={{
+                //flex: 1,
+                //backgroundColor: 'grey',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+
+                <View style={{
+                  flexDirection: "row",
+                  width: 300,
+                }}>
+
+                  <View style={{
+                    //flex: 1,
+                    height: 100,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <TouchableOpacity
+                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      onPress={() =>  {
+                        console.log('call del_user')
+                        AsyncStorage.getItem('token').then((value) => this.delUser(value));
+                      }}>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{
+                    flex: 1,
+                    height: 100,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <TouchableOpacity
+                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
+                      onPress={() =>  { this.setState({modalDelUserVisible: false}) }}>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* модальное окно подтверждения удаления контакта */}
         <Modal
@@ -625,6 +728,12 @@ class User extends React.Component {
           </View>
 
         </ScrollView>
+
+        <TouchableHighlight
+          style={{ position: 'absolute', left: 10, bottom: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#C9A86B' }}
+          onPress={() => this.setState({modalDelUserVisible: true})}>
+          <Text style={{ fontSize: 24, color: '#353535', paddingLeft: 25, paddingRight: 25 }}>Удалить профиль</Text>
+        </TouchableHighlight>
 
         <TouchableHighlight
           style={{ position: 'absolute', bottom: 20, right: 20, padding: 10 }}

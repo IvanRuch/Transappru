@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./utils/Api";
 
@@ -13,6 +13,7 @@ class Main extends React.Component {
   checkToken = (value) => {
     console.log('checkToken. value = ' + value)
 
+    /*
     if(!value)
     {
       console.log('null')
@@ -39,12 +40,13 @@ class Main extends React.Component {
         .catch(error => {
             console.log('error');
         });
+    */    
 
   }
 
   componentDidMount() {
     console.log('Main DidMount')
-    AsyncStorage.getItem('token').then((value) => this.checkToken(value));
+    //AsyncStorage.getItem('token').then((value) => this.checkToken(value));
   }
 
   render() {
@@ -54,7 +56,6 @@ class Main extends React.Component {
 
         <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
 
-        {/*
         <Text style={{ paddingLeft: 20, paddingTop: 11, fontSize: 28, fontWeight: "bold", color: "#E8E8E8" }}>Главный экран</Text>
 
         <View style={{
@@ -77,7 +78,6 @@ class Main extends React.Component {
         >
           <Text style={{ fontSize: 24, color: "#E8E8E8" }}>Ваш автотранспорт</Text>
         </TouchableOpacity>
-        */}
 
       </View>
     );

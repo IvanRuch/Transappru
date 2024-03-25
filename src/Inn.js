@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, Button, TextInput, TouchableOpacity, Alert, Pressable, Modal, TouchableHighlight, Image } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./utils/Api";
 
@@ -116,7 +116,7 @@ class Inn extends React.Component {
           </View>
         </Modal>
 
-        <Text style={{ fontSize: 22, fontWeight: "bold" }}>Введите ИНН</Text>
+        <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите ИНН</Text>
         <View
           style={{
             flexDirection: "row",
@@ -126,7 +126,7 @@ class Inn extends React.Component {
         >
           <TextInput
             keyboardType='numeric'
-            style={{ height: 60, width: 275, fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
+            style={{ height: 60, width: 275, color: '#4C4C4C', fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
             maxLength={12}
             //placeholder = '000000000000'
             onChangeText={this.changeInn}
@@ -210,6 +210,7 @@ const styles = StyleSheet.create({
   },
   modalText: {
     marginBottom: 15,
+    color: "black",
     textAlign: "center"
   }
 });

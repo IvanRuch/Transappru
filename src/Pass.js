@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from './styles/Styles.js';
 import Api from "./utils/Api";
@@ -53,13 +53,17 @@ class Pass extends React.Component {
     let auto_list_ids = [];
     for (var i=0; i<this.state.auto_list.length; i++)
     {
+
+      console.log('this.state.auto_list['+i+']')
+      console.log(this.state.auto_list[i])
+
       if(this.state.auto_list[i].marked)
       {
         auto_list_ids.push(this.state.auto_list[i].id)
       }
     }
 
-    Api.post('/add-address', { token: value, mos_ru_address: this.state.mos_ru_address, auto_list_ids: auto_list_ids.join(',') })
+    Api.post('/add-address', { token: value, mos_ru_address: this.state.mos_ru_address, auto_list_ids: auto_list_ids.join(','), location_type: this.state.location_type })
        .then(res => {
 
           const data = res.data;
@@ -656,7 +660,7 @@ class Pass extends React.Component {
 
         {/* ********  */}
         {
-          this.state.mos_ru_address ? (
+          this.state.mos_ru_address || ( this.state.location_type != '' )  ? (
             <TouchableHighlight
               style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#C9A86B" }}
               onPress={() => {

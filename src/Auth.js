@@ -1,8 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableHighlight, Image, Linking, Modal, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableHighlight, Image, Linking, Modal, ScrollView, Appearance } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { getFCMToken } from './utils/PushNotificationHelper';
 import Api from "./utils/Api";
+
+const maxStep = 60;
+const intervalTime = 10000;
 
 class Auth extends React.Component {
 
@@ -16,6 +20,8 @@ class Auth extends React.Component {
       modalUserAgreement: false,
       privacy_policy: '',
       modalPrivacyPlolicy: false,
+      modalWaitConfirmation: false,
+      session_data: {},
     };
   }
 
@@ -69,9 +75,111 @@ class Auth extends React.Component {
     return { fontSize: 20, color: color }
   }
 
+  getSessionData = (value) => {
+    console.log('getSessionData. value = ' + value)
+
+    if(!value)
+    {
+      console.log('empty token')
+    }
+
+    else
+    {
+      Api.post('/get-session-data', { token: value })
+      .then(res => {
+
+         const data = res.data;
+         console.log(data);
+
+         if(typeof(data.session_data.user_data) != 'undefined')
+         {
+          console.log('data.session_data.user_data.phone_inn_confirmed = ' + data.session_data.user_data.phone_inn_confirmed )
+          console.log('data.session_data.user_data.user_confirmed = ' + data.session_data.user_data.user_confirmed )
+
+          if(data.session_data.user_data.phone_inn_confirmed == 0 ||
+              data.session_data.user_data.user_confirmed == 0)
+          {
+              this.setState({session_data: data.session_data, modalWaitConfirmation: true})
+
+              //
+              let t = 0;
+
+              let get_session = setInterval(() => {
+
+                console.log('t = ' + t);
+
+                Api.post('/get-session-data', { token: value })
+                .then(res => {
+
+                  const data = res.data;
+                  console.log('data')
+                  console.log(data);
+
+                  this.setState({session_data: data.session_data})
+                })
+                .catch(error => {
+                  console.log('error.response.status = ' + error.response.status);
+                  if(error.response.status == 401) { get_session = clearInterval(get_session); }
+                });
+
+                if(t >= maxStep * intervalTime)
+                {
+                  console.log('clearInterval by maxStep')
+                  get_session = clearInterval(get_session);
+
+                  this.props.navigation.navigate('AutoList')
+                }
+
+                if(this.state.session_data.user_data.phone_inn_confirmed == 1 &&
+                  this.state.session_data.user_data.user_confirmed == 1)
+                {
+                  console.log('clearInterval by confirmed')
+                  get_session = clearInterval(get_session);
+
+                  console.log('-> move to AutoList')
+                  this.props.navigation.navigate('AutoList')
+                }  
+
+
+                t += intervalTime;
+
+              }, intervalTime);  
+
+          }
+         }
+       })
+       .catch(error => {
+           console.log('error');
+           console.log(error);
+       });
+
+    }
+
+  }
+
+  contactPhone = (phone) => {
+    console.log('contactPhone. phone = ' + phone)
+
+    let phoneStr = '';
+    if (Platform.OS === 'android')
+    {
+      phoneStr = 'tel:' + phone
+    }
+    else
+    {
+      phoneStr = 'telprompt:' + phone
+    }
+    Linking.openURL(phoneStr);
+  }
+
   componentDidMount() {
     console.log('Auth DidMount')
 
+    let colorScheme = Appearance.getColorScheme();
+
+    console.log('colorScheme = ' + colorScheme)
+
+    AsyncStorage.getItem('token').then((value) => this.getSessionData(value));
 
     Api.post('/get-user-agreement-and-privacy-policy')
        .then(res => {
@@ -91,6 +199,85 @@ class Auth extends React.Component {
     return (
 
       <View style={styles.container}>
+
+        {/* модальное окно с уведомлением "мы с вами свяжемся" */}
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={this.state.modalWaitConfirmation}
+          onRequestClose={() => {
+            this.setState({modalWaitConfirmation: false})
+          }}
+        >
+            <View style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <View style={{
+                //flex: 1,
+                backgroundColor: '#8C8C8C',
+                borderRadius: 25,
+                alignItems: 'stretch',
+                justifyContent: 'center',
+                padding: 20,
+              }}>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: "bold", color: "#4C4C4C" }}>Ваша заявка зарегистрирована!</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы</Text>
+                    
+                <TouchableHighlight
+                  onPress={() => this.contactPhone(this.state.session_data.user_data.manager_data.mobile_phone)}
+                  >
+                  <View style={{ alignItems: 'center', padding: 5 }}>
+                    <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Вы можете связаться с менеджером</Text>
+                    <Image style={{
+                        margin: 15,
+                      }}
+                      source={require('../images/contact_phone.png')} />
+                  </View>
+                </TouchableHighlight>                 
+
+                {/*      
+                <View style={{
+                  //flex: 1,
+                  //backgroundColor: 'grey',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+
+                  <View style={{
+                    flexDirection: "row",
+                    //width: 370,
+                  }}>
+                    <View style={{
+                      flex: 1,
+                      height: 100,
+                      alignItems: 'stretch',
+                      justifyContent: 'center',
+                    }}>                      
+                    
+                    <TouchableOpacity
+                      style={{
+                        height: 50,
+                        fontSize: 10,
+                        margin: 25,
+                        borderRadius: 5,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#FEE600' }}
+                      onPress={() =>  { this.setState({modalWaitConfirmation: false}) }}>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: '#2B2D33' }}>Ok</Text>
+                    </TouchableOpacity>
+
+                    </View>
+                  </View>
+                </View>
+                */}
+
+              </View>
+
+            </View>
+        </Modal>
 
         {/* модальное окно с Пользовательским соглашением */}
         <Modal
@@ -160,14 +347,15 @@ class Auth extends React.Component {
           </TouchableOpacity>
         </Modal>
 
-        <Text style={{ fontSize: 22, fontWeight: "bold" }}>Введите номер телефона</Text>
-        <Text>чтобы войти или зарегистрироваться</Text>
+        <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите номер телефона</Text>
+        <Text style={{ color: '#4C4C4C' }}>чтобы войти или зарегистрироваться</Text>
         <TextInput
           keyboardType='phone-pad'
           textAlign={'center'}
-          style={{ height: 60, width: 275, fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
+          style={{ height: 60, width: 275, color: '#4C4C4C', fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
           maxLength={12}
           placeholder = '+70000000000'
+          placeholderTextColor='#c0c0c0'
           onChangeText={this.changePhone}
           //onFocus={this.focusPhone}
           value={this.state.phone}
@@ -188,6 +376,8 @@ class Auth extends React.Component {
                       console.log(data);
 
                       AsyncStorage.setItem( 'token', data.token );
+
+                      getFCMToken();
 
                       this.props.navigation.navigate('Pin')
                     })

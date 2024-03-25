@@ -1,9 +1,12 @@
 import React from 'react';
 import { Linking, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator, FlatList, Pressable, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from './styles/Styles.js';
 import Api from "./utils/Api";
+
+const maxStep = 15;
+const intervalTime = 10000;
 
 class MenuAdd extends React.Component {
   render() {
@@ -55,6 +58,17 @@ class MenuUser extends React.Component {
         <View style={{ alignItems: 'center', padding: 5 }}>
           <Image source={require('../images/menu_user.png')} />
           <Text style={{ fontSize: 9, color: "#fff" }}>профиль</Text>
+        </View>
+    );
+  }
+}
+
+class MenuInviteUser extends React.Component {
+  render() {
+    return (
+        <View style={{ alignItems: 'center', padding: 5 }}>
+          <Image source={require('../images/menu_invite_user.png')} />
+          <Text style={{ fontSize: 9, color: "#fff" }}>пригласи друга</Text>
         </View>
     );
   }
@@ -130,6 +144,9 @@ class AutoList extends React.Component {
 
   constructor(props) {
     super(props);
+
+    this.intervals = null;
+
     this.state = {
       manager_name: '',
       tech_support_name: '',
@@ -138,6 +155,10 @@ class AutoList extends React.Component {
       user_data: {},
       user_str: '',
       user_list: [],
+      user_list_empty_str: '',
+      user_event_list: [],
+      user_event_ind: 0,
+      user_event_data: { type: '', id: '', auto_number: '', string: '' },
 
       auto_str: '',
       auto_list: [],
@@ -152,6 +173,7 @@ class AutoList extends React.Component {
 
       modalViewContacts: false,
       findAutoVisible: false,
+      modalUserEventVisible: false,
       modalSelectUserVisible: false,
       modalDelAutoVisible: false,
       modalAddAutoVisible: false,
@@ -162,6 +184,7 @@ class AutoList extends React.Component {
       auto_number_region_code_ok: false,
       sts: '',
       sts_ok: false,
+      sts_by_auto_number_indicator: false,
     };
   }
 
@@ -303,11 +326,15 @@ class AutoList extends React.Component {
   getStsByAutoNumber = (value, auto_number) => {
     console.log('getStsByAutoNumber. value = ' + value + ', auto_number = ' + auto_number)
 
+    this.setState({ sts_by_auto_number_indicator: true })
+
     Api.post('/get-sts-by-auto-number', { token: value, auto_number: auto_number })
        .then(res => {
 
           const data = res.data;
           console.log(data);
+
+          this.setState({ sts_by_auto_number_indicator: false })
 
           if(data.auth_required == 1)
           {
@@ -347,8 +374,7 @@ class AutoList extends React.Component {
     }
 
     this.setState({modalAddAutoButtonDisabled: this.state.auto_number_base_ok &&
-                                               this.state.auto_number_region_code_ok &&
-                                               this.state.sts_ok ? false : true})
+                                               this.state.auto_number_region_code_ok ? false : true})
   }
 
   changeAutoNumberBase = (value) => {
@@ -406,6 +432,41 @@ class AutoList extends React.Component {
                     auto_number_region_code_ok: false,
                     sts: '',
                     sts_ok: false })
+  }
+
+  modalUserNextEvent = (value) => {
+    console.log('modalUserNextEvent. value = ' + value)
+
+    console.log('this.state.user_event_ind = ' + this.state.user_event_ind)
+    console.log('this.state.user_event_list')
+    console.log(this.state.user_event_list)
+    console.log('this.state.user_event_data')
+    console.log(this.state.user_event_data)
+
+
+
+    this.setState({ modalUserEventVisible: false })
+
+    if(this.state.user_event_list.length > this.state.user_event_ind)
+    {
+        Api.post('/set-user-event-viewed', { token: value, type: this.state.user_event_data.type, id: this.state.user_event_data.id })
+           .then(res => {
+
+              const data = res.data;
+              console.log(data);
+
+              if(this.state.user_event_ind < this.state.user_event_list.length - 1)
+              { 
+                  let ind = this.state.user_event_ind + 1
+                  this.setState({ user_event_ind: ind, user_event_data: this.state.user_event_list[ind], modalUserEventVisible: true })
+              }
+            })
+            .catch(error => {
+              console.log('error.response.status = ' + error.response.status);
+              if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+            });
+    }
+
   }
 
   addAuto = (value) => {
@@ -551,7 +612,7 @@ class AutoList extends React.Component {
                       console.log('data')
                       console.log(data);
 
-                      this.setState({ modalSelectUserVisible: false, user_str: '' }, () => this.screenFocus())
+                      this.setState({ modalSelectUserVisible: false, user_str: '', auto_list: [] }, () => this.screenFocus())
                       //this.setState({ modalSelectUserVisible: false, user_str: '' })
                     })
                     .catch(error => {
@@ -648,8 +709,7 @@ class AutoList extends React.Component {
             console.log('data')
             console.log(data);
 
-            this.setState({user_list: data.user_list})
-
+            this.setState({user_list: data.user_list, user_list_empty_str: data.user_list.length == 0 ? 'не найдено' : ''})
           })
           .catch(error => {
             console.log('error.response.status = ' + error.response.status);
@@ -741,6 +801,10 @@ class AutoList extends React.Component {
             if(typeof(data.manager_data) != 'undefined')
             {
               console.log('typeof(data.manager_data) = ' + typeof(data.manager_data))
+
+              console.log('data.manager_data')
+              console.log(data.manager_data)
+
               this.setState({manager_data: data.manager_data})
             }
 
@@ -760,6 +824,8 @@ class AutoList extends React.Component {
             }
             else
             {
+              let user_event_list_new = []
+
               for (var i=0; i<data.auto_list.length; i++)
               {
                 if(data.auto_list[i].check_passes_expared == 1)
@@ -782,6 +848,51 @@ class AutoList extends React.Component {
                   let _id = data.auto_list[i].id;
                   AsyncStorage.getItem('token').then((value) => this.getAutoCheckOsago(value, _id));
                 }
+
+                //
+                if(data.auto_list[i].check_passes_year_period_color == 'red')
+                {
+                    if(data.auto_list[i].check_passes_year_cancelled == 1 && data.auto_list[i].check_passes_year_cancelled_viewed == 0)
+                    {
+                        user_event_list_new.push({ type: 'pass_year_cancelled',
+                                                   id: data.auto_list[i].id,
+                                                   auto_number: data.auto_list[i].auto_number,
+                                                   string: data.auto_list[i].check_passes_string })
+                    }
+
+                    if(data.auto_list[i].check_passes_year_cancelled == 0 && data.auto_list[i].check_passes_year_ending_viewed == 0)
+                    {
+                        user_event_list_new.push({ type: 'pass_year_ending',
+                                                   id: data.auto_list[i].id,
+                                                   auto_number: data.auto_list[i].auto_number,
+                                                   string: data.auto_list[i].check_passes_string })
+                    }
+                }
+                if(data.auto_list[i].check_diagnostic_card_period_color == 'red' && data.auto_list[i].check_diagnostic_card_ending_viewed == 0)
+                {
+                    user_event_list_new.push({ type: 'diagnostic_card_ending',
+                                               id: data.auto_list[i].id,
+                                               auto_number: data.auto_list[i].auto_number,
+                                               string: data.auto_list[i].check_diagnostic_card_string })
+                }
+                if(data.auto_list[i].check_osago_period_color == 'red' && data.auto_list[i].check_osago_ending_viewed == 0)
+                {
+                    user_event_list_new.push({ type: 'osago_ending',
+                                               id: data.auto_list[i].id,
+                                               auto_number: data.auto_list[i].auto_number,
+                                               string: data.auto_list[i].check_osago_string })
+                }
+              }
+
+              console.log('user_event_list_new')
+              console.log(user_event_list_new)
+
+              if(user_event_list_new.length > 0)
+              {
+                  this.setState({ user_event_list: user_event_list_new,
+                                  user_event_ind: 0,
+                                  user_event_data: user_event_list_new[0],
+                                  modalUserEventVisible: true})
               }
 
               //
@@ -819,8 +930,9 @@ class AutoList extends React.Component {
             {
               if(auto_list_new[i].id == id)
               {
-                auto_list_new[i].check_passes_string = data.check_passes_string
-                auto_list_new[i].check_passes_expared = 0
+                auto_list_new[i].check_passes_string            = data.check_passes_string
+                auto_list_new[i].check_passes_year_period_color = data.check_passes_year_period_color
+                auto_list_new[i].check_passes_expared           = 0
               }
             }
 
@@ -845,31 +957,60 @@ class AutoList extends React.Component {
 
     else
     {
+      //
+      let ind;
 
-      Api.post('/get-auto-check-fines', { token: value, id : id })
-         .then(res => {
+      for (var i=0; i<this.state.auto_list.length; i++)
+      {
+        if(this.state.auto_list[i].id == id)
+        {
+          ind = i;
+          break;
+        }
+      }
 
-            const data = res.data;
-            console.log('data')
-            console.log(data);
+      console.log('ind(' + id + ') = ' + ind)
 
-            let auto_list_new = this.state.auto_list
+      //
+      let t = 0;
 
-            for (var i=0; i<auto_list_new.length; i++)
-            {
-              if(auto_list_new[i].id == id)
-              {
-                auto_list_new[i].check_fines_string = data.check_fines_string
-                auto_list_new[i].check_fines_expared = 0
-              }
-            }
+      let check_fines = setInterval(() => {
 
-            this.setState({auto_list: auto_list_new})
-          })
-          .catch(error => {
-            console.log('error.response.status = ' + error.response.status);
-            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
+        console.log('t(' + id + ') = ' + t);
+
+        Api.post('/get-auto-check-fines', { token: value, id: id, intervally: 1 })
+        .then(res => {
+
+          const data = res.data;
+          console.log('data')
+          console.log(data);
+
+          let auto_list_new = this.state.auto_list
+
+          if(data.in_progress == 0)
+          {
+            auto_list_new[ind].check_fines_string  = data.check_fines_string
+            auto_list_new[ind].check_fines_expared = 0
+
+            this.setState({auto_list: auto_list_new})  
+          }
+        })
+        .catch(error => {
+          console.log('error.response.status = ' + error.response.status);
+          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+        });
+
+        console.log('after setInterval(t(' + id + ') = ' + t)
+
+        if((this.state.auto_list[ind].check_fines_expared == 0) || (t >= maxStep * intervalTime))
+        {
+          console.log('clearInterval(' + id + ')')
+          check_fines = clearInterval(check_fines);
+        }        
+
+        t += intervalTime;
+
+      }, intervalTime);  
 
     }
   }
@@ -886,31 +1027,59 @@ class AutoList extends React.Component {
 
     else
     {
-      Api.post('/get-auto-check-diagnostic-card', { token: value, id : id })
-         .then(res => {
+      //
+      let ind;
 
-            const data = res.data;
-            console.log('data')
-            console.log(data);
+      for (var i=0; i<this.state.auto_list.length; i++)
+      {
+        if(this.state.auto_list[i].id == id)
+        {
+          ind = i;
+          break;
+        }
+      }
 
-            let auto_list_new = this.state.auto_list
+      console.log('ind(' + id + ') = ' + ind)
 
-            for (var i=0; i<auto_list_new.length; i++)
-            {
-              if(auto_list_new[i].id == id)
-              {
-                auto_list_new[i].check_diagnostic_card_string = data.check_diagnostic_card_string
-                auto_list_new[i].check_diagnostic_card_expared = 0
-              }
-            }
+      //
+      let t = 0;
 
-            this.setState({auto_list: auto_list_new})
-          })
-          .catch(error => {
-            console.log('error.response.status = ' + error.response.status);
-            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
+      let check_diagnostic_card = setInterval(() => {
 
+        console.log('t(' + id + ') = ' + t);
+
+        Api.post('/get-auto-check-diagnostic-card', { token: value, id: id, intervally: 1 })
+        .then(res => {
+
+          const data = res.data;
+          console.log('data')
+          console.log(data);
+
+          let auto_list_new = this.state.auto_list
+
+          if(data.in_progress == 0)
+          {
+            auto_list_new[ind].check_diagnostic_card_string       = data.check_diagnostic_card_string
+            auto_list_new[ind].check_diagnostic_card_period_color = data.check_diagnostic_card_period_color
+            auto_list_new[ind].check_diagnostic_card_expared      = 0
+
+            this.setState({auto_list: auto_list_new})  
+          }
+        })
+        .catch(error => {
+          console.log('error.response.status = ' + error.response.status);
+          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+        });
+
+        if((this.state.auto_list[ind].check_diagnostic_card_expared == 0) || (t >= maxStep * intervalTime))
+        {
+          console.log('clearInterval(' + id + ')')
+          check_diagnostic_card = clearInterval(check_diagnostic_card);
+        }
+
+        t += intervalTime;
+
+      }, intervalTime);  
 
     }
   }
@@ -927,30 +1096,60 @@ class AutoList extends React.Component {
 
     else
     {
-      Api.post('/get-auto-check-osago', { token: value, id : id })
-         .then(res => {
+      //
+      let ind;
 
-            const data = res.data;
-            console.log('data')
-            console.log(data);
+      for (var i=0; i<this.state.auto_list.length; i++)
+      {
+        if(this.state.auto_list[i].id == id)
+        {
+          ind = i;
+          break;
+        }
+      }
 
-            let auto_list_new = this.state.auto_list
+      console.log('ind(' + id + ') = ' + ind)
 
-            for (var i=0; i<auto_list_new.length; i++)
-            {
-              if(auto_list_new[i].id == id)
-              {
-                auto_list_new[i].check_osago_string = data.check_osago_string
-                auto_list_new[i].check_osago_expared = 0
-              }
-            }
+      //
+      let t = 0;
 
-            this.setState({auto_list: auto_list_new})
-          })
-          .catch(error => {
-            console.log('error.response.status = ' + error.response.status);
-            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
+      let check_osago = setInterval(() => {
+
+        console.log('t(' + id + ') = ' + t);
+
+        Api.post('/get-auto-check-osago', { token: value, id: id, intervally: 1 })
+        .then(res => {
+
+          const data = res.data;
+          console.log('data')
+          console.log(data);
+
+          let auto_list_new = this.state.auto_list
+
+          if(data.in_progress == 0)
+          {
+            auto_list_new[ind].check_osago_string       = data.check_osago_string
+            auto_list_new[ind].check_osago_period_color = data.check_osago_period_color
+            auto_list_new[ind].check_osago_expared      = 0
+
+            this.setState({auto_list: auto_list_new})  
+          }
+        })
+        .catch(error => {
+          console.log('error.response.status = ' + error.response.status);
+          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+        });
+
+        if((this.state.auto_list[ind].check_osago_expared == 0) || (t >= maxStep * intervalTime))
+        {
+          console.log('clearInterval(' + id + ')')
+          check_osago = clearInterval(check_osago);
+        }
+
+        t += intervalTime;
+
+      }, intervalTime);  
+
     }
   }
 
@@ -961,7 +1160,6 @@ class AutoList extends React.Component {
 
     AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
-
 
   componentDidMount() {
     console.log('AutoList DidMount')
@@ -1047,7 +1245,7 @@ class AutoList extends React.Component {
             }}>
               { item.check_passes_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>Пропуск - проверяем </Text> ) : null }
               { item.check_passes_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_passes_expared != 1 ? ( <Text style={{ color: "#E8E8E8"}}>Пропуск - {item.check_passes_string}</Text> ) : null }
+              { item.check_passes_expared != 1 ? ( <Text style={styles[item.check_passes_year_period_color]}>Пропуск - {item.check_passes_string}</Text> ) : null }
             </View>
 
             <View style={{
@@ -1063,7 +1261,7 @@ class AutoList extends React.Component {
             }}>
               { item.check_diagnostic_card_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>ДК - проверяем </Text> ) : null }
               { item.check_diagnostic_card_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_diagnostic_card_expared != 1 ? ( <Text style={{ color: "#E8E8E8"}}>ДК - {item.check_diagnostic_card_string}</Text> ) : null }
+              { item.check_diagnostic_card_expared != 1 ? ( <Text style={styles[item.check_diagnostic_card_period_color]}>ДК - {item.check_diagnostic_card_string}</Text> ) : null }
             </View>
 
             <View style={{
@@ -1071,8 +1269,26 @@ class AutoList extends React.Component {
             }}>
               { item.check_osago_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>ОСАГО - проверяем </Text> ) : null }
               { item.check_osago_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_osago_expared != 1 ? ( <Text style={{ color: "#E8E8E8"}}>ОСАГО - {item.check_osago_string}</Text> ) : null }
+              { item.check_osago_expared != 1 ? ( <Text style={styles[item.check_osago_period_color]}>ОСАГО - {item.check_osago_string}</Text> ) : null }
             </View>
+
+            { item.status_header != '' ? (
+              <View style={{
+                flexDirection: "row",
+              }}>
+                <Text style={{ color: "#C9A86B"}}>Статус подачи - {item.status_header} { item.stage_header != null ? ' ( ' + item.stage_header + ' )' : '' }</Text>
+              </View>
+            ) : null }
+
+            { item.debt_sum != '0.00' ? (
+              <>
+                <View style={{
+                  flexDirection: "row",
+                }}>
+                  <Text style={{ color: "#EE505A"}}>Задолженность - {item.debt_sum} руб</Text>
+                </View>
+              </>
+            ) : null }
 
           </View>
           <View style={{
@@ -1131,6 +1347,83 @@ class AutoList extends React.Component {
           <Image source={require('../images/back.png')} />
         </TouchableHighlight>
         */}
+
+
+        {/* модальное окно событий */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={this.state.modalUserEventVisible}
+          onRequestClose={() => {
+            //Alert.alert("Modal has been closed.");
+            this.setState({modalUserEventVisible: false})
+          }}
+        >
+            <View style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+
+              <View style={{
+                //flex: 1,
+                backgroundColor: '#8C8C8C',
+                borderRadius: 25,
+                alignItems: 'stretch',
+                justifyContent: 'center',
+                //marginTop: 70
+              }}>
+
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Для автомобиля №{this.state.user_event_data.auto_number}</Text>
+
+                { this.state.user_event_data.type == 'pass_year_cancelled' || this.state.user_event_data.type == 'pass_year_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Пропуск - {this.state.user_event_data.string}</Text>) : null }
+
+                { this.state.user_event_data.type == 'diagnostic_card_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>ДК - {this.state.user_event_data.string}</Text>) : null }
+
+                { this.state.user_event_data.type == 'osago_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>ОСАГО - {this.state.user_event_data.string}</Text>) : null }
+
+                <View style={{
+                  //flex: 1,
+                  //backgroundColor: 'grey',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+
+                  <View style={{
+                    flexDirection: "row",
+                    //width: 370,
+                  }}>
+                    <View style={{
+                      flex: 1,
+                      height: 100,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <TouchableOpacity
+                        style={{
+            							height: 50,
+            							fontSize: 10,
+            							margin: 25,
+            							borderRadius: 5,
+            							alignItems: 'center',
+            							justifyContent: 'center',
+            							backgroundColor: '#FEE600' }}
+                        onPress={() => {
+                            console.log('user_next_event')
+                            AsyncStorage.getItem('token').then((value) => this.modalUserNextEvent(value));
+                          }
+                        }
+                      >
+                        <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: '#2B2D33' }}>Закрыть</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                </View>
+              </View>
+            </View>
+
+        </Modal>
 
         {/* модальное окно подтверждения удаления авто */}
         <Modal
@@ -1361,16 +1654,24 @@ class AutoList extends React.Component {
                         height: 80,
                         justifyContent: 'center',
                       }}>
-                        <ImageBackground source={require('../images/scale_2400_1.png')} resizeMode="cover" style={{ width: 305, height: 80, alignItems: 'center', justifyContent: 'center' }}>
-                          <TextInput
-                            style={{ paddingTop: 5, fontSize: 37 }}
-                            maxLength={10}
-                            placeholder = '0000000000'
-                            placeholderTextColor={'#E8E8E8'}
-                            onChangeText={this.changeSts}
-                            value={this.state.sts}
-                          />
-                        </ImageBackground>
+
+                        {
+                          this.state.sts_by_auto_number_indicator ? (
+                            <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                          ) : (
+                            <ImageBackground source={require('../images/scale_2400_1.png')} resizeMode="cover" style={{ width: 305, height: 80, alignItems: 'center', justifyContent: 'center' }}>
+                            <TextInput
+                              style={{ paddingTop: 5, fontSize: 37 }}
+                              maxLength={10}
+                              placeholder = '0000000000'
+                              placeholderTextColor={'#E8E8E8'}
+                              onChangeText={this.changeSts}
+                              value={this.state.sts}
+                            />
+                          </ImageBackground>
+                          )
+                        }
+
                       </View>
                     </View>
                   </View>
@@ -1433,10 +1734,10 @@ class AutoList extends React.Component {
                 flexDirection: "row",
               }}>
                 <View style={{
-                  flex: 5,
+                  flex: 4,
                   alignItems: 'flex-start',
                 }}>
-                  <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Список организаций</Text>
+                  <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Организации</Text>
                 </View>
                 <View style={{
                   flex: 1,
@@ -1568,9 +1869,11 @@ class AutoList extends React.Component {
                       marginLeft: 30,
                       marginRight: 30,
                       marginBottom: 20,
+                      height: 50,
                     }}>
                       <View style={{
                         flex: 5,
+                        justifyContent: 'center',
                       }}>
                         <TextInput
                           ref="userInput"
@@ -1598,6 +1901,12 @@ class AutoList extends React.Component {
                     <View>
                       {this.state.user_list.map((item, index) => this.renderUserItem(item, index))}
                     </View>
+
+                    { this.state.user_list.length == 0 ? (
+                        <Text style={{ paddingLeft: 30, color: "#E8E8E8" }}>{ this.state.user_list_empty_str }</Text>
+                      ) : null
+                    }
+
                   </> )
               }
 
@@ -1614,10 +1923,12 @@ class AutoList extends React.Component {
               borderRadius: 25,
               marginLeft: 30,
               marginRight: 30,
-              marginTop: 10,
+              marginTop: 20,
+              height: 50
             }}>
               <View style={{
                 flex: 5,
+                justifyContent: 'center',
               }}>
                 <TextInput
                   ref="autoInput"
@@ -1644,6 +1955,8 @@ class AutoList extends React.Component {
 
         {/* список авто */}
         <ActivityIndicator size="large" color="#C9A86B" animating={this.state.indicator}/>
+
+        { this.state.auto_list.length != 0 ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Всего {this.state.auto_list.length} авто:</Text> ) : null }
 
         <FlatList
           data={this.state.auto_list}
@@ -1941,6 +2254,20 @@ class AutoList extends React.Component {
                         this.props.navigation.navigate('User')
                       }}>
                       <MenuUser />
+                    </TouchableHighlight>
+                  </View>
+                  <View style={{
+                    flex: 1,
+                    height: 80,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <TouchableHighlight
+                      onPress={() => {
+                        console.log('-> move to invite user')
+                        this.props.navigation.navigate('InviteUser')
+                      }}>
+                      <MenuInviteUser />
                     </TouchableHighlight>
                   </View>
 

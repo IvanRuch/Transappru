@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DocumentPicker from "react-native-document-picker";
 import axios from "axios";
 import RNFS from 'react-native-fs';
@@ -39,6 +39,11 @@ class Auto extends React.Component {
 
       passes_indicator: true,
       auto_passes_data: [],
+
+      rnis_indicator: true,
+      auto_rnis_data: {},
+
+      sts: '',
     };
   }
 
@@ -72,6 +77,12 @@ class Auto extends React.Component {
       this.scrollView.scrollTo({x: 690});
       AsyncStorage.getItem('token').then((value) => this.getAutoPasses(value));
     }
+    else if(tab == 'rnis')
+    {
+      this.scrollView.scrollTo({x: 860});
+      AsyncStorage.getItem('token').then((value) => this.getAutoCheckRnis(value));
+    }
+
   }
 
   /* Файлы */
@@ -121,8 +132,11 @@ class Auto extends React.Component {
     console.log('RNFS.DocumentDirectoryPath = ' + RNFS.DocumentDirectoryPath)
     console.log('RNFS.ExternalDirectoryPath = ' + RNFS.ExternalDirectoryPath)
     console.log('RNFS.DownloadDirectoryPath = ' + RNFS.DownloadDirectoryPath)
+    console.log('RNFS.ExternalStorageDirectoryPath = ' + RNFS.ExternalStorageDirectoryPath)
 
     let toFile = `${RNFS.DocumentDirectoryPath}/${item.filename}`;
+    //let toFile = `${RNFS.DownloadDirectoryPath}/${item.filename}`;
+    //let toFile = `${RNFS.ExternalStorageDirectoryPath}/Download/${item.filename}`;
     console.log('toFile = ' + toFile)
 
     RNFS.downloadFile({
@@ -132,8 +146,11 @@ class Auto extends React.Component {
       console.log('promise.then')
       console.log('r')
       console.log(r)
-    });
+    }).catch((err) => {
+      console.log(err.message);
+    });;
 
+    /*
     let path = RNFS.DocumentDirectoryPath + '/test000.txt';
 
     RNFS.writeFile(path, 'Hello', 'utf8')
@@ -158,7 +175,7 @@ class Auto extends React.Component {
       // stat the first file
       //return Promise.all([RNFS.stat(result[0].path), result[0].path]);
     })
-
+    */
 
     /*
     RNFS.readDir(RNFS.ExternalDirectoryPath)
@@ -338,6 +355,7 @@ class Auto extends React.Component {
     formData.append('auto_file_group', this.state.auto_file_item.id);
     formData.append('description', this.state.auto_file_item.description);
 
+    /*
     for (var i = 0; i < pickdata.length; i++)
     {
       formData.append('file'+i, {
@@ -346,46 +364,67 @@ class Auto extends React.Component {
         type: pickdata[i].type,
       });
     }
+    */
 
-    Api.post('/upload-auto-file', formData, { "Accept": "application/json", "Content-Type": "multipart/form-data", })
-       .then(res => {
+    formData.append('file0', {
+      name: pickdata[0].name,
+      uri: pickdata[0].uri,
+      type: pickdata[0].type,
+    });
 
-          const data = res.data;
-          console.log('data')
-          console.log(data);
+    console.log('formData')
+    console.log(formData)
 
-          let auto_file_data_new = []
-          let find = 0;
+    let config ={
+      headers: { 'Accept': 'application/json', 'Content-Type': 'multipart/form-data' }
+    };
 
-          for (var i=0; i<this.state.auto_file_data.length; i++)
-          {
-            if(this.state.auto_file_data[i].id != data.auto_file_item.id)
+    try
+    {
+      await Api.post('/upload-auto-file', formData, config )
+        .then(res => {
+
+            const data = res.data;
+            console.log('data')
+            console.log(data);
+
+            let auto_file_data_new = []
+            let find = 0;
+
+            for (var i=0; i<this.state.auto_file_data.length; i++)
             {
-              auto_file_data_new.push(this.state.auto_file_data[i])
+              if(this.state.auto_file_data[i].id != data.auto_file_item.id)
+              {
+                auto_file_data_new.push(this.state.auto_file_data[i])
+              }
+              else
+              {
+                auto_file_data_new.push(data.auto_file_item)
+                find = 1;
+              }
             }
-            else
+
+            console.log('find = ' + find)
+            console.log('data')
+            console.log(data);
+
+            if(!find)
             {
               auto_file_data_new.push(data.auto_file_item)
-              find = 1;
             }
-          }
 
-          console.log('find = ' + find)
-          console.log('data')
-          console.log(data);
-
-          if(!find)
-          {
-            auto_file_data_new.push(data.auto_file_item)
-          }
-
-          this.setState({ auto_file_item: data.auto_file_item,
-                          auto_file_data: auto_file_data_new })
-        })
-        .catch(error => {
-          console.log('error.response.status = ' + error.response.status);
-          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-        });
+            this.setState({ auto_file_item: data.auto_file_item,
+                            auto_file_data: auto_file_data_new })
+          })
+          .catch(error => {
+            console.log('error.response.status = ' + error.response.status);
+            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+          });
+    }
+    catch(error)
+    {
+      console.log(error, "error in upload auto file")
+    }          
   }
 
   pickFile = async () => {
@@ -394,9 +433,18 @@ class Auto extends React.Component {
     // Pick a multiple file
     try
     {
+      /*
       const data = await DocumentPicker.pickMultiple({
          type: [DocumentPicker.types.allFiles],
       });
+      */
+
+      const data = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+      });
+
+      //console.log('data')
+      //console.log(data)
 
       AsyncStorage.getItem('token').then((value) => this.uploadFile(value, data));
       //this.uploadFile(data)
@@ -694,6 +742,16 @@ class Auto extends React.Component {
             <Text style={{ color: "#E8E8E8"}}>Штраф {item.sum}</Text>
           </View>
 
+          { 
+            item.discount_str != '' ? (
+            <View style={{
+              flexDirection: "row",
+            }}>
+              <Text style={{ color: "#E8E8E8", alignItems: 'stretch' }}>{item.discount_str}</Text>
+            </View> ) : 
+            null 
+          }
+
           <View style={{
             flexDirection: "row",
           }}>
@@ -811,6 +869,85 @@ class Auto extends React.Component {
     }
   }
 
+  /* Проверка в РНИС */
+  getAutoCheckRnis = (value) => {
+    console.log('getAutoCheckRnis. value = ' + value)
+
+    if(!value)
+    {
+      console.log('null')
+      this.props.navigation.navigate('Auth')
+    }
+
+    else
+    {
+      this.setState({rnis_indicator: true})
+
+      Api.post('/get-auto-check-rnis', { token: value, id : this.state.auto_data.id })
+         .then(res => {
+
+            const data = res.data;
+            console.log('data')
+            console.log(data);
+
+            this.setState({auto_rnis_data: data.auto_rnis_data, rnis_indicator: false})
+          })
+          .catch(error => {
+            console.log('error.response.status = ' + error.response.status);
+            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+          });
+    }
+  }
+
+  saveSts = (value) => {
+    console.log('saveSts. value = ' + value)
+
+    if(!value)
+    {
+      console.log('null')
+      this.props.navigation.navigate('Auth')
+    }
+
+    else
+    {
+      Api.post('/save-sts', { token: value, id : this.state.auto_data.id, sts: this.state.sts })
+         .then(res => {
+
+            const data = res.data;
+            console.log('data')
+            console.log(data);
+          })
+          .catch(error => {
+            console.log('error.response.status = ' + error.response.status);
+            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+          });
+    }
+  }
+
+  changeSts = (value) => {
+    console.log('changeSts. value = ' + value)
+
+    if(value.match(/^[АВЕКМНОРСТУХABEKMHOPCTYX0-9]*$/i))
+    {
+      this.setState({sts: value})
+    }
+
+    if(value.length == 10)
+    {
+      AsyncStorage.getItem('token').then((value) => this.saveSts(value));  
+    }
+  };
+
+  setBorderBottomStyle = () => {
+
+    let color, width;
+
+    color = this.state.sts.length == 10 ? "#E8E8E8" : "#960000"
+    width = this.state.sts.length == 10 ? 1 : 2
+
+    return { height: 55, fontSize: 20, borderBottomColor: color, borderBottomWidth: width, color: "#E8E8E8" }
+  }
+
   renderAutoPassItem = (item) => {
 
     return (
@@ -837,8 +974,8 @@ class Auto extends React.Component {
             flexDirection: "column",
           }}>
             <Text style={{ color: "#E8E8E8"}}>{ item.is_year == 1 ?
-                                                'Годовой, ' + item.propusktype + ', ' + item.type_of_pass_string + ', еще ' + item.year_time_left :
-                                                'Разовый, еще ' + item.one_time_left }</Text>
+                                                'Годовой, ' + item.propusktype + ', ' + item.type_of_pass_string + ', до ' + item.pass_end_str :
+                                                'Разовый, до ' + item.pass_one_end_str }</Text>
             <Text style={{ color: "#E8E8E8"}}>Серия-номер: {item.seriya}</Text>
           </View>
 
@@ -850,6 +987,8 @@ class Auto extends React.Component {
 
   componentDidMount() {
     console.log('Auto DidMount')
+
+    this.setState({sts: this.state.auto_data.sts})
 
     AsyncStorage.getItem('token').then((value) => this.getAutoFiles(value));
   }
@@ -1057,6 +1196,21 @@ class Auto extends React.Component {
         </Modal>
         {/* */}
 
+        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Свидетельство о регистрации ТС:</Text>
+
+        <View style={{
+          alignItems: 'stretch',
+          paddingLeft: 30,
+          paddingRight: 30,
+        }}>
+          <TextInput
+            style={this.setBorderBottomStyle()}
+            maxLength={10}
+            onChangeText={this.changeSts}
+            value={this.state.sts}
+          />
+        </View>        
+
         <View style={{height: 130}} >
           <ScrollView
             horizontal={true}
@@ -1142,6 +1296,22 @@ class Auto extends React.Component {
                   )
                 }
               </Pressable>
+
+              <Pressable onPress={() => this.checkTab('rnis')}>
+                { this.state.current_tab == 'rnis' ? (
+                  <View style={styles.tab_checked}>
+                    <Image source={require('../images/tab_rnis_checked.png')}/>
+                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>РНИС</Text>
+                  </View>
+                  ) : (
+                  <View style={styles.tab}>
+                    <Image source={require('../images/tab_rnis.png')}/>
+                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>РНИС</Text>
+                  </View>
+                  )
+                }
+              </Pressable>
+
             </View>
           </ScrollView>
         </View>
@@ -1359,11 +1529,57 @@ class Auto extends React.Component {
                 style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#C9A86B" }}
                 onPress={() => {
                   console.log('-> move to Pass')
+                  let auto_data_new = this.state.auto_data
+                  auto_data_new.marked = true
+                  this.setState({auto_data: auto_data_new})
                   this.props.navigation.navigate('Pass', { auto_list: [ this.state.auto_data ] })
                 }}>
                 <Text style={{ fontSize: 24, color: "#E8E8E8" }}>Заказать пропуск</Text>
               </TouchableHighlight>
             </>
+          ) : null
+        }
+
+        { this.state.current_tab == 'rnis' ? (
+            <ScrollView>
+              <View style={{
+                flex: 1,
+                alignItems: 'stretch',
+                justifyContent: 'flex-start',
+              }}>
+
+                { this.state.rnis_indicator ? (
+                    <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                  ) : (
+                    <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
+
+                      { typeof(this.state.auto_rnis_data.registrationOk) == 'undefined' ? (
+                          <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Данные о регистрации в РНИС не найдены</Text>
+                        ) : (
+                          <>
+                            { this.state.auto_rnis_data.registrationOk != 1 ? (
+                                <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Данные о регистрации в РНИС не найдены</Text>
+                              ) : (
+                                <>
+                                 <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Зарегистрирован в РНИС. </Text>
+                                 { this.state.auto_rnis_data.rnis_registered != null ? (
+                                    <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
+                                    ) : null
+                                 }
+                                </>
+
+                              )
+                            }
+                          </>
+                        )
+                      }
+
+                    </View>
+                  )
+                }
+
+              </View>
+            </ScrollView>
           ) : null
         }
 

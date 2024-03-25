@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, {useEffect} from 'react';
+import { StyleSheet, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import Auth from './Auth';
@@ -11,14 +11,44 @@ import AutoList from './AutoList';
 import Auto from './Auto';
 import AutoFine from './AutoFine';
 import User from './User';
+import DelUser from './DelUser';
+import InviteUser from './InviteUser';
 import AutoDriver from './AutoDriver';
 import Pass from './Pass';
 import PassYaMap from './PassYaMap';
 import DriverList from './DriverList';
+import { requestAndroidPermission, requestUserPermission, NotificationListener } from './utils/PushNotificationHelper';
 
 const Stack = createStackNavigator();
 
+//function App() {
 class App extends React.Component {
+
+  componentDidMount() {
+    console.log('App DidMount')
+
+    if(Platform.OS === 'android')
+    {
+      console.log('Platform.OS is android')
+      requestAndroidPermission();
+    }
+    else
+    {
+      console.log('Platform.OS is ' + Platform.OS)
+      requestUserPermission();
+    }
+
+    /*
+    const setUpCloudMessaging = async () => {
+      requestUserPermission();
+    };
+
+    setUpCloudMessaging();
+    */
+
+    //GetFCMToken();
+    NotificationListener();
+  }
 
   render() {
     return (
@@ -47,6 +77,14 @@ class App extends React.Component {
           <Stack.Screen
             name="User"
             component={User}
+          />
+          <Stack.Screen
+            name="DelUser"
+            component={DelUser}
+          />
+          <Stack.Screen
+            name="InviteUser"
+            component={InviteUser}
           />
           <Stack.Screen
             name="AutoDriver"

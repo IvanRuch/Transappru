@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, TextInput, Button, TouchableOpacity, Alert, Pressable, Modal } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./utils/Api";
 
@@ -100,14 +100,15 @@ class Pin extends React.Component {
           </View>
         </Modal>
 
-        <Text style={{ fontSize: 22, fontWeight: "bold" }}>Введите подтверждающий код</Text>
-        <Text>ожидайте sms-сообщение с кодом</Text>
+        <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите подтверждающий код</Text>
+        <Text style={{ color: '#4C4C4C' }}>ожидайте sms-сообщение с кодом</Text>
           <TextInput
             keyboardType='numeric'
             textAlign={'center'}
-            style={{ height: 60, width: 100, fontSize: 34, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
+            style={{ height: 60, width: 100, color: '#4C4C4C', fontSize: 34, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
             maxLength={4}
             placeholder='0000'
+            placeholderTextColor='#c0c0c0'
             onChangeText={this.changeCode}
           />
           <TouchableOpacity

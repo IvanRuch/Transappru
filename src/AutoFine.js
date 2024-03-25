@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-community/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from './styles/Styles.js';
 import Api from "./utils/Api";
@@ -78,7 +78,7 @@ class AutoFine extends React.Component {
               <Text style={{ fontSize: 15, color: "#E8E8E8"}}>{this.state.fine_data.description}</Text>
               <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Номер постановления: {this.state.fine_data.uin}</Text>
 
-              <Text style={{ paddingTop: 20, fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>Полная сумма штрафа без скидки: {this.state.fine_data.sum}</Text>
+              <Text style={{ paddingTop: 20, fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>Полная сумма штрафа без скидки: {this.state.fine_data.full_sum}</Text>
               <Text style={{ fontSize: 15, color: "#E8E8E8"}}>{this.state.fine_data.vendor}</Text>
 
             </View>
