@@ -122,13 +122,13 @@ class DriverList extends React.Component {
   };
 
   setEditDriverButtonStyle = () => {
-    let backgroundColor = this.state.modalEditDriverButtonDisabled ? "#c0c0c0" : "#FEE600";
+    let backgroundColor = this.state.modalEditDriverButtonDisabled ? "#c0c0c0" : "#3A3A3A";
     return { height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setEditDriverButtonTextStyle = () => {
-    let color = this.state.modalEditDriverButtonDisabled ? "#E8E8E8" : "#2B2D33";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, color: color }
+    let color = this.state.modalEditDriverButtonDisabled ? "#E8E8E8" : "#FFFFFF";
+    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: color }
   }
 
   editDriver = (value) => {
@@ -244,6 +244,21 @@ class DriverList extends React.Component {
     }
   }
 
+  setContainerStyle = () => {
+
+    let container_style     = styles.container
+    let container_style_new = {}
+
+    for (let key in container_style)
+    {
+      container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
+        this.state.modalDelDriverVisible ||
+        this.state.modalEditDriverVisible  ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
+    }
+
+    return container_style_new
+  }
+
   componentDidMount() {
     console.log('DriverList DidMount')
 
@@ -263,28 +278,38 @@ class DriverList extends React.Component {
       <Pressable
         onPress={() => this.openModalEditDriver( 'edit', item )}
       >
-        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}>
+        <View style={[{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+          },
+          { backgroundColor: this.state.modalDelDriverVisible || this.state.modalEditDriverVisible ? 'rgba(29,29,29, 0)' : '#EEEEEE' }]}>
           <View style={{
-            flex: 3,
+            flex: 1,
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: "column",
           }}>
-            <Image source={require('../images/driver.png')} />
+            <Image source={require('../images/driver_2.png')} />
           </View>
           <View style={{
             flex: 5,
             flexDirection: "column",
             paddingLeft: 10,
+            verticalAlign: 'middle', 
           }}>
-            <Text style={{ color: "#E8E8E8"}}>{item.name_f} {item.name_i} {item.name_o}</Text>
+            <Text style={{ paddingTop: 5, color: "#313131" }}>{item.name_f} {item.name_i} {item.name_o}</Text>
           </View>
           <View style={{
             flex: 1,
+            paddingRight: 10,
             alignItems: 'flex-end',
             justifyContent: 'flex-end',
           }}>
-            <Image source={require('../images/edit.png')}/>
+            <Image source={require('../images/edit_2.png')}/>
           </View>
         </View>
       </Pressable>
@@ -294,18 +319,20 @@ class DriverList extends React.Component {
   render() {
     return (
 
-      <View style={styles.container}>
+      <View style={this.setContainerStyle()}>
 
         <Text style={styles.header}>Водители</Text>
 
         <TouchableHighlight
           style={styles.header_back}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
           }}>
-          <Image source={require('../images/back.png')} />
-        </TouchableHighlight>
+          <Image source={require('../images/back_2.png')} />
+        </TouchableHighlight>        
 
         {/* модальное окно подтверждения удаления водителя */}
         <Modal
@@ -324,14 +351,16 @@ class DriverList extends React.Component {
 
             <View style={{
               //flex: 1,
-              backgroundColor: '#8C8C8C',
+              backgroundColor: '#FFFFFF',
               borderRadius: 25,
               alignItems: 'stretch',
               justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
               //marginTop: 70
             }}>
 
-              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Удалить водителя?</Text>
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, textAlign: 'center', fontWeight: "normal", color: "#313131" }}>Удалить водителя?</Text>
 
               <View style={{
                 //flex: 1,
@@ -351,12 +380,12 @@ class DriverList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                       onPress={() =>  {
                         console.log('call del_driver')
                         AsyncStorage.getItem('token').then((value) => this.delDriver(value));
                       }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#FFFFFF" }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{
@@ -366,9 +395,9 @@ class DriverList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: "#B8B8B8" }}
                       onPress={() =>  { this.setState({modalDelDriverVisible: false}) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Отменить</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -399,10 +428,12 @@ class DriverList extends React.Component {
 
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#FFFFFF',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
+                borderWidth: 1, 
+                borderColor: "#B8B8B8",
                 //marginTop: 70
               }}>
 
@@ -413,7 +444,7 @@ class DriverList extends React.Component {
                     flex: 5,
                     alignItems: 'flex-start',
                   }}>
-                    <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Данные водителя</Text>
+                    <Text style={{ paddingLeft: 16, paddingTop: 26, fontSize: 24, fontWeight: "bold", color: "#313131" }}>Данные водителя</Text>
                   </View>
                   <View style={{
                     flex: 1,
@@ -421,23 +452,27 @@ class DriverList extends React.Component {
                   }}>
                     <TouchableHighlight
                       style={{ padding: 30 }}
+                      activeOpacity={1}
+                      underlayColor='#FFFFFF'
                       onPress={() => this.closeModalEditDriver()}>
-                      <Image source={require('../images/xclose.png')} />
+                      <Image source={require('../images/xclose_2.png')} />
                     </TouchableHighlight>
                   </View>
                 </View>
 
                 <View style={{
                   //flex: 1,
-                  backgroundColor: '#4C4C4C',
+                  backgroundColor: '#EEEEEE',
                   borderRadius: 25,
                   alignItems: 'stretch',
                   justifyContent: 'center',
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   margin: 16,
                   //marginTop: 70
                 }}>
 
-                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Номер водительского удостоверения *:</Text>
+                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Номер водительского удостоверения *:</Text>
 
                   <View style={{
                     alignItems: 'stretch',
@@ -447,7 +482,7 @@ class DriverList extends React.Component {
                   }}>
                     <TextInput
                       keyboardType='numeric'
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       maxLength={10}
                       placeholder = '0000000000'
                       placeholderTextColor={'#8C8C8C'}
@@ -456,7 +491,7 @@ class DriverList extends React.Component {
                     />
                   </View>
 
-                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Дата выдачи водительского удостоверения *:</Text>
+                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Дата выдачи водительского удостоверения *:</Text>
 
                   <View style={{
                     alignItems: 'stretch',
@@ -467,7 +502,7 @@ class DriverList extends React.Component {
                   }}>
                     <TextInput
                       keyboardType='numeric'
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       maxLength={10}
                       placeholder = '00.00.0000'
                       placeholderTextColor={'#8C8C8C'}
@@ -480,15 +515,17 @@ class DriverList extends React.Component {
 
                 <View style={{
                   //flex: 1,
-                  backgroundColor: '#4C4C4C',
+                  backgroundColor: '#EEEEEE',
                   borderRadius: 25,
                   alignItems: 'stretch',
                   justifyContent: 'center',
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   margin: 16,
                   //marginTop: 70
                 }}>
 
-                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Владелец:</Text>
+                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Владелец:</Text>
 
                   <View style={{
                     alignItems: 'stretch',
@@ -497,7 +534,7 @@ class DriverList extends React.Component {
                     paddingRight: 20,
                   }}>
                     <TextInput
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'Фамилия *'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'name_f')}
@@ -512,7 +549,7 @@ class DriverList extends React.Component {
                     paddingRight: 20,
                   }}>
                     <TextInput
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'Имя *'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'name_i')}
@@ -528,7 +565,7 @@ class DriverList extends React.Component {
                     paddingBottom: 20,
                   }}>
                     <TextInput
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'Отчество'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'name_o')}
@@ -569,9 +606,12 @@ class DriverList extends React.Component {
                         justifyContent: 'center',
                       }}>
                         <TouchableOpacity
-                          style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
-                          onPress={() => this.setState({modalDelDriverVisible: true})}>
-                          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#960000" }}>Удалить</Text>
+                          style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: "#B8B8B8" }}
+                          onPress={() => { 
+                            console.log('setState modalDelDriverVisible true')
+                            this.setState({modalEditDriverVisible: false})
+                            this.setState({modalDelDriverVisible: true})}}>
+                          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Удалить</Text>
                         </TouchableOpacity>
                       </View>
 
@@ -587,7 +627,21 @@ class DriverList extends React.Component {
         </Modal>
         {/* */}
 
-        <ActivityIndicator size="large" color="#C9A86B" animating={this.state.indicator}/>
+        <ActivityIndicator size="large" color="#313131" animating={this.state.indicator}/>
+
+        <TouchableHighlight 
+          style={{ paddingLeft: 30, paddingTop: 20 }}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
+          onPress={() => this.openModalEditDriver( 'add' )}>
+          <View style={{ 
+              alignItems: 'center',
+              flexDirection: "row"
+            }}>     
+            <Image source={require('../images/add_button_2.png')} />
+            <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
+          </View>  
+        </TouchableHighlight>
 
         <FlatList
           data={this.state.user_driver_list}
@@ -596,11 +650,13 @@ class DriverList extends React.Component {
           keyExtractor={item => item.id}
         />
 
+        {/*      
         <TouchableHighlight
           style={{ position: 'absolute', bottom: 20, right: 20, padding: 10 }}
           onPress={() => this.openModalEditDriver( 'add' )}>
           <Image source={require('../images/add_button.png')} />
         </TouchableHighlight>
+        */}
 
       </View>
     );

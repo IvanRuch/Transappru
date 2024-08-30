@@ -16,7 +16,7 @@ class Auto extends React.Component {
 
     this.state = {
       auto_data: props.route.params.auto_data,
-      current_tab: 'files',
+      current_tab: 'passes',
 
       files_indicator: false,
       auto_file_data: [],
@@ -52,37 +52,41 @@ class Auto extends React.Component {
 
     this.setState({current_tab: tab})
 
-    if(tab == 'files')
+    if(tab == 'passes')
     {
       this.scrollView.scrollTo({x: 0});
-      AsyncStorage.getItem('token').then((value) => this.getAutoFiles(value));
-    }
+      AsyncStorage.getItem('token').then((value) => this.getAutoPasses(value));
+    }    
     else if(tab == 'fines')
     {
-      this.scrollView.scrollTo({x: 170});
+      this.scrollView.scrollTo({x: 160});
       AsyncStorage.getItem('token').then((value) => this.getAutoFines(value));
     }
     else if(tab == 'osago')
     {
-      this.scrollView.scrollTo({x: 340});
+      this.scrollView.scrollTo({x: 320});
       AsyncStorage.getItem('token').then((value) => this.getAutoOsago(value));
     }
     else if(tab == 'diagnostic_card')
     {
-      this.scrollView.scrollTo({x: 515});
+      this.scrollView.scrollTo({x: 485});
       AsyncStorage.getItem('token').then((value) => this.getAutoCheckDiagnosticCard(value));
-    }
-    else if(tab == 'passes')
-    {
-      this.scrollView.scrollTo({x: 690});
-      AsyncStorage.getItem('token').then((value) => this.getAutoPasses(value));
     }
     else if(tab == 'rnis')
     {
-      this.scrollView.scrollTo({x: 860});
+      this.scrollView.scrollTo({x: 650});
       AsyncStorage.getItem('token').then((value) => this.getAutoCheckRnis(value));
     }
-
+    else if(tab == 'files')
+    {
+      this.scrollView.scrollTo({x: 810});
+      AsyncStorage.getItem('token').then((value) => this.getAutoFiles(value));
+    }
+    else if(tab == 'driver')
+    {
+      this.scrollView.scrollTo({x: 970});
+      this.props.navigation.navigate('DriverList')
+    }
   }
 
   /* Файлы */
@@ -468,7 +472,15 @@ class Auto extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 16, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        style={{ 
+          flexDirection: "row", 
+          margin: 16, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8"
+        }}>
         <View style={{
           flex: 1,
           alignItems: 'flex-start',
@@ -509,8 +521,8 @@ class Auto extends React.Component {
           justifyContent: 'flex-start',
           flexDirection: "column",
         }}>
-          <Text style={{ paddingLeft: 10, paddingRight: 10, fontSize: 14, fontWeight: "bold", color: "#E8E8E8" }}>{ item.filename }</Text>
-          <Text style={{ paddingLeft: 10, paddingRight: 10, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#8C8C8C" }}>{ item.ts }</Text>
+          <Text style={{ paddingLeft: 10, paddingRight: 10, fontSize: 14, fontWeight: "bold", color: "#313131" }}>{ item.filename }</Text>
+          <Text style={{ paddingLeft: 10, paddingRight: 10, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#313131" }}>{ item.ts }</Text>
         </View>
         <View style={{
           flex: 1,
@@ -574,14 +586,23 @@ class Auto extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        style={[{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+          },
+          { backgroundColor: ( this.state.modalEditFileVisible || this.state.modalDelFileVisible ? 'rgba(29,29,29,0)' : '#EEEEEE' ) }
+        ]}>
         <View style={{
           flex: 5,
           alignItems: 'flex-start',
           justifyContent: 'flex-start',
           flexDirection: "column",
         }}>
-          { item.description != '' ? ( <Text style={{ paddingLeft: 10, paddingRight: 10, paddingBottom: 10, fontSize: 20, fontWeight: "bold", color: "#E8E8E8" }}>{ item.description }</Text> ) : null }
+          { item.description != '' ? ( <Text style={{ paddingLeft: 10, paddingRight: 10, paddingBottom: 10, fontSize: 20, fontWeight: "bold", color: "#313131" }}>{ item.description }</Text> ) : null }
           <View style={{
             alignItems: 'flex-start',
             flexDirection: "row",
@@ -592,14 +613,17 @@ class Auto extends React.Component {
         </View>
         <View style={{
           flex: 1,
+          paddingRight: 10,
           alignItems: 'flex-end',
           justifyContent: 'center',
         }}>
           <TouchableHighlight
             style={{ padding: 10, }}
+            activeOpacity={1}
+            underlayColor='#EEEEEE'
             onPress={() => this.openModalEditFile( 'edit', item )}
           >
-            <Image source={require('../images/edit.png')}/>
+            <Image source={require('../images/edit_2.png')}/>
           </TouchableHighlight>
         </View>
       </View>
@@ -649,7 +673,15 @@ class Auto extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8, 
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+      }}
       >
         <View style={{
           flex: 2,
@@ -657,7 +689,7 @@ class Auto extends React.Component {
           justifyContent: 'center',
           flexDirection: "column",
         }}>
-          <Image source={require('../images/uil_exclamation-triangle.png')}/>
+          <Image source={require('../images/uil_check_2.png')}/>
         </View>
         <View style={{
           flex: 5,
@@ -668,19 +700,19 @@ class Auto extends React.Component {
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>Постановление от {item.dat}</Text>
+            <Text style={{ color: "#313131"}}>Постановление от {item.dat}</Text>
           </View>
 
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>Штраф {item.sum}</Text>
+            <Text style={{ color: "#313131"}}>Штраф {item.sum}</Text>
           </View>
 
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8", alignItems: 'stretch' }}>{item.description}</Text>
+            <Text style={{ color: "#313131", alignItems: 'stretch' }}>{item.description}</Text>
           </View>
 
         </View>
@@ -692,11 +724,13 @@ class Auto extends React.Component {
         }}>
           <TouchableHighlight
             style={{ paddingTop: 20, paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
               this.props.navigation.navigate('AutoFine', { fine_data: item })
           }}>
-            <Image source={require('../images/emojione-v1_right-arrow.png')}/>
+            <Image source={require('../images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
         </View>
 
@@ -714,7 +748,15 @@ class Auto extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+      }}
       >
         <View style={{
           flex: 2,
@@ -722,7 +764,7 @@ class Auto extends React.Component {
           justifyContent: 'center',
           flexDirection: "column",
         }}>
-          <Image source={require('../images/uil_exclamation-triangle.png')}/>
+          <Image source={require('../images/uil_exclamation-triangle_2.png')}/>
         </View>
         <View style={{
           flex: 5,
@@ -733,13 +775,13 @@ class Auto extends React.Component {
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>Постановление от {item.dat}</Text>
+            <Text style={{ color: "#313131"}}>Постановление от {item.dat}</Text>
           </View>
 
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>Штраф {item.sum}</Text>
+            <Text style={{ color: "#313131"}}>Штраф {item.sum}</Text>
           </View>
 
           { 
@@ -747,7 +789,7 @@ class Auto extends React.Component {
             <View style={{
               flexDirection: "row",
             }}>
-              <Text style={{ color: "#E8E8E8", alignItems: 'stretch' }}>{item.discount_str}</Text>
+              <Text style={{ color: "#313131", alignItems: 'stretch' }}>{item.discount_str}</Text>
             </View> ) : 
             null 
           }
@@ -755,7 +797,7 @@ class Auto extends React.Component {
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8", alignItems: 'stretch' }}>{item.description}</Text>
+            <Text style={{ color: "#313131", alignItems: 'stretch' }}>{item.description}</Text>
           </View>
 
         </View>
@@ -767,11 +809,13 @@ class Auto extends React.Component {
         }}>
           <TouchableHighlight
             style={{ paddingTop: 20, paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
               this.props.navigation.navigate('AutoFine', { fine_data: item })
           }}>
-            <Image source={require('../images/emojione-v1_right-arrow.png')}/>
+            <Image source={require('../images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
         </View>
 
@@ -938,14 +982,11 @@ class Auto extends React.Component {
     }
   };
 
-  setBorderBottomStyle = () => {
+  setTextInputStyle = () => {
 
-    let color, width;
+    let bgcolor = this.state.sts.length == 10 ? "#FFFFFF" : "#F9FAF9"
 
-    color = this.state.sts.length == 10 ? "#E8E8E8" : "#960000"
-    width = this.state.sts.length == 10 ? 1 : 2
-
-    return { height: 55, fontSize: 20, borderBottomColor: color, borderBottomWidth: width, color: "#E8E8E8" }
+    return { height: 55, paddingLeft: 20, fontSize: 20, backgroundColor: bgcolor, borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }
   }
 
   renderAutoPassItem = (item) => {
@@ -954,7 +995,15 @@ class Auto extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8",
+        }}
       >
         <View style={{
           flex: 2,
@@ -973,10 +1022,10 @@ class Auto extends React.Component {
           <View style={{
             flexDirection: "column",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>{ item.is_year == 1 ?
+            <Text style={{ color: "#313131"}}>{ item.is_year == 1 ?
                                                 'Годовой, ' + item.propusktype + ', ' + item.type_of_pass_string + ', до ' + item.pass_end_str :
                                                 'Разовый, до ' + item.pass_one_end_str }</Text>
-            <Text style={{ color: "#E8E8E8"}}>Серия-номер: {item.seriya}</Text>
+            <Text style={{ color: "#313131"}}>Серия-номер: {item.seriya}</Text>
           </View>
 
         </View>
@@ -985,28 +1034,45 @@ class Auto extends React.Component {
     );
   }
 
+  setContainerStyle = () => {
+
+    let container_style     = styles.container
+    let container_style_new = {}
+
+    for (let key in container_style)
+    {
+      container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
+        this.state.modalEditFileVisible ||
+        this.state.modalDelFileVisible ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
+    }
+
+    return container_style_new
+  }
+
   componentDidMount() {
     console.log('Auto DidMount')
 
     this.setState({sts: this.state.auto_data.sts})
 
-    AsyncStorage.getItem('token').then((value) => this.getAutoFiles(value));
+    AsyncStorage.getItem('token').then((value) => this.getAutoPasses(value));
   }
 
   render() {
     return (
 
-      <View style={styles.container}>
+      <View style={this.setContainerStyle()}>
 
         <Text style={styles.header}>{this.state.auto_data.auto_number}</Text>
 
         <TouchableHighlight
           style={styles.header_back}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
           }}>
-          <Image source={require('../images/back.png')} />
+          <Image source={require('../images/back_2.png')} />
         </TouchableHighlight>
 
         {/* модальное окно подтверждения удаления файла */}
@@ -1026,14 +1092,16 @@ class Auto extends React.Component {
 
             <View style={{
               //flex: 1,
-              backgroundColor: '#8C8C8C',
+              backgroundColor: '#EEEEEE',
               borderRadius: 25,
               alignItems: 'stretch',
               justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8" 
               //marginTop: 70
             }}>
 
-              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Удалить файл?</Text>
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, textAlign: 'center', fontSize: 16, fontWeight: "normal", color: "#313131" }}>Удалить файл?</Text>
 
               <View style={{
                 //flex: 1,
@@ -1053,12 +1121,12 @@ class Auto extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                       onPress={() =>  {
                         console.log('call del_file')
                         AsyncStorage.getItem('token').then((value) => this.delAutoFile(value));
                       }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#FFFFFF" }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{
@@ -1070,7 +1138,7 @@ class Auto extends React.Component {
                     <TouchableOpacity
                       style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
                       onPress={() =>  { this.setState({modalDelFileVisible: false, file_data_item: { id: '', file: '' } }) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Отменить</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1101,10 +1169,12 @@ class Auto extends React.Component {
 
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#FFFFFF',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
+                borderWidth: 1, 
+                borderColor: "#B8B8B8" 
                 //marginTop: 70
               }}>
 
@@ -1115,7 +1185,7 @@ class Auto extends React.Component {
                     flex: 5,
                     alignItems: 'flex-start',
                   }}>
-                    <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Файлы по авто {this.state.auto_data.auto_number}</Text>
+                    <Text style={{ paddingLeft: 16, paddingTop: 26, fontSize: 24, fontWeight: "normal", color: "#313131" }}>Файлы по авто {this.state.auto_data.auto_number}</Text>
                   </View>
                   <View style={{
                     flex: 1,
@@ -1123,9 +1193,11 @@ class Auto extends React.Component {
                   }}>
                     <TouchableHighlight
                       style={{ padding: 30 }}
+                      activeOpacity={1}
+                      underlayColor='#FFFFFF'
                       onPress={() => this.closeModalEditFile()}
                     >
-                      <Image source={require('../images/xclose.png')} />
+                      <Image source={require('../images/xclose_2.png')} />
                     </TouchableHighlight>
                   </View>
                 </View>
@@ -1133,12 +1205,12 @@ class Auto extends React.Component {
                 <View style={{
                   flexDirection: "column",
                   padding: 10,
-                  backgroundColor: "#8C8C8C",
+                  backgroundColor: "#EEEEEE",
                   borderRadius: 8,
                   borderWidth:1,
                   borderStyle: 'dashed',
-                  borderColor:'white',
-                  borderTopColor:'white',
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   margin: 16,
                 }}>
 
@@ -1166,18 +1238,17 @@ class Auto extends React.Component {
                       <View style={{
                         flexDirection: "row",
                         padding: 10,
-                        backgroundColor: "#4C4C4C",
+                        backgroundColor: "#3A3A3A",
                         borderRadius: 8,
                         borderWidth:2,
-                        borderColor:'#C9A86B',
-                        borderTopColor:'#C9A86B'
+                        borderColor:'#EEEEEE',
                       }}>
                         <View style={{
                           flex: 5,
                           flexDirection: "column",
                           alignItems: 'center',
                         }}>
-                          <Text style={{ fontSize: 15, fontWeight: "bold", color: "#C9A86B"}}>загрузить документы</Text>
+                          <Text style={{ fontSize: 15, fontWeight: "bold", color: "#FFFFFF"}}>загрузить документы</Text>
                         </View>
                       </View>
                     </Pressable>
@@ -1196,15 +1267,15 @@ class Auto extends React.Component {
         </Modal>
         {/* */}
 
-        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Свидетельство о регистрации ТС:</Text>
+        <Text style={{ padding: 20, fontSize: 12, fontWeight: "normal", color: "#313131" }}>Свидетельство о регистрации ТС:</Text>
 
         <View style={{
           alignItems: 'stretch',
-          paddingLeft: 30,
-          paddingRight: 30,
+          paddingLeft: 20,
+          paddingRight: 20,
         }}>
           <TextInput
-            style={this.setBorderBottomStyle()}
+            style={this.setTextInputStyle()}
             maxLength={10}
             onChangeText={this.changeSts}
             value={this.state.sts}
@@ -1222,16 +1293,16 @@ class Auto extends React.Component {
               height: 130,
             }}>
 
-              <Pressable onPress={() => this.checkTab('files')}>
-                { this.state.current_tab == 'files' ? (
+              <Pressable onPress={() => this.checkTab('passes')}>
+                { this.state.current_tab == 'passes' ? (
                   <View style={styles.tab_checked}>
-                      <Image source={require('../images/tab_files_checked.png')}/>
-                      <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ФАЙЛЫ</Text>
+                    <Image source={require('../images/tab_passes_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ПРОПУСК</Text>
                   </View>
                   ) : (
                   <View style={styles.tab}>
-                      <Image source={require('../images/tab_files.png')}/>
-                      <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ФАЙЛЫ</Text>
+                    <Image source={require('../images/tab_passes_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ПРОПУСК</Text>
                   </View>
                   )
                 }
@@ -1240,13 +1311,13 @@ class Auto extends React.Component {
               <Pressable onPress={() => this.checkTab('fines')}>
                 { this.state.current_tab == 'fines' ? (
                   <View style={styles.tab_checked}>
-                    <Image source={require('../images/tab_fines_checked.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ШТРАФЫ</Text>
+                    <Image source={require('../images/tab_fines_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ШТРАФЫ</Text>
                   </View>
                   ) : (
                   <View style={styles.tab}>
-                    <Image source={require('../images/tab_fines.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ШТРАФЫ</Text>
+                    <Image source={require('../images/tab_fines_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ШТРАФЫ</Text>
                   </View>
                   )
                 }
@@ -1255,13 +1326,13 @@ class Auto extends React.Component {
               <Pressable onPress={() => this.checkTab('osago')}>
                 { this.state.current_tab == 'osago' ? (
                   <View style={styles.tab_checked}>
-                    <Image source={require('../images/tab_osago_checked.png')}/>
-                    <Text style={{ fontSize: 12, fontWeight: "bold", color: "#E8E8E8" }}>ОСАГО</Text>
+                    <Image source={require('../images/tab_osago_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ОСАГО</Text>
                   </View>
                   ) : (
                   <View style={styles.tab}>
-                    <Image source={require('../images/tab_osago.png')}/>
-                    <Text style={{ fontSize: 12, fontWeight: "bold", color: "#E8E8E8" }}>ОСАГО</Text>
+                    <Image source={require('../images/tab_osago_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ОСАГО</Text>
                   </View>
                   )
                 }
@@ -1270,48 +1341,55 @@ class Auto extends React.Component {
               <Pressable onPress={() => this.checkTab('diagnostic_card')}>
                 { this.state.current_tab == 'diagnostic_card' ? (
                   <View style={styles.tab_checked}>
-                    <Image source={require('../images/tab_diagnostic_card_checked.png')}/>
-                    <Text style={{ fontSize: 12, fontWeight: "bold", color: "#E8E8E8" }}>Диагностическая карта</Text>
+                    <Image source={require('../images/tab_diagnostic_card_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 12, textAlign: 'center', fontWeight: "bold", color: "#313131" }}>Диагностическая карта</Text>
                   </View>
                   ) : (
                   <View style={styles.tab}>
-                    <Image source={require('../images/tab_diagnostic_card.png')}/>
-                    <Text style={{ fontSize: 12, fontWeight: "bold", color: "#E8E8E8" }}>Диагностическая карта</Text>
+                    <Image source={require('../images/tab_diagnostic_card_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 12, textAlign: 'center', fontWeight: "bold", color: "#313131" }}>Диагностическая карта</Text>
                   </View>
                   )
                 }
               </Pressable>
 
-              <Pressable onPress={() => this.checkTab('passes')}>
-                { this.state.current_tab == 'passes' ? (
-                  <View style={styles.tab_checked}>
-                    <Image source={require('../images/tab_passes_checked.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ПРОПУСК</Text>
-                  </View>
-                  ) : (
-                  <View style={styles.tab}>
-                    <Image source={require('../images/tab_passes.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>ПРОПУСК</Text>
-                  </View>
-                  )
-                }
-              </Pressable>
 
               <Pressable onPress={() => this.checkTab('rnis')}>
                 { this.state.current_tab == 'rnis' ? (
                   <View style={styles.tab_checked}>
-                    <Image source={require('../images/tab_rnis_checked.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>РНИС</Text>
+                    <Image source={require('../images/tab_rnis_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>РНИС</Text>
                   </View>
                   ) : (
                   <View style={styles.tab}>
-                    <Image source={require('../images/tab_rnis.png')}/>
-                    <Text style={{ fontSize: 18, fontWeight: "bold", color: "#E8E8E8" }}>РНИС</Text>
+                    <Image source={require('../images/tab_rnis_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>РНИС</Text>
                   </View>
                   )
                 }
               </Pressable>
 
+              <Pressable onPress={() => this.checkTab('files')}>
+                { this.state.current_tab == 'files' ? (
+                  <View style={styles.tab_checked}>
+                      <Image source={require('../images/tab_files_checked_2.png')}/>
+                      <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ФАЙЛЫ</Text>
+                  </View>
+                  ) : (
+                  <View style={styles.tab}>
+                      <Image source={require('../images/tab_files_2.png')}/>
+                      <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ФАЙЛЫ</Text>
+                  </View>
+                  )
+                }
+              </Pressable>
+
+              <Pressable onPress={() => this.checkTab('driver')}>
+                  <View style={styles.tab}>
+                      <Image source={require('../images/tab_driver_2.png')}/>
+                      <Text style={{ marginTop: 10, fontSize: 18, fontWeight: "bold", color: "#313131" }}>ВОДИТЕЛИ</Text>
+                  </View>
+              </Pressable>
             </View>
           </ScrollView>
         </View>
@@ -1326,17 +1404,29 @@ class Auto extends React.Component {
                   paddingBottom: 80,
                 }}>
 
+                <TouchableHighlight 
+                  style={{ paddingLeft: 30, paddingTop: 20 }}
+                  activeOpacity={1}
+                  underlayColor='#FFFFFF'
+                  onPress={() => this.openModalEditFile( 'add' )}>
+                  <View style={{ 
+                      alignItems: 'center',
+                      flexDirection: "row"
+                    }}>     
+                    <Image source={require('../images/add_button_2.png')} />
+                    <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
+                  </View>  
+                </TouchableHighlight>
+
                   { this.state.files_indicator ? (
-                      <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                      <ActivityIndicator size="large" color="#313131" animating={true}/>
                     ) : (
                       <>
                         { this.state.auto_file_data.length ? (
                             <View>
                               {this.state.auto_file_data.map((item) => this.renderAutoFileItem(item))}
                             </View>
-                          ) : (
-                            <Text style={{ paddingLeft: 20, fontSize: 15, color: "#E8E8E8"}}>Добавьте файлы</Text>
-                          )
+                          ) : null
                         }
                       </>
                     )
@@ -1345,12 +1435,14 @@ class Auto extends React.Component {
                 </View>
               </ScrollView>
 
+              {/*    
               <TouchableHighlight
                 style={{ position: 'absolute', bottom: 20, right: 20, padding: 10 }}
                 onPress={() => this.openModalEditFile( 'add' )}
               >
                 <Image source={require('../images/add_button.png')} />
               </TouchableHighlight>
+              */}
 
             </>
           ) : null
@@ -1365,19 +1457,27 @@ class Auto extends React.Component {
               }}>
 
                 { this.state.fines_indicator ? (
-                    <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                    <ActivityIndicator size="large" color="#313131" animating={true}/>
                   ) : (
                     <>
                       <Pressable
                         onPress={() => this.setState({ auto_fine_paid_list_hide: !this.state.auto_fine_paid_list_hide })}
                       >
-                        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+                        <View style={{ 
+                          flexDirection: "row", 
+                          margin: 20, 
+                          padding: 10, 
+                          backgroundColor: "#EEEEEE", 
+                          borderRadius: 8,
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8" 
+                        }}>
                           <View style={{
                             flex: 5,
                             flexDirection: "column",
                             paddingLeft: 10,
                           }}>
-                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>Оплаченные ранее {this.state.auto_fine_data.paid_list.length ? '(' + this.state.auto_fine_data.paid_list.length + ')' : 'не обнаружены'}</Text>
+                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Оплаченные ранее {this.state.auto_fine_data.paid_list.length ? '(' + this.state.auto_fine_data.paid_list.length + ')' : 'не обнаружены'}</Text>
                           </View>
                         </View>
                       </Pressable>
@@ -1392,13 +1492,21 @@ class Auto extends React.Component {
                       <Pressable
                         onPress={() => this.setState({ auto_fine_unpaid_list_hide: !this.state.auto_fine_unpaid_list_hide })}
                       >
-                        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+                        <View style={{ 
+                          flexDirection: "row", 
+                          margin: 20, 
+                          padding: 10, 
+                          backgroundColor: "#EEEEEE", 
+                          borderRadius: 8,
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8" 
+                         }}>
                           <View style={{
                             flex: 5,
                             flexDirection: "column",
                             paddingLeft: 10,
                           }}>
-                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>Штрафы к оплате {this.state.auto_fine_data.unpaid_list.length ? '(' + this.state.auto_fine_data.unpaid_list.length + ')' : 'не обнаружены'}</Text>
+                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Штрафы к оплате {this.state.auto_fine_data.unpaid_list.length ? '(' + this.state.auto_fine_data.unpaid_list.length + ')' : 'не обнаружены'}</Text>
                           </View>
                         </View>
                       </Pressable>
@@ -1410,13 +1518,21 @@ class Auto extends React.Component {
                             </View>
 
                             { this.state.auto_fine_data.unpaid_list.length ? (
-                                <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+                                <View style={{ 
+                                  flexDirection: "row", 
+                                  margin: 20, 
+                                  padding: 10, 
+                                  backgroundColor: "#EEEEEE", 
+                                  borderRadius: 8,
+                                  borderWidth: 1, 
+                                  borderColor: "#B8B8B8" 
+                                }}>
                                   <View style={{
                                     flex: 5,
                                     flexDirection: "column",
                                     paddingLeft: 10,
                                   }}>
-                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>Всего: {this.unpaidFinesSum()} руб</Text>
+                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Всего: {this.unpaidFinesSum()} руб</Text>
                                   </View>
                                 </View>
                               ) : null
@@ -1446,19 +1562,19 @@ class Auto extends React.Component {
               }}>
 
                 { this.state.osago_indicator ? (
-                    <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                    <ActivityIndicator size="large" color="#313131" animating={true}/>
                   ) : (
                     <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
 
                       { typeof(this.state.auto_osago_data.number) == 'undefined' ? (
-                          <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Действующие полисы ОСАГО не найдены</Text>
+                          <Text style={{ fontSize: 15, color: "#313131"}}>Действующие полисы ОСАГО не найдены</Text>
                         ) : (
                           <>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Серия договора {this.state.auto_osago_data.series}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Номер договора {this.state.auto_osago_data.number}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Страховая компания {this.state.auto_osago_data.insurer}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Ограничение лиц, допущенных к управлению транспортным средством: {this.state.auto_osago_data.restrictions == 'WITH RESTRICTIONS' ? 'с ограничениями' : 'без ограничений'}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Дата окончания действия договора: {this.state.auto_osago_data.date_to}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Серия договора {this.state.auto_osago_data.series}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Номер договора {this.state.auto_osago_data.number}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Страховая компания {this.state.auto_osago_data.insurer}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Ограничение лиц, допущенных к управлению транспортным средством: {this.state.auto_osago_data.restrictions == 'WITH RESTRICTIONS' ? 'с ограничениями' : 'без ограничений'}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Дата окончания действия договора: {this.state.auto_osago_data.date_to}</Text>
                           </>
                         )
                       }
@@ -1481,17 +1597,17 @@ class Auto extends React.Component {
               }}>
 
                 { this.state.diagnostic_card_indicator ? (
-                    <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                    <ActivityIndicator size="large" color="#313131" animating={true}/>
                   ) : (
                     <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
 
                       { typeof(this.state.auto_diagnostic_card_data.number) == 'undefined' ? (
-                          <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Действующие диагностические карты не найдены</Text>
+                          <Text style={{ fontSize: 15, color: "#313131"}}>Действующие диагностические карты не найдены</Text>
                         ) : (
                           <>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Номер карты {this.state.auto_diagnostic_card_data.number}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Место выдачи {this.state.auto_diagnostic_card_data.place}</Text>
-                            <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Дата окончания действия: {this.state.auto_diagnostic_card_data.date_to}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Номер карты {this.state.auto_diagnostic_card_data.number}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Место выдачи {this.state.auto_diagnostic_card_data.place}</Text>
+                            <Text style={{ fontSize: 15, color: "#313131"}}>Дата окончания действия: {this.state.auto_diagnostic_card_data.date_to}</Text>
                           </>
                         )
                       }
@@ -1514,7 +1630,7 @@ class Auto extends React.Component {
                   justifyContent: 'flex-start',
                 }}>
                   { this.state.passes_indicator ? (
-                      <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                      <ActivityIndicator size="large" color="#313131" animating={true}/>
                     ) : (
                       <>
                         <View>
@@ -1526,7 +1642,7 @@ class Auto extends React.Component {
                 </View>
               </ScrollView>
               <TouchableHighlight
-                style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#C9A86B" }}
+                style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                 onPress={() => {
                   console.log('-> move to Pass')
                   let auto_data_new = this.state.auto_data
@@ -1534,7 +1650,7 @@ class Auto extends React.Component {
                   this.setState({auto_data: auto_data_new})
                   this.props.navigation.navigate('Pass', { auto_list: [ this.state.auto_data ] })
                 }}>
-                <Text style={{ fontSize: 24, color: "#E8E8E8" }}>Заказать пропуск</Text>
+                <Text style={{ fontSize: 24, color: "#EEEEEE" }}>Заказать пропуск</Text>
               </TouchableHighlight>
             </>
           ) : null
@@ -1549,21 +1665,21 @@ class Auto extends React.Component {
               }}>
 
                 { this.state.rnis_indicator ? (
-                    <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                    <ActivityIndicator size="large" color="#313131" animating={true}/>
                   ) : (
                     <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
 
                       { typeof(this.state.auto_rnis_data.registrationOk) == 'undefined' ? (
-                          <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Данные о регистрации в РНИС не найдены</Text>
+                          <Text style={{ fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
                         ) : (
                           <>
                             { this.state.auto_rnis_data.registrationOk != 1 ? (
-                                <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Данные о регистрации в РНИС не найдены</Text>
+                                <Text style={{ fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
                               ) : (
                                 <>
-                                 <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Зарегистрирован в РНИС. </Text>
+                                 <Text style={{ fontSize: 15, color: "#313131"}}>Зарегистрирован в РНИС. </Text>
                                  { this.state.auto_rnis_data.rnis_registered != null ? (
-                                    <Text style={{ fontSize: 15, color: "#E8E8E8"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
+                                    <Text style={{ fontSize: 15, color: "#313113"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
                                     ) : null
                                  }
                                 </>

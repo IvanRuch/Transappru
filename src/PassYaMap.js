@@ -109,24 +109,37 @@ class PassYaMap extends React.Component {
 
         <TouchableHighlight
           style={styles.header_back}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
           onPress={() => {
             console.log('-> move to Pass')
             this.props.navigation.navigate('Pass', { address_map_data: this.state.address_map_data })
           }}>
-          <Image source={require('../images/back.png')} />
+          <Image source={require('../images/back_2.png')} />
         </TouchableHighlight>
 
-        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, paddingBottom: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Укажите адрес на карте</Text>
+        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, paddingBottom: 20, fontSize: 15, fontWeight: "bold", color: "#313131" }}>Укажите адрес на карте</Text>
 
         {
           this.state.address_map_data.address != '' ? (
-            <View style={{ position: 'absolute', zIndex: 3, elevation: 3, top: 150, flexDirection: "row", margin: 20, padding: 20, backgroundColor: "#353535", borderRadius: 8 }}>
+            <View style={{ 
+              position: 'absolute', 
+              zIndex: 3, elevation: 3, 
+              top: 160, 
+              flexDirection: "row", 
+              margin: 20, 
+              padding: 10, 
+              backgroundColor: "#FFFFFF", 
+              borderRadius: 8,
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
+            }}>
               <View style={{
                 flex: 5,
                 flexDirection: "column",
                 paddingLeft: 10,
               }}>
-                <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>{this.state.address_map_data.address}</Text>
+                <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>{this.state.address_map_data.address}</Text>
               </View>
             </View>
           ) : null
@@ -134,7 +147,19 @@ class PassYaMap extends React.Component {
 
         {
           this.state.wrong_location ? (
-            <View style={{ position: 'absolute', zIndex: 3, elevation: 3, top: 150, flexDirection: "row", margin: 20, padding: 20, backgroundColor: "#353535", borderRadius: 8 }}>
+            <View style={{ 
+              position: 'absolute', 
+              zIndex: 3, 
+              elevation: 3, 
+              top: 160, 
+              flexDirection: "row", 
+              margin: 20, 
+              padding: 10, 
+              backgroundColor: "#FFFFFF", 
+              borderRadius: 8,
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
+            }}>
               <View style={{
                 flex: 5,
                 flexDirection: "column",
@@ -216,12 +241,26 @@ class PassYaMap extends React.Component {
         {
           this.state.address_map_data.address != '' ? (
             <TouchableHighlight
-              style={{ position: 'absolute', zIndex: 3, elevation: 3, left: 10, bottom: 20, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#C9A86B" }}
+              style={{ 
+                position: 'absolute', 
+                zIndex: 3, 
+                elevation: 3, 
+                left: 10, 
+                bottom: 20, 
+                right: 10, 
+                height: 50, 
+                fontSize: 10, 
+                margin: 25, 
+                borderRadius: 5, 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: "#3A3A3A"
+              }}
               onPress={() => {
                 console.log('call add_address')
                 this.props.navigation.navigate('Pass', { address_map_data: this.state.address_map_data })
               }}>
-              <Text style={{ fontSize: 24, color: "#E8E8E8" }}>Добавить</Text>
+              <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Добавить</Text>
             </TouchableHighlight>
           ) : null
         }

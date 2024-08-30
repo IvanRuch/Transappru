@@ -1,19 +1,33 @@
 import React from 'react';
-import { Linking, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator, FlatList, Pressable, ScrollView } from 'react-native';
+import { Linking, Text, View, Image, TouchableOpacity, TouchableHighlight, TextInput, ImageBackground, ActivityIndicator, FlatList, Pressable, ScrollView, Dimensions } from 'react-native';
+import Modal from 'react-native-modal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { getDeviceInfo } from './utils/PushNotificationHelper';
 import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 const maxStep = 15;
 const intervalTime = 10000;
+const auto_list_limit = 10;
 
 class MenuAdd extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/menu_add.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>добавить {this.props.str}</Text>
+          <Image source={require('../images/menu_add_2.png')} />
+          <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>добавить {this.props.str}</Text>
+        </View>
+    );
+  }
+}
+
+class MenuSelAdd extends React.Component {
+  render() {
+    return (
+        <View style={{ alignItems: 'center', padding: 5 }}>
+          <Image source={require('../images/sel_menu_add_2.png')} />
+          <Text style={{ fontSize: 11, color: "#313131", marginTop: 5 }}>добавить {this.props.str}</Text>
         </View>
     );
   }
@@ -23,8 +37,8 @@ class MenuDriver extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/menu_driver.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>водители</Text>
+          <Image source={require('../images/menu_driver_2.png')} />
+          <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>водители</Text>
         </View>
     );
   }
@@ -34,8 +48,8 @@ class MenuContacts extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/menu_contacts.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>контакты</Text>
+          <Image source={require('../images/menu_contacts_2.png')} />
+          <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>обратная связь</Text>
         </View>
     );
   }
@@ -45,8 +59,8 @@ class MenuSelContacts extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/sel_menu_contacts.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>контакты</Text>
+          <Image source={require('../images/sel_menu_contacts_2.png')} />
+          <Text style={{ fontSize: 11, color: "#313131" }}>контакты</Text>
         </View>
     );
   }
@@ -56,8 +70,8 @@ class MenuUser extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/menu_user.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>профиль</Text>
+          <Image source={require('../images/menu_user_2.png')} />
+          <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>профиль</Text>
         </View>
     );
   }
@@ -67,8 +81,8 @@ class MenuInviteUser extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/menu_invite_user.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>пригласи друга</Text>
+          <Image source={require('../images/menu_invite_user_2.png')} />
+          <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>пригласи друга</Text>
         </View>
     );
   }
@@ -100,8 +114,8 @@ class SelMenuDelItem extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/sel_menu_del_item.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>удалить</Text>
+          <Image source={require('../images/sel_menu_del_item_2.png')} />
+          <Text style={{ fontSize: 11, color: "#313131", marginTop: 5}}>удалить</Text>
         </View>
     );
   }
@@ -122,8 +136,8 @@ class SelMenuPass extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/sel_menu_pass.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>пропуск</Text>
+          <Image source={require('../images/sel_menu_pass_2.png')} />
+          <Text style={{ fontSize: 11, color: "#313131", marginTop: 5 }}>пропуск в Москву</Text>
         </View>
     );
   }
@@ -133,8 +147,8 @@ class SelMenuUndoSelect extends React.Component {
   render() {
     return (
         <View style={{ alignItems: 'center', padding: 5 }}>
-          <Image source={require('../images/sel_menu_undo_select.png')} />
-          <Text style={{ fontSize: 9, color: "#fff" }}>сбросить</Text>
+          <Image source={require('../images/sel_menu_undo_select_2.png')} />
+          <Text style={{ fontSize: 11, color: "#313131", marginTop: 5 }}>сбросить</Text>
         </View>
     );
   }
@@ -145,6 +159,7 @@ class AutoList extends React.Component {
   constructor(props) {
     super(props);
 
+    this.onEndReachedCalledDuringMomentum = true;
     this.intervals = null;
 
     this.state = {
@@ -156,12 +171,16 @@ class AutoList extends React.Component {
       user_str: '',
       user_list: [],
       user_list_empty_str: '',
-      user_event_list: [],
-      user_event_ind: 0,
-      user_event_data: { type: '', id: '', auto_number: '', string: '' },
+      other_user_list: [],
 
       auto_str: '',
+      auto_cancelled: false,
+      auto_pass_ended: false,
+      auto_pass_ends: false,
+      auto_pass_ends_until_date: '',
       auto_list: [],
+      auto_list_count: 0,
+      auto_list_from: 0,
       indicator: false,
       marked_cnt: 0,
 
@@ -173,7 +192,6 @@ class AutoList extends React.Component {
 
       modalViewContacts: false,
       findAutoVisible: false,
-      modalUserEventVisible: false,
       modalSelectUserVisible: false,
       modalDelAutoVisible: false,
       modalAddAutoVisible: false,
@@ -185,7 +203,25 @@ class AutoList extends React.Component {
       sts: '',
       sts_ok: false,
       sts_by_auto_number_indicator: false,
+
+      onboarding_expired: 1,
+
+      menuLeftVisible: false,
     };
+  }
+
+  /* */
+  onEndReached = ({ distanceFromEnd }) => {
+    if(!this.onEndReachedCalledDuringMomentum)
+    {
+      //this.fetchData();
+
+      console.log('onEndReached work!')
+
+      AsyncStorage.getItem('token').then((value) => this.getAutoList(value))
+
+      this.onEndReachedCalledDuringMomentum = true;
+    }
   }
 
   /* */
@@ -413,13 +449,13 @@ class AutoList extends React.Component {
   };
 
   setAddAutoButtonStyle = () => {
-    let backgroundColor = this.state.modalAddAutoButtonDisabled ? "#c0c0c0" : "#FEE600";
+    let backgroundColor = this.state.modalAddAutoButtonDisabled ? "#c0c0c0" : "#3A3A3A";
     return { height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setAddAutoButtonTextStyle = () => {
-    let color = this.state.modalAddAutoButtonDisabled ? "#E8E8E8" : "#2B2D33";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, color: color }
+    let color = this.state.modalAddAutoButtonDisabled ? "#E8E8E8" : "#FFFFFF";
+    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: color }
   }
 
   modalAddAutoCancel = () => {
@@ -432,41 +468,6 @@ class AutoList extends React.Component {
                     auto_number_region_code_ok: false,
                     sts: '',
                     sts_ok: false })
-  }
-
-  modalUserNextEvent = (value) => {
-    console.log('modalUserNextEvent. value = ' + value)
-
-    console.log('this.state.user_event_ind = ' + this.state.user_event_ind)
-    console.log('this.state.user_event_list')
-    console.log(this.state.user_event_list)
-    console.log('this.state.user_event_data')
-    console.log(this.state.user_event_data)
-
-
-
-    this.setState({ modalUserEventVisible: false })
-
-    if(this.state.user_event_list.length > this.state.user_event_ind)
-    {
-        Api.post('/set-user-event-viewed', { token: value, type: this.state.user_event_data.type, id: this.state.user_event_data.id })
-           .then(res => {
-
-              const data = res.data;
-              console.log(data);
-
-              if(this.state.user_event_ind < this.state.user_event_list.length - 1)
-              { 
-                  let ind = this.state.user_event_ind + 1
-                  this.setState({ user_event_ind: ind, user_event_data: this.state.user_event_list[ind], modalUserEventVisible: true })
-              }
-            })
-            .catch(error => {
-              console.log('error.response.status = ' + error.response.status);
-              if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-            });
-    }
-
   }
 
   addAuto = (value) => {
@@ -516,212 +517,12 @@ class AutoList extends React.Component {
         });
   }
 
-  /* добавление/редактирование клиента ( режим менеджера ) */
-  changeEditUserValue = (value, field) => {
-    console.log('changeEditUserValue. field = ' + field + ' | value = ' + value)
-
-    let user_edit_data_new = this.state.user_edit_data
-
-    if(field == 'phone')
-    {
-      if(value == '+7')
-      {
-        value = ''
-      }
-      if(value == '7')
-      {
-        value = '+7'
-      }
-      if(value == '+' || value == '8')
-      {
-        value = '+7'
-      }
-      if(value.match(/^\d$/))
-      {
-        value = '+7' + value
-      }
-      user_edit_data_new[field] = value
-    }
-    else
-    {
-      user_edit_data_new[field] = value
-    }
-
-    //
-    if(user_edit_data_new['firm'] != '' &&
-       user_edit_data_new['inn'].match(/^(\d{10})$|^(\d{12})$/) &&
-       user_edit_data_new['phone'].match(/\+7(\d{10})/) )
-    {
-      this.setState({editUserButtonDisabled: false})
-    }
-    else
-    {
-      this.setState({editUserButtonDisabled: true})
-    }
-
-    this.setState({user_edit_data: user_edit_data_new})
-  };
-
-  /* изменение стилей кнопки редактирования клиента ( режим менеджера ) */
-  setEditUserButtonStyle = () => {
-    let backgroundColor = this.state.editUserButtonDisabled ? "#c0c0c0" : "#FEE600";
-    return { height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
-  }
-
-  setEditUserButtonTextStyle = () => {
-    let color = this.state.editUserButtonDisabled ? "#E8E8E8" : "#2B2D33";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, color: color }
-  }
-
-  /* добавление/редактирование клиента ( режим менеджера ) */
-  editUser = (value) => {
-    console.log('editUser. value = ' + value)
-
-    console.log('this.state.user_edit_data = ')
-    console.log(this.state.user_edit_data)
-
-    let phone = this.state.user_edit_data.phone
-        phone = phone.replace(/\+/, '')
-    console.log('phone = ' + phone)
-
-    Api.post('/edit-user-by-manager', { token: value, inn: this.state.user_edit_data.inn, firm: this.state.user_edit_data.firm, phone: phone })
-       .then(res => {
-
-          const data = res.data;
-          console.log(data);
-
-          if(data.auth_required == 1)
-          {
-            this.props.navigation.navigate('Auth')
-          }
-          else
-          {
-            if(data.error == 1)
-            {
-              this.setState({editUserMsg: data.msg})
-            }
-
-            else
-            {
-              AsyncStorage.getItem('token').then((token) => {
-
-                Api.post('/auth-as-user', { token: token, inn: this.state.user_edit_data.inn })
-                   .then(res => {
-
-                      const data = res.data;
-                      console.log('data')
-                      console.log(data);
-
-                      this.setState({ modalSelectUserVisible: false, user_str: '', auto_list: [] }, () => this.screenFocus())
-                      //this.setState({ modalSelectUserVisible: false, user_str: '' })
-                    })
-                    .catch(error => {
-                      console.log('error.response.status = ' + error.response.status);
-                      if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-                    });
-              });
-            }
-
-          }
-        })
-        .catch(error => {
-          console.log('error.response.status = ' + error.response.status);
-          if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-        });
-  }
-
-  /* ввод по клиенту ( режим менеджера ) */
-  changeUserStr = (value) => {
-    console.log('changeUserStr. value = ' + value)
-
-    if(value.length >= 3 || value.length == 0)
-    {
-      this.setState({user_str: value}, () => this.findUser())
-    }
-    else
-    {
-      this.setState({user_str: value})
-    }
-  }
-
-  /* очистить поисковую строку ( режим менеджера ) */
-  clearUserStr = () => {
-    console.log('clearUserStr')
-
-    this.setState({user_str: ''}, () => this.findUser())
-  }
-
-  /* поиск клиента ( режим менеджера ) */
-  findUser = () => {
-    console.log('findUser')
-
-    AsyncStorage.getItem('token').then((value) => this.getUserList(value))
-  }
-
-  /* закрыть модальное окно выбора клиента ( режим менеджера ) */
-  modalSelectUserCancel = () => {
-    console.log('modalSelectUserCancel')
-
-    this.setState({ modalSelectUserVisible: false, editUserVisible: false })
-  }
-
-  /* авторизуемся как клиент ( режим менеджера ) */
-  authAsUser = (item, index) => {
-    console.log('authAsUser. item = ')
-    console.log(item)
-    console.log('index = ' + index)
-
-    AsyncStorage.getItem('token').then((token) => {
-
-      Api.post('/auth-as-user', { token: token, inn: item.inn })
-         .then(res => {
-
-            const data = res.data;
-            console.log('data')
-            console.log(data);
-
-            this.setState({ modalSelectUserVisible: false, user_str: '' }, () => this.screenFocus())
-            //this.setState({ modalSelectUserVisible: false, user_str: '' })
-          })
-          .catch(error => {
-            console.log('error.response.status = ' + error.response.status);
-            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
-    });
-  };
-
-  /* */
-  getUserList = (value) => {
-    console.log('getUserList. value = ' + value)
-
-    if(!value)
-    {
-      console.log('null')
-      this.props.navigation.navigate('Auth')
-    }
-
-    else
-    {
-      Api.post('/get-user-list', { token: value, user_str: this.state.user_str })
-         .then(res => {
-
-            const data = res.data;
-            console.log('data')
-            console.log(data);
-
-            this.setState({user_list: data.user_list, user_list_empty_str: data.user_list.length == 0 ? 'не найдено' : ''})
-          })
-          .catch(error => {
-            console.log('error.response.status = ' + error.response.status);
-            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
-          });
-    }
-  }
-
   /* список авто */
   setItemStyle = (index) => {
-    let color = this.state.auto_list[index].marked == 1 ? "#4C4C4C" : "#2C2C2C";
-    return { flexDirection: "row", margin: 20, padding: 10, backgroundColor: color, borderRadius: 8 }
+    let color = this.state.modalViewContacts || 
+                this.state.modalAddAutoVisible ||
+                this.state.modalDelAutoVisible ? 'rgba(29,29,29, 0)' : ( this.state.auto_list[index].marked == 1 ? "#E9E9E9" : "#ffffff" );
+    return { flexDirection: "column", margin: 20, padding: 10, backgroundColor: color, borderRadius: 8, borderWidth: 1, borderColor: "#B8B8B8" }
   }
 
   markItem = (item, index) => {
@@ -761,9 +562,13 @@ class AutoList extends React.Component {
     this.setState({auto_str: ''}, () => this.findAuto())
   }
 
-  /* поиск по номеру авто */
+  /* поиск по авто */
   findAuto = () => {
     console.log('findAuto')
+
+    this.onEndReachedCalledDuringMomentum = true;
+
+    this.setState({ marked_cnt: 0, auto_list: [], auto_list_count: 0, auto_list_from: 0 })     
 
     AsyncStorage.getItem('token').then((value) => this.getAutoList(value))
   }
@@ -779,12 +584,40 @@ class AutoList extends React.Component {
       this.props.navigation.navigate('Auth')
     }
 
+    else if(this.state.auto_list_from > this.state.auto_list_count)
+    {
+      console.log('this.state.auto_list_from = ', this.state.auto_list_from, ' > then')
+      console.log('this.state.auto_list_count = ', this.state.auto_list_count)
+    }
+
     else
     {
       this.setState({indicator: true})
 
-      Api.post('/get-auto-list', { token: value, auto_str: this.state.auto_str })
+      console.log('this.state.auto_str = ', this.state.auto_str)
+      console.log('this.state.auto_cancelled = ', this.state.auto_cancelled)
+      console.log('this.state.auto_pass_ended = ', this.state.auto_pass_ended)
+      console.log('this.state.auto_pass_ends = ', this.state.auto_pass_ends)
+      console.log('this.state.auto_pass_ends_until_date = ', this.state.auto_pass_ends_until_date)
+
+      console.log('this.state.auto_list_from = ', this.state.auto_list_from)
+      console.log('auto_list_limit = ', auto_list_limit)
+
+      let device_info = getDeviceInfo();
+
+      Api.post('/get-auto-list', { token: value, 
+                                   device_info: device_info,
+                                   auto_str: this.state.auto_str,
+                                   auto_cancelled: this.state.auto_cancelled ? 1 : 0,
+                                   auto_pass_ended: this.state.auto_pass_ended ? 1 : 0,
+                                   auto_pass_ends: this.state.auto_pass_ends ? 1 : 0,
+                                   auto_pass_ends_until_date: this.state.auto_pass_ends_until_date,
+                                   auto_list_from: this.state.auto_list_from,
+                                   auto_list_limit: auto_list_limit
+                                   })
          .then(res => {
+
+          this.onEndReachedCalledDuringMomentum = false;
 
             const data = res.data;
             console.log(data);
@@ -792,10 +625,28 @@ class AutoList extends React.Component {
             //
             this.setState({indicator: false})
 
+            if(data.onboarding_viewed == 0)
+            {
+              this.props.navigation.navigate('OnBoarding')
+            }
+
+            this.setState({onboarding_expired: data.onboarding_expired})
+
+            //
             if(typeof(data.user_data) != 'undefined')
             {
-              console.log('typeof(data.user_data) = ' + typeof(data.user_data))
+              console.log('typeof(data.user_data)(0) = ' + typeof(data.user_data))
               this.setState({user_data: data.user_data})
+
+              console.log('data.other_user_list');  
+              console.log(data.other_user_list);  
+              this.setState({other_user_list: data.other_user_list})              
+            }
+            else
+            {
+              console.log('typeof(data.user_data)(1) = ' + typeof(data.user_data))
+
+              this.props.navigation.navigate('Auth')
             }
 
             if(typeof(data.manager_data) != 'undefined')
@@ -809,22 +660,27 @@ class AutoList extends React.Component {
             }
 
             //
+            this.setState({auto_list_count: data.auto_list_count, 
+                           auto_list_from: this.state.auto_list_from + auto_list_limit })    
+
+            //
             if(data.auto_list.length == 0)
             {
               console.log('data.auto_list.length = ' + data.auto_list.length)
-              if(typeof(data.manager_data) != 'undefined' && typeof(data.user_data) == 'undefined')
-              {
-                this.setState({modalSelectUserVisible: true})
-                AsyncStorage.getItem('token').then((value) => this.getUserList(value));
-              }
-              else if(typeof(data.manager_data) == 'undefined')
-              {
-                this.setState({modalAddAutoVisible: true})
-              }
+
+                if(this.state.findAutoVisible)
+                {
+                  this.setState({auto_list: data.auto_list})
+                }
+                else if(this.state.auto_list_from == 0)
+                {
+                  this.setState({modalAddAutoVisible: true})
+                }
+
             }
             else
             {
-              let user_event_list_new = []
+              let auto_list_new = this.state.auto_list;
 
               for (var i=0; i<data.auto_list.length; i++)
               {
@@ -849,54 +705,12 @@ class AutoList extends React.Component {
                   AsyncStorage.getItem('token').then((value) => this.getAutoCheckOsago(value, _id));
                 }
 
-                //
-                if(data.auto_list[i].check_passes_year_period_color == 'red')
-                {
-                    if(data.auto_list[i].check_passes_year_cancelled == 1 && data.auto_list[i].check_passes_year_cancelled_viewed == 0)
-                    {
-                        user_event_list_new.push({ type: 'pass_year_cancelled',
-                                                   id: data.auto_list[i].id,
-                                                   auto_number: data.auto_list[i].auto_number,
-                                                   string: data.auto_list[i].check_passes_string })
-                    }
-
-                    if(data.auto_list[i].check_passes_year_cancelled == 0 && data.auto_list[i].check_passes_year_ending_viewed == 0)
-                    {
-                        user_event_list_new.push({ type: 'pass_year_ending',
-                                                   id: data.auto_list[i].id,
-                                                   auto_number: data.auto_list[i].auto_number,
-                                                   string: data.auto_list[i].check_passes_string })
-                    }
-                }
-                if(data.auto_list[i].check_diagnostic_card_period_color == 'red' && data.auto_list[i].check_diagnostic_card_ending_viewed == 0)
-                {
-                    user_event_list_new.push({ type: 'diagnostic_card_ending',
-                                               id: data.auto_list[i].id,
-                                               auto_number: data.auto_list[i].auto_number,
-                                               string: data.auto_list[i].check_diagnostic_card_string })
-                }
-                if(data.auto_list[i].check_osago_period_color == 'red' && data.auto_list[i].check_osago_ending_viewed == 0)
-                {
-                    user_event_list_new.push({ type: 'osago_ending',
-                                               id: data.auto_list[i].id,
-                                               auto_number: data.auto_list[i].auto_number,
-                                               string: data.auto_list[i].check_osago_string })
-                }
-              }
-
-              console.log('user_event_list_new')
-              console.log(user_event_list_new)
-
-              if(user_event_list_new.length > 0)
-              {
-                  this.setState({ user_event_list: user_event_list_new,
-                                  user_event_ind: 0,
-                                  user_event_data: user_event_list_new[0],
-                                  modalUserEventVisible: true})
+                auto_list_new.push(data.auto_list[i])
               }
 
               //
-              this.setState({auto_list: data.auto_list})
+              //this.setState({auto_list: data.auto_list})
+              this.setState({auto_list: auto_list_new})
             }
           })
           .catch(error => {
@@ -987,12 +801,23 @@ class AutoList extends React.Component {
 
           let auto_list_new = this.state.auto_list
 
-          if(data.in_progress == 0)
+          if(typeof(data['error']) != 'undefined')
           {
-            auto_list_new[ind].check_fines_string  = data.check_fines_string
-            auto_list_new[ind].check_fines_expared = 0
+            auto_list_new[ind].check_fines_color    = 'white'
+            auto_list_new[ind].check_fines_string   = ''
+            auto_list_new[ind].check_fines_expared  = 0
 
-            this.setState({auto_list: auto_list_new})  
+            this.setState({auto_list: auto_list_new}) 
+          }
+          else
+          {
+            if(data.in_progress == 0)
+            {
+              auto_list_new[ind].check_fines_string  = data.check_fines_string
+              auto_list_new[ind].check_fines_expared = 0
+
+              this.setState({auto_list: auto_list_new})  
+            }
           }
         })
         .catch(error => {
@@ -1002,7 +827,12 @@ class AutoList extends React.Component {
 
         console.log('after setInterval(t(' + id + ') = ' + t)
 
-        if((this.state.auto_list[ind].check_fines_expared == 0) || (t >= maxStep * intervalTime))
+        if(typeof(this.state.auto_list[ind]) == 'undefined')
+        {
+          console.log('clearInterval(' + id + ')')
+          check_fines = clearInterval(check_fines);
+        }
+        else if((this.state.auto_list[ind].check_fines_expared == 0) || (t >= maxStep * intervalTime))
         {
           console.log('clearInterval(' + id + ')')
           check_fines = clearInterval(check_fines);
@@ -1057,13 +887,24 @@ class AutoList extends React.Component {
 
           let auto_list_new = this.state.auto_list
 
-          if(data.in_progress == 0)
+          if(typeof(data['error']) != 'undefined')
           {
-            auto_list_new[ind].check_diagnostic_card_string       = data.check_diagnostic_card_string
-            auto_list_new[ind].check_diagnostic_card_period_color = data.check_diagnostic_card_period_color
+            auto_list_new[ind].check_diagnostic_card_string       = ''
+            auto_list_new[ind].check_diagnostic_card_period_color = ''
             auto_list_new[ind].check_diagnostic_card_expared      = 0
 
-            this.setState({auto_list: auto_list_new})  
+            this.setState({auto_list: auto_list_new}) 
+          }
+          else
+          {
+            if(data.in_progress == 0)
+            {
+              auto_list_new[ind].check_diagnostic_card_string       = data.check_diagnostic_card_string
+              auto_list_new[ind].check_diagnostic_card_period_color = data.check_diagnostic_card_period_color
+              auto_list_new[ind].check_diagnostic_card_expared      = 0
+
+              this.setState({auto_list: auto_list_new})  
+            }
           }
         })
         .catch(error => {
@@ -1071,7 +912,12 @@ class AutoList extends React.Component {
           if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
         });
 
-        if((this.state.auto_list[ind].check_diagnostic_card_expared == 0) || (t >= maxStep * intervalTime))
+        if(typeof(this.state.auto_list[ind]) == 'undefined')
+        {
+          console.log('clearInterval(' + id + ')')
+          check_diagnostic_card = clearInterval(check_diagnostic_card);
+        }
+        else if((this.state.auto_list[ind].check_diagnostic_card_expared == 0) || (t >= maxStep * intervalTime))
         {
           console.log('clearInterval(' + id + ')')
           check_diagnostic_card = clearInterval(check_diagnostic_card);
@@ -1126,13 +972,24 @@ class AutoList extends React.Component {
 
           let auto_list_new = this.state.auto_list
 
-          if(data.in_progress == 0)
+          if(typeof(data['error']) != 'undefined')
           {
-            auto_list_new[ind].check_osago_string       = data.check_osago_string
-            auto_list_new[ind].check_osago_period_color = data.check_osago_period_color
+            auto_list_new[ind].check_osago_string       = ''
+            auto_list_new[ind].check_osago_period_color = ''
             auto_list_new[ind].check_osago_expared      = 0
 
-            this.setState({auto_list: auto_list_new})  
+            this.setState({auto_list: auto_list_new}) 
+          }
+          else
+          {
+            if(data.in_progress == 0)
+            {
+              auto_list_new[ind].check_osago_string       = data.check_osago_string
+              auto_list_new[ind].check_osago_period_color = data.check_osago_period_color
+              auto_list_new[ind].check_osago_expared      = 0
+  
+              this.setState({auto_list: auto_list_new})  
+            }
           }
         })
         .catch(error => {
@@ -1140,7 +997,12 @@ class AutoList extends React.Component {
           if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
         });
 
-        if((this.state.auto_list[ind].check_osago_expared == 0) || (t >= maxStep * intervalTime))
+        if(typeof(this.state.auto_list[ind]) == 'undefined')
+        {
+          console.log('clearInterval(' + id + ')')
+          check_osago = clearInterval(check_osago);
+        }
+        else if((this.state.auto_list[ind].check_osago_expared == 0) || (t >= maxStep * intervalTime))
         {
           console.log('clearInterval(' + id + ')')
           check_osago = clearInterval(check_osago);
@@ -1153,10 +1015,193 @@ class AutoList extends React.Component {
     }
   }
 
+  setCurrentInn = (item, index) => {
+    console.log('setCurrentInn. item = ')
+    console.log(item)
+    console.log('index = ' + index)
+
+    if(item.user_confirmed == 1 && item.phone_inn_confirmed == 1)
+    {
+      AsyncStorage.getItem('token').then((token) => {
+
+        Api.post('/set-current-inn', { token: token, current_inn: item.inn })
+           .then(res => {
+
+              const data = res.data;
+              console.log('data')
+              console.log(data);
+
+              this.setState({menuLeftVisible: false}, () => this.screenFocus())
+            })
+            .catch(error => {
+              console.log('error.response.status = ' + error.response.status);
+              if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+            });
+      });
+    }
+  }
+
+  changeAutoPassEndsValue = () => {
+    console.log('changeAutoPassEndsValue')
+
+    if(this.state.auto_pass_ends)
+    {
+      this.setState({auto_pass_ends: false, auto_pass_ends_until_date: '' }, () => this.findAuto()) 
+    }
+    else
+    {
+      this.setState({auto_pass_ends: true }, () => this.findAuto())
+    }
+  }
+
+  changeAutoPassEndsUntilDateValue = (value) => {
+    console.log('changeAutoPassEndsUntilDateValue | value = ' + value)
+
+    let value_new
+
+    if(value.match(/^[0-9]{2}$/i))
+    {
+      value_new = value + '.'
+    }
+    else if(value.match(/^[0-9]{2}\.[0-9]{2}$/i))
+    {
+      value_new = value + '.'
+    }
+    else if(value.match(/^[\.0-9]*$/i))
+    {
+      value_new = value
+    }
+
+    console.log('value_new.length = ', value_new.length)
+
+    if(value_new.length == 0)
+    {
+      this.setState({ auto_pass_ends_until_date: value_new, auto_pass_ends: false }, () => this.findAuto())
+    }
+    else if(value_new.length == 10)
+    {
+      this.setState({ auto_pass_ends_until_date: value_new, auto_pass_ends: true }, () => this.findAuto())
+    }
+    else
+    {
+      this.setState({ auto_pass_ends_until_date: value_new, auto_pass_ends: false })
+    }
+  };
+
+  setTabBgColor = (color) => {
+
+    let bgcolor;
+
+    if(this.state.modalViewContacts || 
+       this.state.modalAddAutoVisible ||
+       this.state.modalDelAutoVisible)
+    {
+      bgcolor = 'rgba(29,29,29, 0)'
+    }
+    else if(color == 'green')
+    {
+      bgcolor = "#E6FDDA"
+    }    
+    else if(color == 'red')
+    {
+      bgcolor = "#FFE7E7"
+    }
+    else if(color == 'yellow')
+    {
+      bgcolor = "#FAEEBA"
+    }
+    else if(color == 'white')
+    {
+      bgcolor = "#F7F7F7"
+    }    
+    
+    return bgcolor
+  }
+
+  setTabStyle = (color) => {      
+
+    return { flex: 3, alignItems: 'center', height: 29, backgroundColor: this.setTabBgColor(color), marginRight: 5 }
+  }
+
+  setTabUnderlay = (color) => {
+
+    let underlay_color;
+
+    if(color == 'green')
+    {
+      underlay_color = "#E6FDDA"
+    }    
+    else if(color == 'red')
+    {
+      underlay_color = "#FFE7E7"
+    }
+    else if(color == 'yellow')
+    {
+      underlay_color = "#FAEEBA"
+    }
+    else if(color == 'white')
+    {
+      underlay_color = "#F7F7F7"
+    }       
+
+    return underlay_color
+  }
+
+  showHideTab = (mode, ind) => {
+    console.log('showHideTab. ind = ' + ind)
+
+    let auto_list_new = this.state.auto_list
+
+    for (var i=0; i<auto_list_new.length; i++)
+    {
+      if(i == ind)
+      {
+        if(mode == 'fines')
+        {
+          auto_list_new[i].check_fines_tab_show = auto_list_new[i].check_fines_tab_show == 0 ? 1 : 0
+          auto_list_new[i].check_osago_tab_show = 0
+          auto_list_new[i].check_diagnostic_card_tab_show = 0
+        }
+        else if(mode == 'osago')
+        {
+          auto_list_new[i].check_fines_tab_show = 0
+          auto_list_new[i].check_osago_tab_show = auto_list_new[i].check_osago_tab_show == 0 ? 1 : 0
+          auto_list_new[i].check_diagnostic_card_tab_show = 0
+        }
+        else if(mode == 'diagnostic_card')
+        {
+          auto_list_new[i].check_fines_tab_show = 0
+          auto_list_new[i].check_osago_tab_show = 0
+          auto_list_new[i].check_diagnostic_card_tab_show = auto_list_new[i].check_diagnostic_card_tab_show == 0 ? 1 : 0
+        }
+      }
+    }
+
+    this.setState({auto_list: auto_list_new})
+  }  
+
+  setContainerStyle = () => {
+
+    let container_style     = styles.container
+    let container_style_new = {}
+
+    for (let key in container_style)
+    {
+      container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
+        this.state.modalViewContacts || 
+        this.state.modalAddAutoVisible ||
+        this.state.modalDelAutoVisible ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
+    }
+
+    return container_style_new
+  }
+
   screenFocus = () => {
     console.log('AutoList screenFocus')
 
-    this.setState({marked_cnt: 0})
+    this.onEndReachedCalledDuringMomentum = true;
+
+    this.setState({ marked_cnt: 0, auto_list: [], auto_list_count: 0, auto_list_from: 0 })        
 
     AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
@@ -1169,32 +1214,6 @@ class AutoList extends React.Component {
 
     //AsyncStorage.getItem('token').then((value) => this.getAutoList(value));
   }
-
-  /* */
-  renderUserItem = (item, index) => {
-
-    return (
-
-      <Pressable
-        key={item.id}
-        onPress={() => this.authAsUser(item, index)}
-      >
-        <View style={{ flexDirection: "row", marginLeft: 20, marginRight: 20, marginBottom: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}>
-          <View style={{
-            flex: 1,
-            flexDirection: "column",
-          }}>
-            <Text style={{ fontSize: 17, color: "#E8E8E8"}}>{ item.firm }</Text>
-            <Text style={{ fontSize: 15, color: "#AAABAD"}}>{ item.inn }</Text>
-          </View>
-        </View>
-      </Pressable>
-    );
-
-  }
-
-
-  /* */
 
   renderItem = ({item, index}) => {
 
@@ -1209,102 +1228,572 @@ class AutoList extends React.Component {
       >
         <View style={this.setItemStyle(index)}>
           <View style={{
-            flex: 3,
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: "column",
+              flexDirection: "row"
           }}>
-            <Image source={require('../images/truck.png')} style={styles.auto}/>
             <View style={{
-              flexDirection: "row",
+              flex: 8
+            }}>
+             <Text style={{ fontSize: 18, fontWeight: "bold", color: "#313131" }}>{item.auto_number_base}{item.auto_number_region_code}</Text>   
+            </View>
+            <View style={{
+              flex: 1,
+              alignItems: 'flex-end',
               justifyContent: 'flex-end',
             }}>
-              <Text style={{ fontSize: 14, color: "#C9A86B" }}>{item.auto_number_base}</Text>
-              <Image source={require('../images/line_11.png')} style={{ marginLeft: 5, marginRight: 5, marginTop: 10 }}/>
-              <View style={{
-                flexDirection: "column",
+              <TouchableHighlight
+                style={{ paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
+                activeOpacity={1}
+                underlayColor="#ffffff"                
+                onPress={() => {
+                  console.log('-> move to Auto')
+                  this.props.navigation.navigate('Auto', { auto_data: item })
               }}>
-                <Text style={{ fontSize: 12, color: "#C9A86B" }}>{item.auto_number_region_code}</Text>
-                <View style={{
-                  flexDirection: "row",
-                }}>
-                  <Text style={{ fontSize: 10, color: "#C9A86B" }}>RUS</Text>
-                  <Image source={require('../images/flag_rus.png')} style={{ width: 12, height: 8, }}/>
-                </View>
-              </View>
+                <Image source={require('../images/arrow_to_right_2.png')}/>
+              </TouchableHighlight>
             </View>
           </View>
           <View style={{
-            flex: 5,
-            flexDirection: "column",
-            paddingLeft: 10,
+              flexDirection: "row",
           }}>
+            <View style={{ borderBottomColor: "#DDDDDD", borderBottomWidth: 1, height: 10, width: "100%" }}></View>     
+          </View>
 
+          {/* текущие пропуска */}    
+          { item.check_passes_expared != 1 ? ( 
+          <>  
             <View style={{
-              flexDirection: "row",
-            }}>
-              { item.check_passes_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>Пропуск - проверяем </Text> ) : null }
-              { item.check_passes_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_passes_expared != 1 ? ( <Text style={styles[item.check_passes_year_period_color]}>Пропуск - {item.check_passes_string}</Text> ) : null }
-            </View>
-
-            <View style={{
-              flexDirection: "row",
-            }}>
-              { item.check_fines_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>Штрафы - проверяем </Text> ) : null }
-              { item.check_fines_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_fines_expared != 1 ? ( <Text style={{ color: "#E8E8E8"}}>Штрафы - {item.check_fines_string}</Text> ) : null }
-            </View>
-
-            <View style={{
-              flexDirection: "row",
-            }}>
-              { item.check_diagnostic_card_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>ДК - проверяем </Text> ) : null }
-              { item.check_diagnostic_card_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_diagnostic_card_expared != 1 ? ( <Text style={styles[item.check_diagnostic_card_period_color]}>ДК - {item.check_diagnostic_card_string}</Text> ) : null }
-            </View>
-
-            <View style={{
-              flexDirection: "row",
-            }}>
-              { item.check_osago_expared == 1 ? ( <Text style={{ color: "#E8E8E8"}}>ОСАГО - проверяем </Text> ) : null }
-              { item.check_osago_expared == 1 ? ( <ActivityIndicator size="small" color="#C9A86B" animating={true}/> ) : null }
-              { item.check_osago_expared != 1 ? ( <Text style={styles[item.check_osago_period_color]}>ОСАГО - {item.check_osago_string}</Text> ) : null }
-            </View>
-
-            { item.status_header != '' ? (
-              <View style={{
                 flexDirection: "row",
-              }}>
-                <Text style={{ color: "#C9A86B"}}>Статус подачи - {item.status_header} { item.stage_header != null ? ' ( ' + item.stage_header + ' )' : '' }</Text>
-              </View>
-            ) : null }
+                alignItems: "stretch",
+                marginTop: 10
+            }}>
 
-            { item.debt_sum != '0.00' ? (
+              <View style={[{
+                flex: 1,
+                alignItems: 'center',
+                height: 29,
+                padding: 5,
+                marginRight: 5
+              },
+              { backgroundColor: this.setTabBgColor('white') }]}>
+                <Image source={require('../images/pass_item.png')}/>
+              </View>  
+
+              { item.check_passes_year_propusktype != '' ? ( 
+              <>  
+                <View style={[{
+                  flex: 2,
+                  alignItems: 'center',
+                  height: 29,
+                  padding: 5,
+                  marginRight: 5
+                },
+                { backgroundColor: this.setTabBgColor('white') }]}>
+                  <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.check_passes_year_propusktype}</Text>
+                </View>
+                <View style={[{
+                  flex: 2,
+                  alignItems: 'center',
+                  height: 29,
+                  padding: 5,
+                  marginRight: 5
+                },
+                { backgroundColor: this.setTabBgColor('white') }]}>
+                  <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.check_passes_year_type_of_pass_string}</Text>
+                </View>
+
+                { item.check_passes_year_cancelled != 1 ? ( 
+                  <View style={[{
+                    flex: 3,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                  },
+                  { backgroundColor: this.setTabBgColor('green') }]}>
+                    <Text style={{ color: "#40882C" }}>Действителен</Text>
+                  </View> 
+                ) : (
+                  <View style={[{
+                    flex: 3,
+                    alignItems: 'center',
+                    height: 29,
+                    backgroundColor: "#FFE7E7",
+                    padding: 5,
+                  },
+                  { backgroundColor: this.setTabBgColor('red') } ]}>
+                    <Text style={{ color: "#D74747" }}>Аннулирован</Text>
+                  </View> 
+                ) }
+              </> ) : (
+              <View style={[{
+                  flex: 7,
+                  alignItems: 'center',
+                  height: 29,
+                  backgroundColor: "#F7F7F7",
+                  padding: 5,
+                },
+                { backgroundColor: this.setTabBgColor('white') }]}>
+                <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{ item.check_passes_string }</Text>
+              </View>   
+              ) }  
+
+            </View>
+
+            { item.check_passes_year_propusktype != '' ? ( 
+            <View style={{
+                flexDirection: "row",
+                alignItems: "stretch",
+                marginTop: 10
+            }}>
+              <View style={{
+                flex: 4,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_passes_year_period_color]}>{ item.check_passes_year_cancelled != 1 ? 'дней осталось: ' + item.check_passes_pass_end_left : 'был аннулирован'}</Text>
+              </View>
+              <View style={{
+                flex: 3,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_passes_year_period_color]}>{ item.check_passes_year_cancelled != 1 ? 'до ' + item.check_passes_pass_end_str : item.check_passes_dat_cancel_year_str }</Text>
+              </View>
+            </View> ) : null }
+
+            {/* еще один пропуск ( в случае наличия такового ) */}  
+            { item.check_passes_another_year_propusktype != '' ? ( 
               <>
                 <View style={{
-                  flexDirection: "row",
+                flexDirection: "row",
+                alignItems: "stretch",
+                marginTop: 10
                 }}>
-                  <Text style={{ color: "#EE505A"}}>Задолженность - {item.debt_sum} руб</Text>
+              <View style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  height: 29,
+                  padding: 5,
+                  marginRight: 5
+                }}>
+              </View>                    
+                  <View style={[{
+                    flex: 2,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                    marginRight: 5
+                  },
+                  { backgroundColor: this.setTabBgColor('white') }]}>
+                    <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.check_passes_another_year_propusktype}</Text>
+                  </View>
+                  <View style={[{
+                    flex: 2,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                    marginRight: 5
+                  },
+                  { backgroundColor: this.setTabBgColor('white') }]}>
+                    <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.check_passes_another_year_type_of_pass_string}</Text>
+                  </View>
+                  <View style={[{
+                      flex: 3,
+                      alignItems: 'center',
+                      height: 29,
+                      padding: 5,
+                    },
+                    { backgroundColor: this.setTabBgColor('green') }]}>
+                    <Text style={{ color: "#40882C" }}>Действителен</Text>
+                  </View>     
+                </View>              
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "stretch",
+                  marginTop: 10
+                }}>
+                  <View style={{
+                    flex: 4,
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{ color: '#40882C' }}>{ 'дней осталось: ' + item.check_passes_another_pass_end_left }</Text>
+                  </View>
+                  <View style={{
+                    flex: 3,
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{ color: '#40882C' }}>{ 'до ' + item.check_passes_another_pass_end_str }</Text>
+                  </View>
                 </View>
               </>
             ) : null }
+            
+          </>   ) : (
+
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+
+            <View style={[{
+                flex: 1,
+                alignItems: 'center',
+                height: 29,
+                padding: 5,
+                marginRight: 5
+              },
+              { backgroundColor: this.setTabBgColor('white') }]}>
+              <Image source={require('../images/pass_item.png')}/>
+            </View>  
+
+            <View style={[{
+                flex: 2,
+                alignItems: 'center',
+                height: 29,
+                padding: 5,
+                marginRight: 5
+              },
+              { backgroundColor: this.setTabBgColor('white') }]}>
+              <View style={{ 
+                alignItems: 'center',
+                flexDirection: "row"
+              }}>
+                <ActivityIndicator size="small" color="#313131" animating={true}/> 
+                <Text style={{ fontSize: 14, color: "#3A3A3A", paddingLeft: 10 }}>проверяем пропуск</Text>
+              </View>  
+            </View>
 
           </View>
+
+          ) }
+
+          {/* статус заявки */}    
+          { item.status_header != '' ? ( 
+          <View style={{
+            flexDirection: "row",
+            alignItems: "stretch",
+            marginTop: 10
+          }}>              
+            <View style={[{
+              flex: 3,
+              alignItems: 'center',
+              height: 29,
+              padding: 5,
+              marginRight: 5
+            },
+            { backgroundColor: this.setTabBgColor('white') }]}>
+              <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.status_propusktype}</Text>
+            </View>
+            <View style={[{
+              flex: 2,
+              alignItems: 'center',
+              height: 29,
+              padding: 5,
+              marginRight: 5
+            },
+            { backgroundColor: this.setTabBgColor('white') }]}>
+              <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.status_type_of_pass_string}</Text>
+            </View>
+            <View style={[{
+              flex: 3,
+              alignItems: 'center',
+              height: 29,
+              padding: 5,
+            },
+            { backgroundColor: this.setTabBgColor('yellow') }]}>
+              <Text style={{ fontSize: 14, color: "#705B00" }}>{ item.status_header }</Text>
+            </View>             
+          </View> ) : null }
+
+          {/* задолженность */}  
+          { item.debt_sum != '0.00' ? ( 
+            <View style={{
+                flexDirection: "row",
+                alignItems: "stretch",
+                marginTop: 10
+            }}>
+              <View style={{
+                flex: 4,
+                alignItems: 'center',
+              }}>
+                <View style={{
+                  alignItems: 'center',
+                  flexDirection: "row",
+                }}>
+                  <Image source={require('../images/alert-circle.png')}/>
+                  <Text style={styles.red}> задолженность</Text>
+                </View>
+              </View>
+              <View style={{
+                flex: 3,
+                alignItems: 'center'
+              }}>
+                <Text style={styles.red}>{ item.debt_sum }₽</Text>
+              </View>
+            </View> ) : null }          
+
+          <View style={{
+              flexDirection: "row",
+          }}>
+            <View style={{ borderBottomColor: "#DDDDDD", borderBottomWidth: 1, height: 10, width: "100%" }}></View>     
+          </View>
+
+          {/* штрафы - осаго - дк */}  
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+            { item.check_fines_expared != 1 ? ( 
+              <View style={this.setTabStyle(item.check_fines_color)}>
+                <TouchableHighlight style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}
+                  activeOpacity={1}
+                  underlayColor={this.setTabUnderlay(item.check_fines_color)}
+                  onPress={() => this.showHideTab('fines', index) }>   
+                  <>           
+                    <Text style={styles[item.check_fines_color]}>Штрафы</Text>
+                    { item.check_fines_tab_show != 0 ? ( 
+                      <Image source={require('../images/arrow_hide.png')}/>
+                    ) : (
+                      <Image source={require('../images/arrow_show.png')}/>
+                    ) }
+                  </>
+                </TouchableHighlight> 
+              </View> ) : (
+              <View style={this.setTabStyle('white')}>
+                <View style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}>          
+                    <Text style={{ color: "#3A3A3A", paddingRight: 5 }}>Штрафы</Text>
+                    <ActivityIndicator size="small" color="#313131" animating={true}/> 
+                </View> 
+              </View>
+            ) }
+
+            { item.check_osago_expared != 1 ? (       
+              <View style={this.setTabStyle(item.check_osago_period_color)}>
+                <TouchableHighlight
+                  style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}
+                  activeOpacity={1}
+                  underlayColor={this.setTabUnderlay(item.check_osago_period_color)}
+                  onPress={() => this.showHideTab('osago', index) }>   
+                  <>           
+                    <Text style={styles[item.check_osago_period_color]}>ОСАГО</Text>
+                    { item.check_osago_tab_show != 0 ? ( 
+                      <Image source={require('../images/arrow_hide.png')}/>
+                    ) : (
+                      <Image source={require('../images/arrow_show.png')}/>
+                    ) }
+                  </>
+                </TouchableHighlight>
+              </View> ) : (
+              <View style={this.setTabStyle('white')}>
+                <View style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}>          
+                    <Text style={{ color: "#3A3A3A", paddingRight: 5 }}>ОСАГО</Text>
+                    <ActivityIndicator size="small" color="#313131" animating={true}/> 
+                </View> 
+              </View>
+            ) }
+
+            { item.check_diagnostic_card_expared != 1 ? (         
+              <View style={this.setTabStyle(item.check_diagnostic_card_period_color)}>
+                <TouchableHighlight
+                  style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}
+                  activeOpacity={1}
+                  underlayColor={this.setTabUnderlay(item.check_diagnostic_card_period_color)}
+                  onPress={() => this.showHideTab('diagnostic_card', index) }>   
+                  <>           
+                    <Text style={styles[item.check_diagnostic_card_period_color]}>ДК</Text>
+                    { item.check_diagnostic_card_tab_show != 0 ? ( 
+                      <Image source={require('../images/arrow_hide.png')}/>
+                    ) : (
+                      <Image source={require('../images/arrow_show.png')}/>
+                    ) }
+                  </>
+                </TouchableHighlight>
+              </View> ) : (
+              <View style={this.setTabStyle('white')}>
+                <View style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}>          
+                    <Text style={{ color: "#3A3A3A", paddingRight: 5 }}>ДК</Text>
+                    <ActivityIndicator size="small" color="#313131" animating={true}/> 
+                </View> 
+              </View>
+            ) }
+
+          </View>      
+
+          {/* штрафы */}    
+          { item.check_fines_tab_show != 0 ? (     
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+            <View style={{
+              flex: 7,
+              alignItems: 'center'
+            }}>
+              <Text style={styles[item.check_fines_color]}>{ item.check_fines_string }</Text>
+            </View>
+          </View>) : null }
+
+          {/* осаго */}     
+          { item.check_osago_tab_show != 0 ? (     
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+            { item.check_osago_date_to_left != '' ? (
+            <>  
+              <View style={{
+                flex: 4,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_osago_period_color]}>{ 'дней осталось: ' + item.check_osago_date_to_left }</Text>
+              </View>
+              <View style={{
+                flex: 3,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_osago_period_color]}>{ 'до ' + item.check_osago_date_to_str }</Text>
+              </View>  
+            </>  
+            ) : (          
+            <View style={{
+              flex: 7,
+              alignItems: 'center'
+            }}>
+              <Text style={styles[item.check_osago_period_color]}>{ item.check_osago_string }</Text>
+            </View>
+            ) }
+          </View>) : null }     
+
+          {/* дк */}     
+          { item.check_diagnostic_card_tab_show != 0 ? (     
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+            { item.check_diagnostic_card_date_to_left != '' ? (
+            <>  
+              <View style={{
+                flex: 4,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_diagnostic_card_period_color]}>{ 'дней осталось: ' + item.check_diagnostic_card_date_to_left }</Text>
+              </View>
+              <View style={{
+                flex: 3,
+                alignItems: 'center'
+              }}>
+                <Text style={styles[item.check_diagnostic_card_period_color]}>{ 'до ' + item.check_diagnostic_card_date_to_str }</Text>
+              </View>  
+            </>  
+            ) : (          
+            <View style={{
+              flex: 7,
+              alignItems: 'center'
+            }}>
+              <Text style={styles[item.check_diagnostic_card_period_color]}>{ item.check_diagnostic_card_string }</Text>
+            </View>
+            ) }
+          </View>) : null }                    
+
+        </View>
+      </Pressable>
+    );
+  }
+
+  renderOtherUserItem = (item, index) => {
+
+    return (
+
+      <Pressable style={{
+        paddingTop: 10,
+        paddingBottom: 10,
+      }}
+        key={item.id}
+        onPress={() => this.setCurrentInn(item, index)}
+      >
+        <View style={{
+          flexDirection: "row",
+          alignItems: "stretch"
+        }}>              
           <View style={{
             flex: 1,
-            alignItems: 'flex-end',
-            justifyContent: 'flex-end',
+            alignItems: 'center',
+            padding: 5
           }}>
-            <TouchableHighlight
-              style={{ paddingTop: 20, paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
-              onPress={() => {
-                console.log('-> move to Auto')
-                this.props.navigation.navigate('Auto', { auto_data: item })
-            }}>
-              <Image source={require('../images/emojione-v1_right-arrow.png')}/>
-            </TouchableHighlight>
+            <>
+              <Image source={require('../images/menu_left_other_user.png')} />
+              { item.notification_unviewed_count > 0 ? (
+                <View style={{ 
+                  flexDirection: "row",
+                  position: 'absolute',
+                  top: 17,
+                  left: 17, 
+                  backgroundColor: '#EE505A', 
+                  borderRadius: 12
+                }}>
+                  <Text style={{ 
+                    flex: 1,
+                    textAlign: "center",
+                    fontSize: 12,
+                    fontWeight: "bold", 
+                    color: "#FFFFFF",
+                    margin: 2
+                  }} numberOfLines={1}>{ item.notification_unviewed_count }</Text>
+                </View> ) : null
+              }
+            </>
           </View>
+          <View style={{
+            flex: 7,
+            alignItems: 'left',
+            paddingLeft: 10,
+          }}>
+
+            { item.user_confirmed == 1 && item.phone_inn_confirmed == 1 ? (
+                <>
+                  <Text style={{ fontSize: 14, fontWeight: "bold", color: "#3A3A3A" }}>{item.firm}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "normal", color: "#3A3A3A" }}>инн: {item.inn}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "normal", color: "#3A3A3A" }}>количество авто: {item.user_auto_count}</Text>
+                </> 
+              ) : (
+                <>
+                  <Text style={{ fontSize: 14, fontWeight: "normal", color: "#656565" }}>{item.firm}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "normal", color: "#656565" }}>инн: {item.inn}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "normal", color: "#3A3A3A" }}>количество авто: {item.user_auto_count}</Text>
+                </> 
+              )
+            }
+
+            { item.user_confirmed == 0 ? (
+                <Text style={{ fontSize: 12, fontWeight: "normal", color: "#656565" }}>инн ожидает подтверждения</Text>
+              ) : null
+            }
+
+            { item.phone_inn_confirmed == 0 ? (
+                <Text style={{ fontSize: 12, fontWeight: "normal", color: "#656565" }}>телефон ожидает подтверждения</Text>
+              ) : null
+            }            
+          </View>            
         </View>
       </Pressable>
     );
@@ -1313,7 +1802,7 @@ class AutoList extends React.Component {
   render() {
     return (
 
-      <View style={styles.container}>
+      <View style={this.setContainerStyle()}>
 
         { Object.keys(this.state.user_data).length != 0 ? ( <Text style={styles.header}>Мой автопарк</Text> ) : null }
         { Object.keys(this.state.user_data).length != 0 && Object.keys(this.state.manager_data).length != 0 ? (
@@ -1322,107 +1811,242 @@ class AutoList extends React.Component {
 
         { this.state.auto_list.length != 0 ? (
             <TouchableHighlight
-              style={styles.header_back}
+              style={styles.header_filter}
+              activeOpacity={1}
+              underlayColor="#ffffff"
               onPress={() => {
                 console.log('find auto')
                 this.setState({findAutoVisible: !this.state.findAutoVisible})
               }}>
               { this.state.findAutoVisible ? (
-                  <Image source={require('../images/filter_open.png')} />
+                  <Image source={require('../images/filter_2_open.png')} />
                 ) : (
-                  <Image source={require('../images/filter.png')} />
+                  <Image source={require('../images/filter_2.png')} />
                 )
               }
             </TouchableHighlight>
           ) : null
         }
 
-        {/*
-        <TouchableHighlight
-          style={styles.header_back}
-          onPress={() => {
-            console.log('-> move to Main')
-            this.props.navigation.navigate('Main')
-          }}>
-          <Image source={require('../images/back.png')} />
-        </TouchableHighlight>
-        */}
 
+        { this.state.indicator == false ? (
+          <TouchableHighlight
+              style={styles.header_back}
+              activeOpacity={1}
+              underlayColor="#ffffff"
+              onPress={() => {
+                console.log('-> call MenuLeft')
+                this.setState({menuLeftVisible: true})
+              }}>
+              { this.state.user_data.other_user_notification_unviewed_count > 0 ? (  
+                  <Image source={require('../images/menu_left_notification_unviewed.png')} /> 
+                ) : (
+                  <Image source={require('../images/menu_left.png')} /> 
+                )
+              }
+          </TouchableHighlight> ) : null
+        }
 
-        {/* модальное окно событий */}
+        { ( this.state.indicator == false ) && ( typeof(this.state.user_data) != 'undefined' ) ? (
+          <TouchableHighlight
+            style={styles.header_onboarding}
+            activeOpacity={1}
+            underlayColor="#ffffff"
+            onPress={() => {
+              console.log('-> move to NotificationList')
+              this.props.navigation.navigate('NotificationList')
+            }}>
+              <>
+                <Image source={require('../images/notification.png')} />
+                { this.state.user_data.notification_unviewed_count > 0 ? (
+                <View style={{ 
+                  flexDirection: "row",
+                  position: 'absolute',
+                  top: 10,
+                  left: 22, 
+                  backgroundColor: '#EE505A', 
+                  borderRadius: 12
+                }}>
+                  <Text style={{ 
+                    flex: 1,
+                    textAlign: "center",
+                    fontSize: 12,
+                    fontWeight: "bold", 
+                    color: "#FFFFFF",
+                    margin: 2
+                  }} numberOfLines={1}>{ this.state.user_data.notification_unviewed_count }</Text>
+                </View> ) : null
+                }
+              </>
+          </TouchableHighlight> ) : null
+        }
+
+        {/* левое меню */}
         <Modal
-          animationType="slide"
-          transparent={true}
-          visible={this.state.modalUserEventVisible}
-          onRequestClose={() => {
-            //Alert.alert("Modal has been closed.");
-            this.setState({modalUserEventVisible: false})
+          isVisible={this.state.menuLeftVisible}
+          animationIn="slideInLeft"
+          animationOut="slideOutLeft"
+          onBackButtonPress={() => this.setState({menuLeftVisible: false})}
+          onBackdropPress={() => this.setState({menuLeftVisible: false})}
+          style={{
+            //justifyContent: 'flex-end',
+            flex: 1,
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            margin: 0,
           }}
         >
+          <View style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
             <View style={{
-              flex: 1,
-              alignItems: 'center',
-              justifyContent: 'center',
+              backgroundColor: '#FFFFFF',
+              alignItems: 'stretch',
+              justifyContent: 'top',
+              position: 'absolute',
+              left: 0,
+              width: 300,
+              height: '100%',
             }}>
-
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
-                borderRadius: 25,
+                backgroundColor: '#B8B8B8',
                 alignItems: 'stretch',
                 justifyContent: 'center',
-                //marginTop: 70
+                //position: 'absolute',
+                //top: 0,
+                width: '100%'
               }}>
 
-                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Для автомобиля №{this.state.user_event_data.auto_number}</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "bold", color: "#FFFFFF" }}>{this.state.user_data.firm}</Text>
 
-                { this.state.user_event_data.type == 'pass_year_cancelled' || this.state.user_event_data.type == 'pass_year_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>Пропуск - {this.state.user_event_data.string}</Text>) : null }
+                <Text style={{ paddingLeft: 16, paddingRight: 16, fontSize: 12, fontWeight: "bold", color: "#FFFFFF" }}>инн: {this.state.user_data.inn}</Text>
 
-                { this.state.user_event_data.type == 'diagnostic_card_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>ДК - {this.state.user_event_data.string}</Text>) : null }
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 24, paddingTop: 10, fontSize: 12, fontWeight: "normal", color: "#FFFFFF" }}>+{this.state.user_data.phone}</Text>
+              </View>
 
-                { this.state.user_event_data.type == 'osago_ending' ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#E8E8E8" }}>ОСАГО - {this.state.user_event_data.string}</Text>) : null }
-
+              {/* компании с другими инн, привязанные к телефону клиента */}  
+              <View>
+                {this.state.other_user_list.map((item, index) => this.renderOtherUserItem(item, index))}
+              </View>
+            
+              <TouchableHighlight 
+                style={{ paddingTop: 20, borderTopWidth: 1, borderTopColor: '#B8B8B8' }}
+                activeOpacity={1}
+                underlayColor='#FFFFFF'
+                onPress={() => {
+                  console.log('add account')
+                  this.setState({menuLeftVisible: false})
+                  this.props.navigation.navigate('Inn', { user_data: this.state.user_data })
+                }}
+                >
                 <View style={{
-                  //flex: 1,
-                  //backgroundColor: 'grey',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
+                  flexDirection: "row",
+                  alignItems: "stretch"
+                }}>              
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                    //backgroundColor: "#B8B8B8"
+                  }}>
+                    <Image source={require('../images/menu_left_add.png')} />
+                  </View>
+                  <View style={{
+                    flex: 7,
+                    alignItems: 'left',
+                    height: 29,
+                    paddingTop: 5,
+                    paddingBottom: 5,
+                    paddingLeft: 10,
+                    //backgroundColor: "grey",
+                  }}>
+                    <Text style={{ fontSize: 14, fontWeight: "bold", color: "#3A3A3A" }}>Добавить аккаунт</Text>
+                  </View>            
+                </View>
+              </TouchableHighlight>
 
+              <TouchableHighlight 
+                style={{ paddingTop: 20 }}
+                activeOpacity={1}
+                underlayColor='#FFFFFF'
+                onPress={() => {
+                  console.log('driver list')
+                  this.setState({menuLeftVisible: false})
+                  this.props.navigation.navigate('DriverList')
+                }}
+                >
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "stretch"
+                }}>              
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                    //backgroundColor: "#B8B8B8"
+                  }}>
+                    <Image source={require('../images/menu_left_driver_list.png')} />
+                  </View>
+                  <View style={{
+                    flex: 7,
+                    alignItems: 'left',
+                    height: 29,
+                    paddingTop: 5,
+                    paddingBottom: 5,
+                    paddingLeft: 10,
+                    //backgroundColor: "grey",
+                  }}>
+                    <Text style={{ fontSize: 14, fontWeight: "bold", color: "#3A3A3A" }}>Список водителей</Text>
+                  </View>            
+                </View>
+              </TouchableHighlight>
+
+              { this.state.onboarding_expired == 0 ? (
+                <TouchableHighlight 
+                  style={{ paddingTop: 20 }}
+                  activeOpacity={1}
+                  underlayColor='#FFFFFF'
+                  onPress={() => {
+                    console.log('-> move to OnBoarding')
+                    this.setState({menuLeftVisible: false})
+                    this.props.navigation.navigate('OnBoarding')
+                  }}
+                  >
                   <View style={{
                     flexDirection: "row",
-                    //width: 370,
-                  }}>
+                    alignItems: "stretch"
+                  }}>              
                     <View style={{
                       flex: 1,
-                      height: 100,
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      height: 29,
+                      padding: 5,
+                      //backgroundColor: "#B8B8B8"
                     }}>
-                      <TouchableOpacity
-                        style={{
-            							height: 50,
-            							fontSize: 10,
-            							margin: 25,
-            							borderRadius: 5,
-            							alignItems: 'center',
-            							justifyContent: 'center',
-            							backgroundColor: '#FEE600' }}
-                        onPress={() => {
-                            console.log('user_next_event')
-                            AsyncStorage.getItem('token').then((value) => this.modalUserNextEvent(value));
-                          }
-                        }
-                      >
-                        <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: '#2B2D33' }}>Закрыть</Text>
-                      </TouchableOpacity>
+                      <Image source={require('../images/menu_left_onboarding.png')} />
                     </View>
+                    <View style={{
+                      flex: 7,
+                      alignItems: 'left',
+                      height: 29,
+                      paddingTop: 5,
+                      paddingBottom: 5,
+                      paddingLeft: 10,
+                      //backgroundColor: "grey",
+                    }}>
+                      <Text style={{ fontSize: 14, fontWeight: "bold", color: "#3A3A3A" }}>Как работать в приложении?</Text>
+                    </View>            
                   </View>
+                </TouchableHighlight> ) : null
+              }
 
-                </View>
-              </View>
             </View>
-
+          </View>
         </Modal>
 
         {/* модальное окно подтверждения удаления авто */}
@@ -1443,14 +2067,16 @@ class AutoList extends React.Component {
 
             <View style={{
               //flex: 1,
-              backgroundColor: '#8C8C8C',
+              backgroundColor: '#FFFFFF',
               borderRadius: 25,
               alignItems: 'stretch',
               justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
               //marginTop: 70
             }}>
 
-              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Удалить {this.state.marked_cnt} авто? Действие нельзя будет отменить</Text>
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Удалить {this.state.marked_cnt} авто? Действие нельзя будет отменить</Text>
 
               <View style={{
                 //flex: 1,
@@ -1470,12 +2096,12 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                       onPress={() =>  {
                         console.log('call del_auto')
                         AsyncStorage.getItem('token').then((value) => this.delAuto(value));
                       }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{
@@ -1487,7 +2113,7 @@ class AutoList extends React.Component {
                     <TouchableOpacity
                       style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
                       onPress={() =>  { this.setState({modalDelAutoVisible: false}) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#313131" }}>Отменить</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1513,16 +2139,18 @@ class AutoList extends React.Component {
               flex: 1,
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 50,
+              marginTop: 20,
               marginBottom: 20,
             }}>
 
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#FFFFFF',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
+                borderWidth: 1, 
+                borderColor: "#B8B8B8",
                 //marginTop: 70
               }}>
 
@@ -1533,7 +2161,7 @@ class AutoList extends React.Component {
                     flex: 5,
                     alignItems: 'flex-start',
                   }}>
-                    <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Добавить авто</Text>
+                    <Text style={{ paddingLeft: 16, paddingTop: 26, fontSize: 24, fontWeight: "bold", color: "#313131" }}>Добавить авто</Text>
                   </View>
                   <View style={{
                     flex: 1,
@@ -1541,13 +2169,15 @@ class AutoList extends React.Component {
                   }}>
                     <TouchableHighlight
                       style={{ padding: 30 }}
+                      activeOpacity={1}
+                      underlayColor='#FFFFFF'
                       onPress={() => this.modalAddAutoCancel()}>
-                      <Image source={require('../images/xclose.png')} />
+                      <Image source={require('../images/xclose_2.png')} />
                     </TouchableHighlight>
                   </View>
                 </View>
 
-                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Добавьте данные автомобиля и Вы сможете проверить сроки действия пропусков, полиса ОСАГО, диагностической карты, наличие штрафов, а также подать заявку на получение пропуска:</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 14, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Добавьте данные автомобиля и Вы сможете подать заявку на получение пропуска. {"\n"}{"\n"} Проверяйте сроки действия пропусков, полиса ОСАГО, диагностической карты, наличие штрафов по Вашему автомобилю</Text>
 
                 <View style={{
                   //flex: 1,
@@ -1557,18 +2187,20 @@ class AutoList extends React.Component {
                 }}>
 
                   <View style={{
-                    backgroundColor: '#4C4C4C',
+                    backgroundColor: '#F7F7F7',
                     borderRadius: 25,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginTop: 24,
-                    paddingTop: 24,
-                    paddingBottom: 24,
+                    paddingTop: 14,
+                    paddingBottom: 14,
                     paddingLeft: 10,
                     paddingRight: 10,
                     alignItems: 'flex-start',
+                    borderWidth: 1, 
+                    borderColor: "#B8B8B8",
                   }}>
-                    <Text style={{ fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Государственный регистрационный знак:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "normal", color: "#313131" }}>Государственный регистрационный знак:</Text>
                     <View style={{
                       alignItems: 'center',
                       paddingTop: 20,
@@ -1580,12 +2212,14 @@ class AutoList extends React.Component {
                       }}>
                         <View style={{
                           flex: 188,
-                          backgroundColor: '#E8E8E8',
+                          backgroundColor: '#FFFFFF',
                           height: 80,
                           borderBottomLeftRadius: 8,
                           borderTopLeftRadius: 8,
                           alignItems: 'center',
                           justifyContent: 'center',
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8",
                         }}>
                           <TextInput
                             style={{ paddingTop: 5, fontSize: 34 }}
@@ -1596,19 +2230,21 @@ class AutoList extends React.Component {
                           />
                         </View>
                         <View style={{
-                          flex: 3,
-                          backgroundColor: '#2c2c2c',
+                          flex: 1,
+                          backgroundColor: '#B8B8B8',
                           height: 80,
                         }}>
                         </View>
                         <View style={{
                           flex: 114,
                           flexDirection: "column",
-                          backgroundColor: '#E8E8E8',
+                          backgroundColor: '#FFFFFF',
                           height: 80,
                           borderBottomRightRadius: 8,
                           borderTopRightRadius: 8,
                           alignItems: 'center',
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8",
                         }}>
                           <TextInput
                             keyboardType='numeric'
@@ -1633,18 +2269,20 @@ class AutoList extends React.Component {
                   </View>
 
                   <View style={{
-                    backgroundColor: '#4C4C4C',
+                    backgroundColor: '#F7F7F7',
                     borderRadius: 25,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginTop: 24,
-                    paddingTop: 24,
-                    paddingBottom: 24,
+                    paddingTop: 14,
+                    paddingBottom: 14,
                     paddingLeft: 10,
                     paddingRight: 10,
                     alignItems: 'flex-start',
+                    borderWidth: 1, 
+                    borderColor: "#B8B8B8",
                   }}>
-                    <Text style={{ fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Свидетельство о регистрации ТС:</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "normal", color: "#313131" }}>Свидетельство о регистрации ТС:</Text>
                     <View style={{
                       alignItems: 'center',
                       paddingTop: 20,
@@ -1657,7 +2295,7 @@ class AutoList extends React.Component {
 
                         {
                           this.state.sts_by_auto_number_indicator ? (
-                            <ActivityIndicator size="large" color="#C9A86B" animating={true}/>
+                            <ActivityIndicator size="large" color="#313131" animating={true}/>
                           ) : (
                             <ImageBackground source={require('../images/scale_2400_1.png')} resizeMode="cover" style={{ width: 305, height: 80, alignItems: 'center', justifyContent: 'center' }}>
                             <TextInput
@@ -1682,7 +2320,7 @@ class AutoList extends React.Component {
                   }}>
                     <View style={{
                       flex: 1,
-                      height: 100,
+                      height: 110,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
@@ -1706,266 +2344,185 @@ class AutoList extends React.Component {
           </ScrollView>
         </Modal>
 
-        {/* модальное окно выбора клиента ( режим менеджера ) */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={this.state.modalSelectUserVisible}
-          onRequestClose={() => {
-            //Alert.alert("Modal has been closed.");
-            this.setState({modalSelectUserVisible: false})
-          }}
-        >
-          <ScrollView>
-            <View style={{
-              flex: 1,
-              marginTop: 50,
-              marginBottom: 20,
-              backgroundColor: '#8C8C8C',
-              borderRadius: 25,
-              alignItems: 'stretch',
-              justifyContent: 'center',
-              paddingBottom: 20,
-              //marginTop: 70
-            }}>
-
-              <View style={{
-                flex: 1,
-                flexDirection: "row",
-              }}>
-                <View style={{
-                  flex: 4,
-                  alignItems: 'flex-start',
-                }}>
-                  <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Организации</Text>
-                </View>
-                <View style={{
-                  flex: 1,
-                  alignItems: 'flex-start',
-                }}>
-                  <TouchableHighlight
-                    style={{ padding: 28 }}
-                    onPress={() => this.setState({editUserVisible: !this.state.editUserVisible, editUserMsg: ''})}
-                    >
-                    { this.state.editUserVisible ?
-                      ( <Image source={require('../images/minus.png')} /> ) :
-                      ( <Image source={require('../images/plus.png')} /> )
-                    }
-                  </TouchableHighlight>
-                </View>
-                <View style={{
-                  flex: 1,
-                  alignItems: 'flex-end',
-                }}>
-
-                  { Object.keys(this.state.user_data).length != 0 ? (
-                      <TouchableHighlight
-                        style={{ padding: 30 }}
-                        onPress={() => this.modalSelectUserCancel()}>
-                        <Image source={require('../images/xclose.png')} />
-                      </TouchableHighlight>
-                    ) : null }
-
-                </View>
-              </View>
-
-
-              { this.state.editUserVisible ? (
-                  <>
-                    {/* форма добавления клиента */}
-                    <View style={{
-                      //flex: 1,
-                      backgroundColor: '#4C4C4C',
-                      borderRadius: 25,
-                      alignItems: 'stretch',
-                      justifyContent: 'center',
-                      margin: 16,
-                      //marginTop: 70
-                    }}>
-
-                      <View style={{
-                        alignItems: 'stretch',
-                        paddingTop: 20,
-                        paddingLeft: 20,
-                        paddingRight: 20,
-                      }}>
-                        <TextInput
-                          style={{ height: 55, fontSize: 20, borderBottomColor: '#E9EAEA', borderBottomWidth: 1, color: "#E8E8E8" }}
-                          placeholder = 'Название организации'
-                          placeholderTextColor={'#8C8C8C'}
-                          onChangeText={(value) => this.changeEditUserValue(value, 'firm')}
-                          value={this.state.user_edit_data.firm}
-                        />
-                      </View>
-                      <View style={{
-                        alignItems: 'stretch',
-                        paddingTop: 20,
-                        paddingLeft: 20,
-                        paddingRight: 20,
-                      }}>
-                        <TextInput
-                          style={{ height: 55, fontSize: 20, borderBottomColor: '#E9EAEA', borderBottomWidth: 1, color: "#E8E8E8" }}
-                          placeholder = 'ИНН'
-                          placeholderTextColor={'#8C8C8C'}
-                          onChangeText={(value) => this.changeEditUserValue(value, 'inn')}
-                          value={this.state.user_edit_data.inn}
-                        />
-                      </View>
-                      <View style={{
-                        alignItems: 'stretch',
-                        paddingTop: 20,
-                        paddingLeft: 20,
-                        paddingRight: 20,
-                        paddingBottom: 20,
-                      }}>
-                        <TextInput
-                          style={{ height: 55, fontSize: 20, borderBottomColor: '#E9EAEA', borderBottomWidth: 1, color: "#E8E8E8" }}
-                          placeholder = 'Номер телефона'
-                          placeholderTextColor={'#8C8C8C'}
-                          onChangeText={(value) => this.changeEditUserValue(value, 'phone')}
-                          value={this.state.user_edit_data.phone}
-                        />
-                      </View>
-
-                      <View style={{
-                        alignItems: 'stretch',
-                        paddingLeft: 20,
-                        paddingRight: 20,
-                        paddingBottom: 20,
-                      }}>
-                        <Text style={{ fontSize: 16, fontWeight: "normal", color: "#960000" }}>{this.state.editUserMsg}</Text>
-                      </View>
-
-                    </View>
-
-                    <View style={{
-                      flexDirection: "row",
-                    }}>
-                      <View style={{
-                        flex: 1,
-                        height: 100,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <TouchableOpacity
-                          disabled={this.state.editUserButtonDisabled}
-                          style={this.setEditUserButtonStyle()}
-                          onPress={() =>  {
-                            console.log('call edit_user')
-                            AsyncStorage.getItem('token').then((value) => this.editUser(value));
-                          }}
-                          >
-                          <Text style={this.setEditUserButtonTextStyle()}>{ this.state.editUserMode == 'add' ? 'Добавить' : 'Сохранить' }</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </> ) : (
-                  <>
-                    {/* поисковая строка */}
-                    <View style={{
-                      flexDirection: "row",
-                      backgroundColor: '#4C4C4C',
-                      borderRadius: 25,
-                      marginLeft: 30,
-                      marginRight: 30,
-                      marginBottom: 20,
-                      height: 50,
-                    }}>
-                      <View style={{
-                        flex: 5,
-                        justifyContent: 'center',
-                      }}>
-                        <TextInput
-                          ref="userInput"
-                          style={{ paddingLeft: 20, fontSize: 16, color: "#E8E8E8" }}
-                          placeholder = 'введите инн или название'
-                          placeholderTextColor={'#E8E8E8'}
-                          onChangeText={this.changeUserStr}
-                          value={this.state.user_str}
-                        />
-                      </View>
-                      <View style={{
-                        flex: 1,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <TouchableHighlight
-                          onPress={() => this.clearUserStr()}
-                          >
-                          <Image source={require('../images/clear.png')} />
-                        </TouchableHighlight>
-                      </View>
-                    </View>
-
-                    {/* список клиентов */}
-                    <View>
-                      {this.state.user_list.map((item, index) => this.renderUserItem(item, index))}
-                    </View>
-
-                    { this.state.user_list.length == 0 ? (
-                        <Text style={{ paddingLeft: 30, color: "#E8E8E8" }}>{ this.state.user_list_empty_str }</Text>
-                      ) : null
-                    }
-
-                  </> )
-              }
-
-            </View>
-
-          </ScrollView>
-        </Modal>
-
         {/*  фильтр по авто */}
         { this.state.findAutoVisible ? (
-            <View style={{
-              flexDirection: "row",
-              backgroundColor: '#4C4C4C',
-              borderRadius: 25,
-              marginLeft: 30,
-              marginRight: 30,
-              marginTop: 20,
-              height: 50
-            }}>
+
+            <View style={[{
+              flexDirection: "column",
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "#B8B8B8",
+              marginLeft: 20,
+              marginRight: 20,
+              marginTop: 20 }, 
+              {
+                backgroundColor: this.state.modalViewContacts || 
+                                 this.state.modalAddAutoVisible ||
+                                 this.state.modalDelAutoVisible ? 'rgba(29,29,29, 0)' : "#FFFFFF"
+              } 
+            ]}>            
               <View style={{
-                flex: 5,
-                justifyContent: 'center',
+                flexDirection: "row",
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: "#B8B8B8",
+                marginLeft: 20,
+                marginRight: 20,
+                marginTop: 20,
+                marginBottom: 15,
+                height: 50
               }}>
-                <TextInput
-                  ref="autoInput"
-                  style={{ paddingLeft: 20, fontSize: 16, color: "#E8E8E8" }}
-                  placeholder = 'введите номер авто'
-                  placeholderTextColor={'#E8E8E8'}
-                  onChangeText={this.changeAutoStr}
-                  value={this.state.auto_str}
-                />
-              </View>
-              <View style={{
-                flex: 1,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <TouchableHighlight
-                  onPress={() => this.clearAutoStr()}
-                  >
-                  <Image source={require('../images/clear.png')} />
-                </TouchableHighlight>
-              </View>
-            </View> ) : null
+                <View style={{
+                  flex: 5,
+                  justifyContent: 'center',
+                }}>
+                  <TextInput
+                    ref="autoInput"
+                    style={{ paddingLeft: 20, fontSize: 16, color: "#313131" }}
+                    placeholder = 'введите номер авто'
+                    placeholderTextColor={'#313131'}
+                    onChangeText={this.changeAutoStr}
+                    value={this.state.auto_str}
+                  />
+                </View>
+                <View style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <TouchableHighlight
+                    activeOpacity={1}
+                    underlayColor="#ffffff"
+                    onPress={() => this.clearAutoStr()}
+                    >
+                    <Image source={require('../images/clear_2.png')} />
+                  </TouchableHighlight>
+                </View>
+              </View> 
+              <Text style={{ paddingLeft: 20, marginBottom: 15, fontSize: 14, fontWeight: "bold", color: "#313131" }}>Пропуск:</Text>
+              <TouchableHighlight
+                style={{
+                  marginBottom: 15
+                }}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPress={() => { this.setState({auto_cancelled: this.state.auto_cancelled ? false : true }, () => this.findAuto()) }}
+                >
+                  <View style={{
+                    flexDirection: "row",
+                  }}>
+                    {
+                      this.state.auto_cancelled ? (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_checked_2.png')} />
+                      ) : (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_unchecked_2.png')} />
+                      )
+                    }
+                    <Text style={{ paddingLeft: 10, fontSize: 14, fontWeight: "normal", color: "#313131" }}>аннулирован</Text>
+                  </View>
+              </TouchableHighlight>
+              <TouchableHighlight
+                style={{
+                  marginBottom: 15
+                }}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPress={() => { this.setState({auto_pass_ended: this.state.auto_pass_ended ? false : true }, () => this.findAuto()) }}
+                >
+                  <View style={{
+                    flexDirection: "row",
+                  }}>
+                    {
+                      this.state.auto_pass_ended ? (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_checked_2.png')} />
+                      ) : (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_unchecked_2.png')} />
+                      )
+                    }
+                    <Text style={{ paddingLeft: 10, fontSize: 14, fontWeight: "normal", color: "#313131" }}>закончился</Text>
+                  </View>
+              </TouchableHighlight>
+              <TouchableHighlight
+                style={{
+                  marginBottom: 15
+                }}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPress={() => this.changeAutoPassEndsValue()}
+                >
+                  <View style={{
+                    flexDirection: "row",
+                  }}>
+                    {
+                      this.state.auto_pass_ends ? (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_checked_2.png')} />
+                      ) : (
+                        <Image style={{ marginLeft: 20 }} source={require('../images/checkbox_unchecked_2.png')} />
+                      )
+                    }
+                    <Text style={{ paddingLeft: 10, paddingRight: 10, fontSize: 14, fontWeight: "normal", color: "#313131" }}>заканчивается до</Text>
+                    <TextInput
+                      keyboardType='numeric'
+                      style={{ height: 45, fontSize: 16, paddingLeft: 10, paddingRight: 10, borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
+                      maxLength={10}
+                      placeholder = '00.00.0000'
+                      placeholderTextColor={'#8C8C8C'}
+                      onChangeText={(value) => this.changeAutoPassEndsUntilDateValue(value)}
+                      value={this.state.auto_pass_ends_until_date}
+                    />
+                  </View>
+              </TouchableHighlight>
+            </View>
+            
+            ) : null
         }
 
         {/* список авто */}
-        <ActivityIndicator size="large" color="#C9A86B" animating={this.state.indicator}/>
+        <ActivityIndicator size="large" color="#313131" animating={this.state.indicator}/>
 
-        { this.state.auto_list.length != 0 ? ( <Text style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#E8E8E8" }}>Всего {this.state.auto_list.length} авто:</Text> ) : null }
+        { !this.state.indicator ? (
+        <View style={{
+          flexDirection: "row",
+        }}>
+          <View style={{
+            flex: 1,
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+          }}>
+            <Text style={{ paddingLeft: 30, paddingRight: 16, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#656565" }}>Всего {this.state.auto_list_count} авто:</Text>
+          </View>
+          <View style={{
+            flex: 1,
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}>
+            <TouchableHighlight
+              style={{
+                paddingRight: 30,
+              }}
+              activeOpacity={1}
+              underlayColor="#ffffff"
+              onPress={() => this.setState({ modalAddAutoVisible: true })}> 
+              <View style={{
+                flexDirection: "row",
+                alignItems: 'right',
+              }}
+              >
+                <Text style={{ paddingLeft: 16, paddingRight: 5, paddingBottom: 10, fontSize: 12, fontWeight: "normal", color: "#656565" }}>добавить авто</Text>
+                <Image source={require('../images/edit_2.png')} />
+              </View>
+            </TouchableHighlight>
+          </View>
+        </View> ) : null }
 
         <FlatList
           data={this.state.auto_list}
           initialNumToRender={10}
           renderItem={({item, index}) => this.renderItem({item, index})}
-//          ListHeaderComponent={() => (!this.state.auto_list.length?
-//                                      <Text style={{ paddingLeft: 20, paddingTop: 11, fontSize: 15, fontWeight: "bold", color: "#E8E8E8" }}>Список пуст</Text>
-//                                      : null)}
           keyExtractor={item => item.id}
+          onEndReachedThreshold={0.2}
+          onEndReached={this.onEndReached.bind(this)}
+          onMomentumScrollBegin={() => { this.onEndReachedCalledDuringMomentum = false; }}
         />
 
         {/* окно контактов  */}
@@ -1977,15 +2534,20 @@ class AutoList extends React.Component {
             //Alert.alert("Modal has been closed.");
             this.setState({modalViewContacts: false})
           }}
+          style={{
+            justifyContent: 'flex-end',
+            margin: 0,
+          }}
         >
-
           <View style={{
             flexDirection: "row",
-            backgroundColor: '#8C8C8C',
+            backgroundColor: '#FFFFFF',
             borderTopLeftRadius: 25,
             borderTopRightRadius: 25,
             position: 'absolute',
-            bottom: 80,
+            borderWidth: 1, 
+            borderColor: "#B8B8B8",
+            bottom: 0,
           }}>
 
             <View style={{
@@ -2020,7 +2582,7 @@ class AutoList extends React.Component {
                   flex: 5,
                   alignItems: 'flex-start',
                 }}>
-                  <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Контакты</Text>
+                  <Text style={{ paddingLeft: 16, paddingTop: 26, fontSize: 24, fontWeight: "bold", color: "#313131" }}>Контакты</Text>
                 </View>
                 <View style={{
                   flex: 1,
@@ -2028,23 +2590,33 @@ class AutoList extends React.Component {
                 }}>
                   <TouchableHighlight
                     style={{ padding: 30 }}
+                    activeOpacity={1}
+                    underlayColor='#FFFFFF'
                     onPress={() => {
                       this.setState({modalViewContacts: false })
                     }}
                     >
-                    <Image source={require('../images/xclose.png')} />
+                    <Image source={require('../images/xclose_2.png')} />
                   </TouchableHighlight>
                 </View>
               </View>
 
               {/* менеджер */}
-              <View style={{ flexDirection: "row", marginLeft: 20, marginRight: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 16 }}>
+              <View style={{ 
+                flexDirection: "row", 
+                marginLeft: 20, 
+                marginRight: 20, 
+                padding: 10, 
+                backgroundColor: "#F7F7F7", 
+                borderRadius: 16,             
+                borderWidth: 1, 
+                borderColor: "#B8B8B8" }}>
                 <View style={{
                   flex: 1,
                   flexDirection: "column",
                 }}>
-                  <Text style={{ paddingTop: 10, fontSize: 17, color: "#E8E8E8"}}>Менеджер</Text>
-                  <Text style={{ paddingTop: 5, fontSize: 15, color: "#AAABAD"}}>{this.state.manager_name}</Text>
+                  <Text style={{ paddingTop: 10, fontSize: 17, fontWeight: 'normal', color: "#313131"}}>Менеджер</Text>
+                  <Text style={{ paddingTop: 5, fontSize: 15, fontWeight: 'bold', color: "#3A3A3A"}}>{this.state.manager_name}</Text>
 
                   <View style={{
                     flexDirection: "row",
@@ -2057,12 +2629,14 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"     
                         onPress={() => this.contactEmail(this.state.user_data.manager_data.email,
                                                          this.state.user_data.manager_data.email_subject,
                                                          this.state.user_data.manager_data.email_body )}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_mail.png')} />
+                          <Image source={require('../images/contact_mail_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2079,10 +2653,12 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"  
                         onPress={() => this.contactPhone(this.state.user_data.manager_data.mobile_phone)}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_phone.png')} />
+                          <Image source={require('../images/contact_phone_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2099,11 +2675,13 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"  
                         onPress={() => this.contactWhatsapp(this.state.user_data.manager_data.mobile_phone,
                                                             this.state.user_data.manager_data.whatapp_greetings)}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_whatsapp.png')} />
+                          <Image source={require('../images/contact_whatsapp_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2113,13 +2691,20 @@ class AutoList extends React.Component {
               </View>
 
               {/* техподдержка */}
-              <View style={{ flexDirection: "row", marginTop: 20, marginLeft: 20, marginRight: 20, marginBottom: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 16 }}>
+              <View style={{ 
+                flexDirection: "row", 
+                margin: 20, 
+                padding: 10, 
+                backgroundColor: "#F7F7F7", 
+                borderRadius: 16,             
+                borderWidth: 1, 
+                borderColor: "#B8B8B8" }}>
                 <View style={{
                   flex: 1,
                   flexDirection: "column",
                 }}>
-                  <Text style={{ paddingTop: 10, fontSize: 17, color: "#E8E8E8"}}>Техническая поддержка</Text>
-                  <Text style={{ paddingTop: 5, fontSize: 15, color: "#AAABAD"}}>{this.state.tech_support_name}</Text>
+                  <Text style={{ paddingTop: 10, fontSize: 17, fontWeight: 'normal', color: "#313131"}}>Техническая поддержка</Text>
+                  <Text style={{ paddingTop: 5, fontSize: 15, fontWeight: 'bold', color: "#3A3A3A"}}>{this.state.tech_support_name}</Text>
 
                   <View style={{
                     flexDirection: "row",
@@ -2132,12 +2717,14 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"  
                         onPress={() => this.contactEmail(this.state.user_data.tech_support_data.email,
                                                          this.state.user_data.tech_support_data.email_subject,
                                                          this.state.user_data.tech_support_data.email_body )}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_mail.png')} />
+                          <Image source={require('../images/contact_mail_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2154,10 +2741,12 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"  
                         onPress={() => this.contactPhone(this.state.user_data.tech_support_data.mobile_phone)}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_phone.png')} />
+                          <Image source={require('../images/contact_phone_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2174,11 +2763,13 @@ class AutoList extends React.Component {
                       justifyContent: 'center',
                     }}>
                       <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor="#F7F7F7"  
                         onPress={() => this.contactWhatsapp(this.state.user_data.tech_support_data.mobile_phone,
                                                             this.state.user_data.tech_support_data.whatapp_greetings)}
                         >
                         <View style={{ alignItems: 'center', padding: 5 }}>
-                          <Image source={require('../images/contact_whatsapp.png')} />
+                          <Image source={require('../images/contact_whatsapp_2.png')} />
                         </View>
                       </TouchableHighlight>
                     </View>
@@ -2199,8 +2790,10 @@ class AutoList extends React.Component {
 
                 <View style={{
                   flexDirection: "row",
-                  backgroundColor: '#4C4C4C',
+                  backgroundColor: '#EEEEEE',
                   borderRadius: 25,
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   height: 80,
                 }}>
                   <View style={{
@@ -2209,12 +2802,16 @@ class AutoList extends React.Component {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <TouchableHighlight
+                  <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#EEEEEE'
                       onPress={() => this.setState({ modalAddAutoVisible: true }) }
                       >
-                      <MenuAdd />
+                      <SelMenuPass />  
                     </TouchableHighlight>
                   </View>
+
+                  {/*
                   <View style={{
                     flex: 1,
                     height: 80,
@@ -2222,6 +2819,8 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#EEEEEE'
                       onPress={() => {
                         console.log('-> menu driver')
                         this.props.navigation.navigate('DriverList')
@@ -2230,6 +2829,8 @@ class AutoList extends React.Component {
                       <MenuDriver />
                     </TouchableHighlight>
                   </View>
+                  */}
+
                   <View style={{
                     flex: 1,
                     height: 80,
@@ -2237,18 +2838,8 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
-                      onPress={() => this.openContacts()}
-                      >
-                      { this.state.modalViewContacts ? ( <MenuSelContacts/> ) : ( <MenuContacts/> ) }
-                    </TouchableHighlight>
-                  </View>
-                  <View style={{
-                    flex: 1,
-                    height: 80,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#EEEEEE'
                       onPress={() => {
                         console.log('-> move to user')
                         this.props.navigation.navigate('User')
@@ -2263,33 +2854,30 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#EEEEEE'
                       onPress={() => {
                         console.log('-> move to invite user')
-                        this.props.navigation.navigate('InviteUser')
+                        this.props.navigation.navigate('InviteUser', { manager_data: this.state.user_data.manager_data })
                       }}>
                       <MenuInviteUser />
                     </TouchableHighlight>
                   </View>
 
-                  {   Object.keys(this.state.manager_data).length != 0 ? (
-
-                        <View style={{
-                          flex: 1,
-                          height: 80,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}>
-                          <TouchableHighlight
-                            onPress={() => {
-                              console.log('-> show modal user list')
-                              this.setState({modalSelectUserVisible: true})
-                              AsyncStorage.getItem('token').then((value) => this.getUserList(value));
-                            }}>
-                            <MenuUserList />
-                          </TouchableHighlight>
-                        </View>
-                      ) : null
-                  }
+                  <View style={{
+                    flex: 1,
+                    height: 80,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#EEEEEE'
+                      onPress={() => this.openContacts()}
+                      >
+                      { this.state.modalViewContacts ? ( <MenuSelContacts/> ) : ( <MenuContacts/> ) }
+                    </TouchableHighlight>
+                  </View>
 
                   {/*
                   <View style={{
@@ -2307,14 +2895,17 @@ class AutoList extends React.Component {
                     </TouchableHighlight>
                   </View>
                   */}
+
                 </View>
 
               ) : (
 
                 <View style={{
                   flexDirection: "row",
-                  backgroundColor: '#4C4C4C',
+                  backgroundColor: '#D9D9D9',
                   borderRadius: 25,
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   height: 80,
                 }}>
                   <View style={{
@@ -2324,6 +2915,8 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#D9D9D9'
                       onPress={() => {
                         console.log('-> sel menu del item')
                         this.setState({modalDelAutoVisible: true})
@@ -2331,6 +2924,7 @@ class AutoList extends React.Component {
                       <SelMenuDelItem />
                     </TouchableHighlight>
                   </View>
+
                   {/*
                   <View style={{
                     flex: 1,
@@ -2347,6 +2941,7 @@ class AutoList extends React.Component {
                     </TouchableHighlight>
                   </View>
                   */}
+
                   <View style={{
                     flex: 1,
                     height: 80,
@@ -2354,6 +2949,8 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#D9D9D9'
                       onPress={() => {
                         console.log('-> sel menu pass')
                         this.makePass()
@@ -2361,6 +2958,7 @@ class AutoList extends React.Component {
                       <SelMenuPass />
                     </TouchableHighlight>
                   </View>
+
                   <View style={{
                     flex: 1,
                     height: 80,
@@ -2368,6 +2966,8 @@ class AutoList extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#D9D9D9'
                       onPress={() => {
                         console.log('-> sel menu undo select')
                         this.undoSelect()

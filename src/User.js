@@ -169,13 +169,13 @@ class User extends React.Component {
   };
 
   setEditContactButtonStyle = () => {
-    let backgroundColor = this.state.modalEditContactButtonDisabled ? "#c0c0c0" : "#FEE600";
+    let backgroundColor = this.state.modalEditContactButtonDisabled ? "#c0c0c0" : "#3A3A3A";
     return { height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setEditContactButtonTextStyle = () => {
-    let color = this.state.modalEditContactButtonDisabled ? "#E8E8E8" : "#2B2D33";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, color: color }
+    let color = this.state.modalEditContactButtonDisabled ? "#E8E8E8" : "#FFFFFF";
+    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: color }
   }
 
   editContact = (value) => {
@@ -295,6 +295,22 @@ class User extends React.Component {
     }
   }
 
+  setContainerStyle = () => {
+
+    let container_style     = styles.container
+    let container_style_new = {}
+
+    for (let key in container_style)
+    {
+      container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
+        this.state.modalEditContactVisible ||
+        this.state.modalDelContactVisible ||
+        this.state.modalDelUserVisible ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
+    }
+
+    return container_style_new
+  }
+
   componentDidMount() {
     console.log('User DidMount')
 
@@ -311,24 +327,33 @@ class User extends React.Component {
         key={item.id}
         onPress={() => this.openModalEditContact( 'edit', item )}
       >
-        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        <View style={[{ 
+          flexDirection: "row", 
+          margin: 30, 
+          padding: 10, 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+          },
+          { backgroundColor: this.state.modalEditContactVisible || this.state.modalDelContactVisible || this.state.modalDelUserVisible ? 'rgba(29,29,29, 0)' : '#EEEEEE' }]}>
           <View style={{
             flex: 3,
             alignItems: 'flex-start',
             justifyContent: 'flex-start',
             flexDirection: "column",
           }}>
-            { item.fio != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#E8E8E8" }}>ФИО: { item.fio }</Text> ) : null }
-            { item.email != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#E8E8E8" }}>E-mail: { item.email }</Text> ) : null }
-            { item.phone != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#E8E8E8" }}>Номер телефона: +{ item.phone }</Text> ) : null }
-            { item.position != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#E8E8E8" }}>Должность: { item.position }</Text> ) : null }
+            { item.fio != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#313131" }}>ФИО: { item.fio }</Text> ) : null }
+            { item.email != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#313131" }}>E-mail: { item.email }</Text> ) : null }
+            { item.phone != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#313131" }}>Номер телефона: +{ item.phone }</Text> ) : null }
+            { item.position != '' ? ( <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: "normal", color: "#313113" }}>Должность: { item.position }</Text> ) : null }
           </View>
           <View style={{
             flex: 1,
+            paddingRight: 10,
             alignItems: 'flex-end',
             justifyContent: 'center',
           }}>
-            <Image source={require('../images/edit.png')}/>
+            <Image source={require('../images/edit_2.png')}/>
           </View>
         </View>
       </Pressable>
@@ -338,17 +363,19 @@ class User extends React.Component {
   render() {
     return (
 
-      <View style={styles.container}>
+      <View style={this.setContainerStyle()}>
 
         <Text style={styles.header}>Профиль</Text>
 
         <TouchableHighlight
           style={styles.header_back}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
           }}>
-          <Image source={require('../images/back.png')} />
+          <Image source={require('../images/back_2.png')} />
         </TouchableHighlight>
 
         {/* модальное окно подтверждения удаления профиля */}
@@ -369,10 +396,12 @@ class User extends React.Component {
 
             <View style={{
               //flex: 1,
-              backgroundColor: '#8C8C8C',
+              backgroundColor: '#FFFFFF',
               borderRadius: 25,
               alignItems: 'stretch',
               justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
               //marginTop: 70
             }}>
 
@@ -399,12 +428,12 @@ class User extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                       onPress={() =>  {
                         console.log('call del_user')
                         AsyncStorage.getItem('token').then((value) => this.delUser(value));
                       }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: "#FFFFFF" }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{
@@ -414,9 +443,9 @@ class User extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
                       onPress={() =>  { this.setState({modalDelUserVisible: false}) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Отменить</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -445,14 +474,16 @@ class User extends React.Component {
 
             <View style={{
               //flex: 1,
-              backgroundColor: '#8C8C8C',
+              backgroundColor: '#FFFFFF',
               borderRadius: 25,
               alignItems: 'stretch',
               justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
               //marginTop: 70
             }}>
 
-              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Удалить контакт?</Text>
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, textAlign: 'center', fontWeight: "normal", color: "#313131" }}>Удалить контакт?</Text>
 
               <View style={{
                 //flex: 1,
@@ -472,12 +503,12 @@ class User extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
                       onPress={() =>  {
                         console.log('call del_contact')
                         AsyncStorage.getItem('token').then((value) => this.delContact(value));
                       }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>Удалить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: "#FFFFFF" }}>Удалить</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={{
@@ -487,9 +518,9 @@ class User extends React.Component {
                     justifyContent: 'center',
                   }}>
                     <TouchableOpacity
-                      style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
+                      style={{ height: 50, fontSize: 10, margin: 20, borderRadius: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: "#B8B8B8" }}
                       onPress={() =>  { this.setState({modalDelContactVisible: false}) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#E8E8E8" }}>Отменить</Text>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Отменить</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -521,10 +552,12 @@ class User extends React.Component {
 
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#FFFFFF',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
+                borderWidth: 1, 
+                borderColor: "#B8B8B8",
                 //marginTop: 70
               }}>
 
@@ -535,7 +568,7 @@ class User extends React.Component {
                     flex: 5,
                     alignItems: 'flex-start',
                   }}>
-                    <Text style={{ paddingLeft: 16, paddingTop: 16, fontSize: 24, fontWeight: "normal", color: "#E8E8E8" }}>Контактные данные</Text>
+                    <Text style={{ paddingLeft: 16, paddingTop: 26, fontSize: 24, fontWeight: "bold", color: "#313131" }}>Контактные данные</Text>
                   </View>
                   <View style={{
                     flex: 1,
@@ -543,20 +576,24 @@ class User extends React.Component {
                   }}>
                     <TouchableHighlight
                       style={{ padding: 30 }}
+                      activeOpacity={1}
+                      underlayColor='#FFFFFF'
                       onPress={() => this.closeModalEditContact()}>
-                      <Image source={require('../images/xclose.png')} />
+                      <Image source={require('../images/xclose_2.png')} />
                     </TouchableHighlight>
                   </View>
                 </View>
 
-                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Добавьте контакты:</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Добавьте контакты:</Text>
 
                 <View style={{
                   //flex: 1,
-                  backgroundColor: '#4C4C4C',
+                  backgroundColor: '#EEEEEE',
                   borderRadius: 25,
                   alignItems: 'stretch',
                   justifyContent: 'center',
+                  borderWidth: 1, 
+                  borderColor: "#B8B8B8",
                   margin: 16,
                   //marginTop: 70
                 }}>
@@ -568,7 +605,7 @@ class User extends React.Component {
                     paddingRight: 20,
                   }}>
                     <TextInput
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'ФИО'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'fio')}
@@ -584,7 +621,7 @@ class User extends React.Component {
                   }}>
                     <TextInput
                       keyboardType='email-address'
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'E-mail'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'email')}
@@ -600,7 +637,7 @@ class User extends React.Component {
                   }}>
                     <TextInput
                       keyboardType='numeric'
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       maxLength={12}
                       placeholder = 'Номер телефона *'
                       placeholderTextColor={'#8C8C8C'}
@@ -617,7 +654,7 @@ class User extends React.Component {
                     paddingBottom: 20,
                   }}>
                     <TextInput
-                      style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+                      style={{ height: 55, fontSize: 20, paddingLeft: 20, backgroundColor: '#FFFFFF', borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
                       placeholder = 'Должность'
                       placeholderTextColor={'#8C8C8C'}
                       onChangeText={(value) => this.changeValue(value, 'position')}
@@ -658,9 +695,12 @@ class User extends React.Component {
                         justifyContent: 'center',
                       }}>
                         <TouchableOpacity
-                          style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center' }}
-                          onPress={() => this.setState({modalDelContactVisible: true})}>
-                          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#960000" }}>Удалить</Text>
+                          style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: "#B8B8B8" }}
+                          onPress={() => { 
+                            console.log('setState modalDelContactVisible true')
+                            this.setState({modalEditContactVisible: false})
+                            this.setState({modalDelContactVisible: true})}}>
+                          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Удалить</Text>
                         </TouchableOpacity>
                       </View>
 
@@ -676,11 +716,11 @@ class User extends React.Component {
         </Modal>
         {/* */}
 
-        <ActivityIndicator size="large" color="#C9A86B" animating={this.state.indicator}/>
+        <ActivityIndicator size="large" color="#313131" animating={this.state.indicator}/>
 
         <ScrollView>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Название организации:</Text>
+          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Название организации:</Text>
 
           <View style={{
             alignItems: 'stretch',
@@ -691,12 +731,12 @@ class User extends React.Component {
             <TextInput
               onEndEditing={(e: any) => { this.endEditingUserData( e.nativeEvent.text, 'firm' ) } }
               onChangeText={(value) => this.changeUserData(value, 'firm')}
-              style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+              style={{ height: 55, fontSize: 20, paddingLeft: 20, borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
               value={this.state.user_data.firm}
             />
           </View>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>ИНН:</Text>
+          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 14, fontWeight: "normal", color: "#656565" }}>ИНН:</Text>
 
           <View style={{
             alignItems: 'stretch',
@@ -707,12 +747,12 @@ class User extends React.Component {
             <TextInput
               editable={false}
               showSoftInputOnFocus={false}
-              style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+              style={{ height: 55, fontSize: 20, paddingLeft: 20, borderColor: '#656565', borderWidth: 1, borderRadius: 8, color: "#313131" }}
               value={this.state.user_data.inn}
             />
           </View>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Контакты:</Text>
+          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Контакты:</Text>
 
           {/*
           <FlatList
@@ -723,23 +763,39 @@ class User extends React.Component {
           />
           */}
 
+          <TouchableHighlight 
+            style={{ paddingLeft: 30, paddingTop: 20 }}
+            activeOpacity={1}
+            underlayColor='#FFFFFF'
+            onPress={() => this.openModalEditContact( 'add' )}>
+            <View style={{ 
+                alignItems: 'center',
+                flexDirection: "row"
+              }}>     
+              <Image source={require('../images/add_button_2.png')} />
+              <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
+            </View>  
+          </TouchableHighlight>
+
           <View>
             {this.state.user_contact_list.map((item, index) => this.renderItem(item, index))}
           </View>
+          
 
         </ScrollView>
 
-        <TouchableHighlight
-          style={{ position: 'absolute', left: 10, bottom: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#C9A86B' }}
-          onPress={() => this.setState({modalDelUserVisible: true})}>
-          <Text style={{ fontSize: 24, color: '#353535', paddingLeft: 25, paddingRight: 25 }}>Удалить профиль</Text>
-        </TouchableHighlight>
-
-        <TouchableHighlight
-          style={{ position: 'absolute', bottom: 20, right: 20, padding: 10 }}
-          onPress={() => this.openModalEditContact( 'add' )}>
-          <Image source={require('../images/add_button.png')} />
-        </TouchableHighlight>
+        { !this.state.modalEditContactVisible || this.state.modalDelContactVisible || this.state.modalDelUserVisible ? (        
+          <TouchableHighlight
+            style={{ position: 'absolute', right: 10, bottom: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3A3A3A' }}
+            onPress={() => this.setState({modalDelUserVisible: true})}>
+            <View style={{ 
+                alignItems: 'center',
+                flexDirection: "row"
+              }}>     
+              <Image style={{ marginLeft: 25 }} source={require('../images/delete_white_2.png')} />
+              <Text style={{ fontSize: 24, fontWeight: 500, color: '#FFFFFF', paddingLeft: 15, paddingRight: 25 }}>Удалить профиль</Text>
+            </View>  
+          </TouchableHighlight> ) : null }
 
       </View>
     );

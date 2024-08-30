@@ -4,7 +4,7 @@ export default StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: '#2c2c2c',
+    backgroundColor: '#ffffff',
     alignItems: 'stretch',
     justifyContent: 'flex-start',
   },
@@ -16,19 +16,20 @@ export default StyleSheet.create({
   },
 
   header: {
+    textAlign: 'center',
     paddingLeft: 20,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#E8E8E8",
+    color: "#313131",
     ...Platform.select({
       ios: {
-        paddingTop: 50,
+        paddingTop: 70,
       },
       android: {
-        paddingTop: 20,
+        paddingTop: 25,
       },
       default: {
-        paddingTop: 20,
+        paddingTop: 25,
       }
     })
   },
@@ -42,11 +43,11 @@ export default StyleSheet.create({
   header_back: {
      position: 'absolute',
      top: 20,
-     right: 20,
+     left: 20,
      padding: 10,
      ...Platform.select({
        ios: {
-         top: 50,
+         top: 65,
        },
        android: {
          top: 20,
@@ -57,13 +58,49 @@ export default StyleSheet.create({
     })
   },
 
+  header_onboarding: {
+      position: 'absolute',
+      top: 20,
+      left: 60,
+      padding: 10,
+      ...Platform.select({
+        ios: {
+          top: 65,
+        },
+        android: {
+          top: 20,
+        },
+        default: {
+          top: 20,
+        }
+    })
+  },
+
+  header_filter: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    padding: 10,
+    ...Platform.select({
+      ios: {
+        top: 65,
+      },
+      android: {
+        top: 20,
+      },
+      default: {
+        top: 20,
+      }
+   })
+ },
+
   tab_checked: {
     alignItems: 'center',
     padding: 10,
     margin: 8,
-    width: 157,
-    height: 90,
-    backgroundColor: "#4C4C4C",
+    width: 147,
+    height: 80,
+    backgroundColor: "#D7D7D7",
     borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: {
@@ -79,9 +116,9 @@ export default StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     margin: 8,
-    width: 157,
-    height: 90,
-    backgroundColor: "#2C2C2C",
+    width: 147,
+    height: 80,
+    backgroundColor: "#EEEEEE",
     borderRadius: 8,
     shadowColor: "#000",
     shadowOffset: {
@@ -94,7 +131,7 @@ export default StyleSheet.create({
   },
 
   green: {
-    color: '#19B28D'
+    color: '#40882C',
   },
 
   red: {
@@ -102,11 +139,11 @@ export default StyleSheet.create({
   },
 
   yellow: {
-    color: '#FEE600'
+    color: '#FFA500'
   },
 
   white: {
-    color: '#E8E8E8'
+    color: '#3A3A3A'
   }
 
 });

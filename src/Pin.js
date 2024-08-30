@@ -53,7 +53,7 @@ class Pin extends React.Component {
             }
             else
             {
-              this.props.navigation.navigate('Inn')
+              this.props.navigation.navigate('Inn', { user_data: {} })
             }
           }
 
@@ -64,12 +64,12 @@ class Pin extends React.Component {
   }
 
   setButtonStyle = () => {
-    let backgroundColor = this.state.disabled ? "#c0c0c0" : "#fee600";
+    let backgroundColor = this.state.disabled ? "#c0c0c0" : "#3A3A3A";
     return { height: 50, width: 185, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setButtonTextStyle = () => {
-    let color = this.state.disabled ? "#fff" : "#000";
+    let color = this.state.disabled ? "#FFFFFF" : "#FFFFFF";
     return { fontSize: 20, color: color }
   }
 

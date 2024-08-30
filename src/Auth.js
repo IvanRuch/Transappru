@@ -66,12 +66,12 @@ class Auth extends React.Component {
   };
 
   setButtonStyle = () => {
-    let backgroundColor = this.state.disabled || !this.state.checked ? "#c0c0c0" : "#fee600";
+    let backgroundColor = this.state.disabled || !this.state.checked ? "#c0c0c0" : "#3A3A3A";
     return { height: 50, width: 275, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setButtonTextStyle = () => {
-    let color = this.state.disabled || !this.state.checked ? "#fff" : "#000";
+    let color = this.state.disabled || !this.state.checked ? "#FFFFFF" : "#FFFFFF";
     return { fontSize: 20, color: color }
   }
 
@@ -216,63 +216,28 @@ class Auth extends React.Component {
             }}>
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#EEEEEE',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
                 padding: 20,
+                borderWidth: 1, 
+                borderColor: "#B8B8B8" 
               }}>
-                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: "bold", color: "#4C4C4C" }}>Ваша заявка зарегистрирована!</Text>
-                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: "bold", color: "#313131" }}>Ваша заявка зарегистрирована!</Text>
+                <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы</Text>
                     
                 <TouchableHighlight
                   onPress={() => this.contactPhone(this.state.session_data.user_data.manager_data.mobile_phone)}
                   >
                   <View style={{ alignItems: 'center', padding: 5 }}>
-                    <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#4C4C4C" }}>Вы можете связаться с менеджером</Text>
+                    <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Вы можете связаться с менеджером</Text>
                     <Image style={{
                         margin: 15,
                       }}
-                      source={require('../images/contact_phone.png')} />
+                      source={require('../images/contact_phone_2.png')} />
                   </View>
                 </TouchableHighlight>                 
-
-                {/*      
-                <View style={{
-                  //flex: 1,
-                  //backgroundColor: 'grey',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-
-                  <View style={{
-                    flexDirection: "row",
-                    //width: 370,
-                  }}>
-                    <View style={{
-                      flex: 1,
-                      height: 100,
-                      alignItems: 'stretch',
-                      justifyContent: 'center',
-                    }}>                      
-                    
-                    <TouchableOpacity
-                      style={{
-                        height: 50,
-                        fontSize: 10,
-                        margin: 25,
-                        borderRadius: 5,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#FEE600' }}
-                      onPress={() =>  { this.setState({modalWaitConfirmation: false}) }}>
-                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: '#2B2D33' }}>Ok</Text>
-                    </TouchableOpacity>
-
-                    </View>
-                  </View>
-                </View>
-                */}
 
               </View>
 
@@ -296,7 +261,7 @@ class Auth extends React.Component {
             }}>
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#EEEEEE',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
@@ -307,9 +272,9 @@ class Auth extends React.Component {
             </View>
           </ScrollView>
           <TouchableOpacity
-            style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+            style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
             onPress={() =>  { this.setState({modalUserAgreement: false}) }}>
-            <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>ОК</Text>
+            <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>ОК</Text>
           </TouchableOpacity>
         </Modal>
 
@@ -330,7 +295,7 @@ class Auth extends React.Component {
             }}>
               <View style={{
                 //flex: 1,
-                backgroundColor: '#8C8C8C',
+                backgroundColor: '#EEEEEE',
                 borderRadius: 25,
                 alignItems: 'stretch',
                 justifyContent: 'center',
@@ -341,9 +306,9 @@ class Auth extends React.Component {
             </View>
           </ScrollView>
           <TouchableOpacity
-            style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#FEE600" }}
+            style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
             onPress={() =>  { this.setState({modalPrivacyPlolicy: false}) }}>
-            <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#2B2D33" }}>ОК</Text>
+            <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>ОК</Text>
           </TouchableOpacity>
         </Modal>
 
@@ -409,6 +374,8 @@ class Auth extends React.Component {
           }}>
             <TouchableHighlight
               style={{ width: 32, height: 32 }}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
               onPress={() => { this.setState({checked: this.state.checked ? false : true }) }}
             >
               {

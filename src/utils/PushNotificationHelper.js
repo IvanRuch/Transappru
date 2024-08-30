@@ -6,7 +6,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./Api";
 
-const Version = '1.0.15';
+const Version = '1.0.20';
+
+export const getDeviceInfo = () => {
+
+  // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
+  let getDeviceId = DeviceInfo.getDeviceId();
+  console.log('Device Id:', getDeviceId);
+
+  // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
+  let deviceModel = DeviceInfo.getModel();
+  console.log('Device Model:', deviceModel);
+
+  // Get the device's system name (e.g., iOS, Android)
+  let systemName = DeviceInfo.getSystemName();
+  console.log('System Name:', systemName);
+
+  // Get the device's system version (e.g., 14.5, 11)
+  let systemVersion = DeviceInfo.getSystemVersion();
+  console.log('System Version:', systemVersion);
+
+  let device_info = 'Version: ' + Version + ', Device Id: ' + getDeviceId + ', Device Model: ' + deviceModel + ', OS: ' + systemName + systemVersion;
+
+  console.log('device_info = ' + device_info)
+
+  return device_info;
+}
 
 export const requestAndroidPermission = () => {
   console.log('requestAndroidPermission')
@@ -54,25 +79,7 @@ export const setFCMToken = async (fcmtoken) => {
 
   if(token)
   {
-    // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
-    let getDeviceId = DeviceInfo.getDeviceId();
-    console.log('Device Id:', getDeviceId);
-
-    // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
-    let deviceModel = DeviceInfo.getModel();
-    console.log('Device Model:', deviceModel);
-
-    // Get the device's system name (e.g., iOS, Android)
-    let systemName = DeviceInfo.getSystemName();
-    console.log('System Name:', systemName);
-
-    // Get the device's system version (e.g., 14.5, 11)
-    let systemVersion = DeviceInfo.getSystemVersion();
-    console.log('System Version:', systemVersion);
-
-    let device_info = 'Version: ' + Version + ', Device Id: ' + getDeviceId + ', Device Model: ' + deviceModel + ', OS: ' + systemName + systemVersion;
-
-    console.log('device_info = ' + device_info)
+    let device_info = getDeviceInfo();
 
     Api.post('/set-fcmtoken', { token: token, fcmtoken: fcmtoken, device_info: device_info })
        .then(res => {

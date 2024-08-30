@@ -200,7 +200,7 @@ class AutoDriver extends React.Component {
 
         <ScrollView>
 
-          <ActivityIndicator size="large" color="#C9A86B" animating={this.state.indicator}/>
+          <ActivityIndicator size="large" color="#313131" animating={this.state.indicator}/>
 
           <View>
             {this.state.user_driver_list.map((item, index) => this.renderDriverItem(item, index))}

@@ -17,6 +17,8 @@ import AutoDriver from './AutoDriver';
 import Pass from './Pass';
 import PassYaMap from './PassYaMap';
 import DriverList from './DriverList';
+import OnBoarding from './OnBoarding';
+import NotificationList from './NotificationList';
 import { requestAndroidPermission, requestUserPermission, NotificationListener } from './utils/PushNotificationHelper';
 
 const Stack = createStackNavigator();
@@ -114,6 +116,15 @@ class App extends React.Component {
           <Stack.Screen
             name="Inn"
             component={Inn}
+          />
+
+          <Stack.Screen
+            name="OnBoarding"
+            component={OnBoarding}
+          />
+          <Stack.Screen
+            name="NotificationList"
+            component={NotificationList}
           />
         </Stack.Navigator>
       </NavigationContainer>

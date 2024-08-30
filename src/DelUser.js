@@ -26,7 +26,7 @@ class DelUser extends React.Component {
 
         <Text style={styles.header}>Ваш профиль был удален</Text>
 
-        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Спасибо, что были с нами!</Text>
+        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Спасибо, что были с нами!</Text>
 
       </View>
     );

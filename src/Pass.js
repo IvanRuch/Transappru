@@ -42,8 +42,8 @@ class Pass extends React.Component {
   }
 
   setTabStyle = (tab) => {
-    let color = this.state.location_type == tab ? "#C9A86B" : "#8C8C8C";
-    return { alignItems: 'center', justifyContent: 'center', height: 50, backgroundColor: color, borderRadius: 32 }
+    let color = this.state.location_type == tab ? "#D7D7D7" : "#EEEEEE";
+    return { alignItems: 'center', justifyContent: 'center', height: 50, backgroundColor: color, borderRadius: 8 }
   }
 
   /* добавление введенного адреса */
@@ -304,7 +304,15 @@ class Pass extends React.Component {
         key={item.id}
         onPress={() => this.markUserAddress(item, index)}
       >
-        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        <View style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8", 
+        }}>
           <View style={{
             flex: 1,
             flexDirection: "column",
@@ -328,7 +336,7 @@ class Pass extends React.Component {
             paddingLeft: 10,
           }}>
 
-            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>{ item.mos_ru_street_p7 } { item.mos_ru_address_l_concat }</Text>
+            <Text style={{ fontSize: 16, fontWeight: "bold", color: "#313131"}}>{ item.mos_ru_street_p7 } { item.mos_ru_address_l_concat }</Text>
 
           </View>
         </View>
@@ -346,7 +354,15 @@ class Pass extends React.Component {
         key={item.id}
         onPress={() => this.markStreet(item, index)}
       >
-        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        <View style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8", 
+        }}>
           <View style={{
             flex: 1,
             flexDirection: "column",
@@ -370,12 +386,12 @@ class Pass extends React.Component {
             paddingLeft: 10,
           }}>
 
-            { item.p2 ? ( <Text style={{ fontSize: 11, color: "#E8E8E8"}}>{ item.p2 }</Text> ) : null }
-            { item.p3 ? ( <Text style={{ fontSize: 11, color: "#E8E8E8"}}>{ item.p3 }</Text> ) : null }
-            { item.p4 ? ( <Text style={{ fontSize: 11, color: "#E8E8E8"}}>{ item.p4 }</Text> ) : null }
-            { item.p5 ? ( <Text style={{ fontSize: 11, color: "#E8E8E8"}}>{ item.p5 }</Text> ) : null }
-            { item.p6 ? ( <Text style={{ fontSize: 11, color: "#E8E8E8"}}>{ item.p6 }</Text> ) : null }
-            { item.p7 ? ( <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>{ item.p7 }</Text> ) : null }
+            { item.p2 ? ( <Text style={{ fontSize: 11, color: "#313131"}}>{ item.p2 }</Text> ) : null }
+            { item.p3 ? ( <Text style={{ fontSize: 11, color: "#313131"}}>{ item.p3 }</Text> ) : null }
+            { item.p4 ? ( <Text style={{ fontSize: 11, color: "#313131"}}>{ item.p4 }</Text> ) : null }
+            { item.p5 ? ( <Text style={{ fontSize: 11, color: "#313131"}}>{ item.p5 }</Text> ) : null }
+            { item.p6 ? ( <Text style={{ fontSize: 11, color: "#313131"}}>{ item.p6 }</Text> ) : null }
+            { item.p7 ? ( <Text style={{ fontSize: 16, fontWeight: "bold", color: "#313131"}}>{ item.p7 }</Text> ) : null }
 
           </View>
         </View>
@@ -393,7 +409,15 @@ class Pass extends React.Component {
         key={item.id}
         onPress={() => this.markAddress(item, index)}
       >
-        <View style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#353535", borderRadius: 8 }}>
+        <View style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8", 
+        }}>
           <View style={{
             flex: 1,
             flexDirection: "column",
@@ -417,7 +441,7 @@ class Pass extends React.Component {
             paddingLeft: 10,
           }}>
 
-            { item.l_concat ? ( <Text style={{ fontSize: 20, fontWeight: "bold", color: "#E8E8E8"}}>{ item.l_concat }</Text> ) : null }
+            { item.l_concat ? ( <Text style={{ fontSize: 16, fontWeight: "bold", color: "#313131"}}>{ item.l_concat }</Text> ) : null }
 
           </View>
         </View>
@@ -433,7 +457,15 @@ class Pass extends React.Component {
 
       <View
         key={item.id}
-        style={{ flexDirection: "row", margin: 20, padding: 10, backgroundColor: "#2C2C2C", borderRadius: 8 }}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8",
+      }}
       >
         <View style={{
           flex: 3,
@@ -441,24 +473,12 @@ class Pass extends React.Component {
           justifyContent: 'center',
           flexDirection: "column",
         }}>
-          <Image source={require('../images/truck.png')} style={styles.auto}/>
+          <Image source={require('../images/truck.png')} style={{ width: 47, height: 36 }}/>
           <View style={{
             flexDirection: "row",
             justifyContent: 'flex-end',
           }}>
-            <Text style={{ fontSize: 14, color: "#C9A86B" }}>{item.auto_number_base}</Text>
-            <Image source={require('../images/line_11.png')} style={{ marginLeft: 5, marginRight: 5, marginTop: 10 }}/>
-            <View style={{
-              flexDirection: "column",
-            }}>
-              <Text style={{ fontSize: 12, color: "#C9A86B" }}>{item.auto_number_region_code}</Text>
-              <View style={{
-                flexDirection: "row",
-              }}>
-                <Text style={{ fontSize: 10, color: "#C9A86B" }}>RUS</Text>
-                <Image source={require('../images/flag_rus.png')} style={{ width: 12, height: 8, }}/>
-              </View>
-            </View>
+            <Text style={{ paddingTop: 5, fontSize: 14, fontWeight: 'bold', color: "#313131" }}>{item.auto_number_base}{item.auto_number_region_code}</Text>
           </View>
         </View>
         <View style={{
@@ -466,38 +486,11 @@ class Pass extends React.Component {
           flexDirection: "column",
           paddingLeft: 10,
         }}>
-
           <View style={{
             flexDirection: "row",
           }}>
-            <Text style={{ color: "#E8E8E8"}}>Пропуск - {item.check_passes_string}</Text>
+            <Text style={{ color: "#313131"}}>Пропуск - {item.check_passes_string}</Text>
           </View>
-
-          <View style={{
-            flexDirection: "row",
-          }}>
-            <Text style={{ color: "#E8E8E8"}}>Штрафы - {item.check_fines_string}</Text>
-          </View>
-
-          <View style={{
-            flexDirection: "row",
-          }}>
-            <Text style={{ color: "#E8E8E8"}}>ДК - {item.check_diagnostic_card_string}</Text>
-          </View>
-
-          <View style={{
-            flexDirection: "row",
-          }}>
-            <Text style={{ color: "#E8E8E8"}}>ОСАГО - {item.check_osago_string}</Text>
-          </View>
-
-        </View>
-        <View style={{
-          flex: 1,
-          alignItems: 'flex-end',
-          justifyContent: 'flex-end',
-        }}>
-          {/*<Image source={require('../images/emojione-v1_right-arrow.png')}/>*/}
         </View>
       </View>
     );
@@ -513,11 +506,13 @@ class Pass extends React.Component {
 
         <TouchableHighlight
           style={styles.header_back}
+          activeOpacity={1}
+          underlayColor='#FFFFFF'
           onPress={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
           }}>
-          <Image source={require('../images/back.png')} />
+          <Image source={require('../images/back_2.png')} />
         </TouchableHighlight>
 
         {/* модальное окно уведомления после добавления адреса */}
@@ -580,53 +575,66 @@ class Pass extends React.Component {
 
         <ScrollView>
 
-          <Text style={{ paddingTop: 20, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Вы можете указать зону</Text>
+          <Text style={{ paddingTop: 30, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
 
           <View style={{
             flexDirection: "row",
           }}>
 
-            <Pressable style={{ flex: 1, margin: 20, }} onPress={() => this.checkTab('mkad')}>
+            <Pressable style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 20, marginRight: 10 }} onPress={() => this.checkTab('mkad')}>
               <View style={this.setTabStyle('mkad')}>
-                <Text style={{ fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>МКАД</Text>
+                <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>МКАД</Text>
               </View>
             </Pressable>
 
-            <Pressable style={{ flex: 1, margin: 20, }} onPress={() => this.checkTab('ttk')}>
+            <Pressable style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 10, marginRight: 10 }} onPress={() => this.checkTab('ttk')}>
               <View style={this.setTabStyle('ttk')}>
-                <Text style={{ fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>ТТК</Text>
+                <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>ТТК</Text>
               </View>
             </Pressable>
 
-            <Pressable style={{ flex: 1, margin: 20, }} onPress={() => this.checkTab('sk')}>
+            <Pressable style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 10, marginRight: 20 }} onPress={() => this.checkTab('sk')}>
               <View style={this.setTabStyle('sk')}>
-                <Text style={{ fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>СК</Text>
+                <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>СК</Text>
               </View>
             </Pressable>
 
           </View>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Куда едем?</Text>
+          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Куда едем?</Text>
 
           <TouchableHighlight
-            style={{ position: 'absolute', top: 160, right: 30, padding: 10, zIndex: 3, elevation: 3 }}
+            style={{ position: 'absolute', top: 170, right: 30, padding: 10, zIndex: 3, elevation: 3 }}
+            activeOpacity={1}
+            underlayColor='#FFFFFF'
             onPress={() => {
               console.log('-> move to PassYaMap')
               this.props.navigation.navigate('PassYaMap', { location_type: this.state.location_type })
             }}>
-            <Image source={require('../images/pass_yamap.png')}/>
+            <Image source={require('../images/pass_yamap_2.png')}/>
           </TouchableHighlight>
 
           <View style={{
             alignItems: 'stretch',
             paddingLeft: 30,
-            paddingRight: 70,
+            paddingRight: 75,
+            paddingTop: 20,
           }}>
             <TextInput
               ref="addressInput"
               //onEndEditing={(e: any) => { this.endEditingUserData( e.nativeEvent.text, 'firm' ) } }
               //onChangeText={(value) => this.changeUserData(value, 'firm')}
-              style={{ height: 55, fontSize: 20, borderBottomColor: '#960000', borderBottomWidth: 2, color: "#E8E8E8" }}
+              style={[
+                { height: 45, 
+                  fontSize: 14, 
+                  paddingLeft: 10,
+                  borderWidth: 1, 
+                  borderRadius: 8, 
+                  color: "#313131" 
+                }, 
+                { backgroundColor: ( this.state.address != '' ? "#FFFFFF" : "#F9FAF9" ) },
+                { borderColor: ( this.state.address != '' ? "#656565" : "#B8B8B8" ) }
+              ]}
               onChangeText={this.changeAddress}
               value={this.state.address}
             />
@@ -642,7 +650,7 @@ class Pass extends React.Component {
 
           {
             this.state.user_address_list.length ? (
-              <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Ранее введен:</Text>
+              <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Ранее введен:</Text>
             ) : null
           }
 
@@ -650,7 +658,7 @@ class Pass extends React.Component {
             {this.state.user_address_list.map((item, index) => this.renderUserAddressItem(item, index))}
           </View>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#E8E8E8" }}>Автомобили на маршрут:</Text>
+          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Автомобили на маршрут:</Text>
 
           <View>
             {this.state.auto_list.map((item) => this.renderItem(item))}
@@ -662,12 +670,12 @@ class Pass extends React.Component {
         {
           this.state.mos_ru_address || ( this.state.location_type != '' )  ? (
             <TouchableHighlight
-              style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#C9A86B" }}
+              style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
               onPress={() => {
                 console.log('call add_address')
                 AsyncStorage.getItem('token').then((value) => this.addAddress(value));
               }}>
-              <Text style={{ fontSize: 24, color: "#E8E8E8" }}>Заказать пропуск</Text>
+              <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Заказать пропуск</Text>
             </TouchableHighlight>
           ) : null
         }
