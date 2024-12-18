@@ -77,22 +77,40 @@ export default StyleSheet.create({
   },
 
   header_filter: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    padding: 10,
-    ...Platform.select({
-      ios: {
-        top: 65,
-      },
-      android: {
-        top: 20,
-      },
-      default: {
-        top: 20,
-      }
-   })
- },
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      padding: 10,
+      ...Platform.select({
+        ios: {
+          top: 65,
+        },
+        android: {
+          top: 20,
+        },
+        default: {
+          top: 20,
+        }
+    })
+  },
+
+  header_debt: {
+      position: 'absolute',
+      top: 20,
+      right: 60,
+      padding: 10,
+      ...Platform.select({
+        ios: {
+          top: 65,
+        },
+        android: {
+          top: 20,
+        },
+        default: {
+          top: 20,
+        }
+    })
+  },
 
   tab_checked: {
     alignItems: 'center',

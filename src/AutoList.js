@@ -193,6 +193,7 @@ class AutoList extends React.Component {
       modalViewContacts: false,
       findAutoVisible: false,
       modalSelectUserVisible: false,
+      modalDebtInfoVisible: false,
       modalDelAutoVisible: false,
       modalAddAutoVisible: false,
       modalAddAutoButtonDisabled: true,
@@ -521,7 +522,8 @@ class AutoList extends React.Component {
   setItemStyle = (index) => {
     let color = this.state.modalViewContacts || 
                 this.state.modalAddAutoVisible ||
-                this.state.modalDelAutoVisible ? 'rgba(29,29,29, 0)' : ( this.state.auto_list[index].marked == 1 ? "#E9E9E9" : "#ffffff" );
+                this.state.modalDelAutoVisible  ||
+                this.state.modalDebtInfoVisible ? 'rgba(29,29,29, 0)' : ( this.state.auto_list[index].marked == 1 ? "#E9E9E9" : "#ffffff" );
     return { flexDirection: "column", margin: 20, padding: 10, backgroundColor: color, borderRadius: 8, borderWidth: 1, borderColor: "#B8B8B8" }
   }
 
@@ -1094,7 +1096,8 @@ class AutoList extends React.Component {
 
     if(this.state.modalViewContacts || 
        this.state.modalAddAutoVisible ||
-       this.state.modalDelAutoVisible)
+       this.state.modalDelAutoVisible ||
+       this.state.modalDebtInfoVisible)
     {
       bgcolor = 'rgba(29,29,29, 0)'
     }
@@ -1149,6 +1152,7 @@ class AutoList extends React.Component {
 
   showHideTab = (mode, ind) => {
     console.log('showHideTab. ind = ' + ind)
+    console.log('mode = ' + mode)
 
     let auto_list_new = this.state.auto_list
 
@@ -1156,7 +1160,13 @@ class AutoList extends React.Component {
     {
       if(i == ind)
       {
-        if(mode == 'fines')
+        console.log( 'auto_list_new[i].status_tab_show = ' + auto_list_new[i].status_tab_show )
+
+        if(mode == 'status')
+        {
+          auto_list_new[i].status_tab_show = auto_list_new[i].status_tab_show == 0 ? 1 : 0
+        }
+        else if(mode == 'fines')
         {
           auto_list_new[i].check_fines_tab_show = auto_list_new[i].check_fines_tab_show == 0 ? 1 : 0
           auto_list_new[i].check_osago_tab_show = 0
@@ -1190,7 +1200,8 @@ class AutoList extends React.Component {
       container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
         this.state.modalViewContacts || 
         this.state.modalAddAutoVisible ||
-        this.state.modalDelAutoVisible ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
+        this.state.modalDelAutoVisible || 
+        this.state.modalDebtInfoVisible? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
     }
 
     return container_style_new
@@ -1473,7 +1484,7 @@ class AutoList extends React.Component {
             marginTop: 10
           }}>              
             <View style={[{
-              flex: 3,
+              flex: 2,
               alignItems: 'center',
               height: 29,
               padding: 5,
@@ -1493,15 +1504,45 @@ class AutoList extends React.Component {
               <Text style={{ fontSize: 14, color: "#3A3A3A" }}>{item.status_type_of_pass_string}</Text>
             </View>
             <View style={[{
-              flex: 3,
+              flex: 4,
               alignItems: 'center',
               height: 29,
               padding: 5,
             },
             { backgroundColor: this.setTabBgColor('yellow') }]}>
-              <Text style={{ fontSize: 14, color: "#705B00" }}>{ item.status_header }</Text>
-            </View>             
+              <TouchableHighlight style={{ 
+                  alignItems: 'center',
+                  flexDirection: "row"
+                }}
+                activeOpacity={1}
+                underlayColor={this.setTabUnderlay('yellow')}
+                onPress={() => this.showHideTab('status', index) }>   
+                <>           
+                  <Text style={{ fontSize: 14, marginBottom: 5, color: "#705B00" }}>{ item.status_header }</Text>
+                  { item.status_tab_show != 0 ? ( 
+                    <Image source={require('../images/arrow_hide.png')}/>
+                  ) : (
+                    <Image source={require('../images/arrow_show.png')}/>
+                  ) }
+                </>
+              </TouchableHighlight> 
+            </View>            
           </View> ) : null }
+
+          {/* статус заявки */}    
+          { item.status_tab_show != 0 ? (     
+          <View style={{
+              flexDirection: "row",
+              alignItems: "stretch",
+              marginTop: 10
+          }}>
+            <View style={{
+              flex: 7,
+              alignItems: 'center'
+            }}>
+              <Text style={styles['white']}>ориентировочная дата выдачи { item.status_dat_issuance_str }</Text>
+            </View>
+          </View>) : null }
 
           {/* задолженность */}  
           { item.debt_sum != '0.00' ? ( 
@@ -1828,6 +1869,19 @@ class AutoList extends React.Component {
           ) : null
         }
 
+        { this.state.indicator == false && this.state.user_data.debt_sum != '0.00'? (
+            <TouchableHighlight
+              style={styles.header_debt}
+              activeOpacity={1}
+              underlayColor="#ffffff"
+              onPress={() => {
+                console.log('debt info')
+                this.setState({modalDebtInfoVisible: !this.state.modalDebtInfoVisible})
+              }}>
+                <Image source={require('../images/alert-circle_2.png')} />
+            </TouchableHighlight>
+          ) : null
+        }        
 
         { this.state.indicator == false ? (
           <TouchableHighlight
@@ -2048,6 +2102,62 @@ class AutoList extends React.Component {
             </View>
           </View>
         </Modal>
+
+        {/* модальное окно с информацией о задолженности */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={this.state.modalDebtInfoVisible}
+          onRequestClose={() => {
+            //Alert.alert("Modal has been closed.");
+            this.setState({modalDebtInfoVisible: false})
+          }}
+        >
+          <View style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+
+            <View style={{
+              //flex: 1,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 25,
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              borderWidth: 1, 
+              borderColor: "#B8B8B8",
+              //marginTop: 70
+            }}>
+
+              <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Ваша задолженность составляет { this.state.user_data.debt_sum } руб { '\n' }
+              Вы можете уточнить подробности у вашего персонального менеджера</Text>
+
+              <View style={{
+                //flex: 1,
+                //backgroundColor: 'grey',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+
+                <View style={{
+                  flexDirection: "row",
+                  width: 400,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <TouchableOpacity
+                    style={{ height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
+                    onPress={() =>  { this.setState({modalDebtInfoVisible: false}) }}>
+                    <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>OK</Text>
+                  </TouchableOpacity>
+                </View>
+
+
+              </View>
+            </View>
+          </View>
+        </Modal>        
 
         {/* модальное окно подтверждения удаления авто */}
         <Modal
@@ -2358,7 +2468,8 @@ class AutoList extends React.Component {
               {
                 backgroundColor: this.state.modalViewContacts || 
                                  this.state.modalAddAutoVisible ||
-                                 this.state.modalDelAutoVisible ? 'rgba(29,29,29, 0)' : "#FFFFFF"
+                                 this.state.modalDelAutoVisible || 
+                                 this.state.modalDebtInfoVisible ? 'rgba(29,29,29, 0)' : "#FFFFFF"
               } 
             ]}>            
               <View style={{

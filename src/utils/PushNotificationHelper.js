@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./Api";
 
-const Version = '1.0.20';
+const Version = '1.0.21';
 
 export const getDeviceInfo = () => {
 
