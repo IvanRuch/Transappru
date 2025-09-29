@@ -19,6 +19,7 @@ import PassYaMap from './PassYaMap';
 import DriverList from './DriverList';
 import OnBoarding from './OnBoarding';
 import NotificationList from './NotificationList';
+import OurServices from './OurServices';
 import { requestAndroidPermission, requestUserPermission, NotificationListener } from './utils/PushNotificationHelper';
 
 const Stack = createStackNavigator();
@@ -125,6 +126,10 @@ class App extends React.Component {
           <Stack.Screen
             name="NotificationList"
             component={NotificationList}
+          />
+          <Stack.Screen
+            name="OurServices"
+            component={OurServices}
           />
         </Stack.Navigator>
       </NavigationContainer>

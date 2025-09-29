@@ -31,6 +31,11 @@ class Auto extends React.Component {
       auto_fine_paid_list_hide: false,
       auto_fine_unpaid_list_hide: true,
 
+      avtodor_indicator: true,
+      auto_avtodor_data: { paid_list: [], unpaid_list: [] },
+      auto_avtodor_paid_list_hide: false,
+      auto_avtodor_unpaid_list_hide: true,
+
       osago_indicator: true,
       auto_osago_data: {},
 
@@ -62,29 +67,34 @@ class Auto extends React.Component {
       this.scrollView.scrollTo({x: 160});
       AsyncStorage.getItem('token').then((value) => this.getAutoFines(value));
     }
-    else if(tab == 'osago')
+    else if(tab == 'avtodor')
     {
       this.scrollView.scrollTo({x: 320});
+      AsyncStorage.getItem('token').then((value) => this.getAutoAvtodor(value));
+    }
+    else if(tab == 'osago')
+    {
+      this.scrollView.scrollTo({x: 485});
       AsyncStorage.getItem('token').then((value) => this.getAutoOsago(value));
     }
     else if(tab == 'diagnostic_card')
     {
-      this.scrollView.scrollTo({x: 485});
+      this.scrollView.scrollTo({x: 650});
       AsyncStorage.getItem('token').then((value) => this.getAutoCheckDiagnosticCard(value));
     }
     else if(tab == 'rnis')
     {
-      this.scrollView.scrollTo({x: 650});
+      this.scrollView.scrollTo({x: 810});
       AsyncStorage.getItem('token').then((value) => this.getAutoCheckRnis(value));
     }
     else if(tab == 'files')
     {
-      this.scrollView.scrollTo({x: 810});
+      this.scrollView.scrollTo({x: 970});
       AsyncStorage.getItem('token').then((value) => this.getAutoFiles(value));
     }
     else if(tab == 'driver')
     {
-      this.scrollView.scrollTo({x: 970});
+      this.scrollView.scrollTo({x: 1030});
       this.props.navigation.navigate('DriverList')
     }
   }
@@ -778,11 +788,27 @@ class Auto extends React.Component {
             <Text style={{ color: "#313131"}}>Постановление от {item.dat}</Text>
           </View>
 
-          <View style={{
-            flexDirection: "row",
-          }}>
-            <Text style={{ color: "#313131"}}>Штраф {item.sum}</Text>
-          </View>
+          { item.is_platon != 0 ? (
+            <View style={{
+              flexDirection: "row",
+            }}>
+              <Text style={{ color: "#EE505A"}}>Штраф системы ПЛАТОН {item.sum}</Text>
+            </View>
+          ) : (
+            <View style={{
+              flexDirection: "row",
+            }}>
+              <Text style={{ color: "#313131"}}>Штраф {item.sum}</Text>
+            </View>
+          ) }
+
+          { item.is_to_fssp != 0 ? (
+            <View style={{
+              flexDirection: "row",
+            }}>
+              <Text style={{ color: "#EE505A"}}>Передано в ФССП {item.to_fssp_at}</Text>
+            </View>
+          ) : null }
 
           { 
             item.discount_str != '' ? (
@@ -818,6 +844,215 @@ class Auto extends React.Component {
             <Image source={require('../images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
         </View>
+
+      </View>
+    );
+  }
+
+  /* платные дороги  */
+  unpaidAvtodorSum = () => {
+    let sum = 0;
+    for (var i = 0; i < this.state.auto_avtodor_data.unpaid_list.length; i++) { sum += parseInt(this.state.auto_avtodor_data.unpaid_list[i].price) }
+    return sum
+  }
+
+  getAutoAvtodor = (value) => {
+    console.log('getAutoAvtodor. value = ' + value)
+
+    if(!value)
+    {
+      console.log('null')
+      this.props.navigation.navigate('Auth')
+    }
+
+    else
+    {
+      this.setState({avtodor_indicator: true})
+
+      Api.post('/get-auto-avtodor', { token: value, id : this.state.auto_data.id })
+         .then(res => {
+
+            const data = res.data;
+            console.log('data')
+            console.log(data);
+
+            this.setState({auto_avtodor_data: data.auto_avtodor_data, avtodor_indicator: false})
+          })
+          .catch(error => {
+            console.log('error.response.status = ' + error.response.status);
+            if(error.response.status == 401) { this.props.navigation.navigate('Auth') }
+          });
+    }
+  }
+
+  renderAutoAvtodorPaidItem = (item) => {
+
+    return (
+
+      <View
+        key={item.id}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8, 
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+      }}
+      >
+        <View style={{
+          flex: 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: "column",
+        }}>
+          <Image source={require('../images/uil_check_2.png')}/>
+        </View>
+        <View style={{
+          flex: 5,
+          flexDirection: "column",
+          paddingLeft: 10,
+        }}>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>Проезд {item.pass_at}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>{item.road_name}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>{item.pass_place}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>Сумма оплаты {item.price}</Text>
+          </View>          
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131" }}>Оператор {item.operator_description}</Text>
+          </View>
+
+        </View>
+
+        {/*
+        <View style={{
+          flex: 1,
+          alignItems: 'flex-end',
+          justifyContent: 'flex-end',
+        }}>
+          <TouchableHighlight
+            style={{ paddingTop: 20, paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            underlayColor='#EEEEEE'
+            onPress={() => {
+              console.log('-> move to AutoFine')
+              this.props.navigation.navigate('AutoFine', { fine_data: item })
+          }}>
+            <Image source={require('../images/arrow_to_right_2.png')}/>
+          </TouchableHighlight>
+        </View>
+        */}
+
+      </View>
+    );
+  }
+
+  renderAutoAvtodorUnpaidItem = (item) => {
+
+    console.log('item')
+    console.log(item)
+
+    return (
+
+      <View
+        key={item.id}
+        style={{ 
+          flexDirection: "row", 
+          margin: 20, 
+          padding: 10, 
+          backgroundColor: "#EEEEEE", 
+          borderRadius: 8,
+          borderWidth: 1, 
+          borderColor: "#B8B8B8" 
+      }}
+      >
+        <View style={{
+          flex: 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: "column",
+        }}>
+          <Image source={require('../images/uil_exclamation-triangle_2.png')}/>
+        </View>
+        <View style={{
+          flex: 5,
+          flexDirection: "column",
+          paddingLeft: 10,
+        }}>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>Проезд {item.pass_at}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>{item.road_name}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>{item.pass_place}</Text>
+          </View>
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131"}}>Сумма оплаты {item.price}</Text>
+          </View>          
+
+          <View style={{
+            flexDirection: "row",
+          }}>
+            <Text style={{ color: "#313131" }}>Оператор {item.operator_description}</Text>
+          </View>
+
+        </View>
+
+        {/*
+        <View style={{
+          flex: 1,
+          alignItems: 'flex-end',
+          justifyContent: 'flex-end',
+        }}>
+          <TouchableHighlight
+            style={{ paddingTop: 20, paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            underlayColor='#EEEEEE'
+            onPress={() => {
+              console.log('-> move to AutoFine')
+              this.props.navigation.navigate('AutoFine', { fine_data: item })
+          }}>
+            <Image source={require('../images/arrow_to_right_2.png')}/>
+          </TouchableHighlight>
+        </View>
+        */}
 
       </View>
     );
@@ -1323,6 +1558,21 @@ class Auto extends React.Component {
                 }
               </Pressable>
 
+              <Pressable onPress={() => this.checkTab('avtodor')}>
+                { this.state.current_tab == 'avtodor' ? (
+                  <View style={styles.tab_checked}>
+                    <Image source={require('../images/tab_avtodor_checked_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 12, fontWeight: "bold", color: "#313131" }}>ПЛАТНЫЕ ДОРОГИ</Text>
+                  </View>
+                  ) : (
+                  <View style={styles.tab}>
+                    <Image source={require('../images/tab_avtodor_2.png')}/>
+                    <Text style={{ marginTop: 10, fontSize: 12, fontWeight: "bold", color: "#313131" }}>ПЛАТНЫЕ ДОРОГИ</Text>
+                  </View>
+                  )
+                }
+              </Pressable>              
+
               <Pressable onPress={() => this.checkTab('osago')}>
                 { this.state.current_tab == 'osago' ? (
                   <View style={styles.tab_checked}>
@@ -1553,6 +1803,112 @@ class Auto extends React.Component {
           ) : null
         }
 
+
+        { this.state.current_tab == 'avtodor' ? (
+            <ScrollView>
+              <View style={{
+                flex: 1,
+                alignItems: 'stretch',
+                justifyContent: 'flex-start',
+              }}>
+
+                { this.state.avtodor_indicator ? (
+                    <ActivityIndicator size="large" color="#313131" animating={true}/>
+                  ) : (
+                    <>
+                      <Pressable
+                        onPress={() => this.setState({ auto_avtodor_paid_list_hide: !this.state.auto_avtodor_paid_list_hide })}
+                      >
+                        <View style={{ 
+                          flexDirection: "row", 
+                          margin: 20, 
+                          padding: 10, 
+                          backgroundColor: "#EEEEEE", 
+                          borderRadius: 8,
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8" 
+                        }}>
+                          <View style={{
+                            flex: 5,
+                            flexDirection: "column",
+                            paddingLeft: 10,
+                          }}>
+                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Оплаченные ранее {this.state.auto_avtodor_data.paid_list.length ? '(' + this.state.auto_avtodor_data.paid_list.length + ')' : 'не обнаружены'}</Text>
+                          </View>
+                        </View>
+                      </Pressable>
+
+                      { this.state.auto_avtodor_paid_list_hide ? (
+                          <View>
+                            {this.state.auto_avtodor_data.paid_list.map((item) => this.renderAutoAvtodorPaidItem(item))}
+                          </View>
+                        ) : null
+                      }
+
+                      <Pressable
+                        onPress={() => this.setState({ auto_avtodor_unpaid_list_hide: !this.state.auto_avtodor_unpaid_list_hide })}
+                      >
+                        <View style={{ 
+                          flexDirection: "row", 
+                          margin: 20, 
+                          padding: 10, 
+                          backgroundColor: "#EEEEEE", 
+                          borderRadius: 8,
+                          borderWidth: 1, 
+                          borderColor: "#B8B8B8" 
+                         }}>
+                          <View style={{
+                            flex: 5,
+                            flexDirection: "column",
+                            paddingLeft: 10,
+                          }}>
+                            <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Проезды к оплате {this.state.auto_avtodor_data.unpaid_list.length ? '(' + this.state.auto_avtodor_data.unpaid_list.length + ')' : 'не обнаружены'}</Text>
+                          </View>
+                        </View>
+                      </Pressable>
+
+                      { this.state.auto_avtodor_unpaid_list_hide ? (
+                          <>
+                            <View>
+                              {this.state.auto_avtodor_data.unpaid_list.map((item) => this.renderAutoAvtodorUnpaidItem(item))}
+                            </View>
+
+                            { this.state.auto_avtodor_data.unpaid_list.length ? (
+                                <View style={{ 
+                                  flexDirection: "row", 
+                                  margin: 20, 
+                                  padding: 10, 
+                                  backgroundColor: "#EEEEEE", 
+                                  borderRadius: 8,
+                                  borderWidth: 1, 
+                                  borderColor: "#B8B8B8" 
+                                }}>
+                                  <View style={{
+                                    flex: 5,
+                                    flexDirection: "column",
+                                    paddingLeft: 10,
+                                  }}>
+                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Всего: {this.unpaidAvtodorSum()} руб</Text>
+                                  </View>
+                                </View>
+                              ) : null
+                            }
+
+                          </>
+                        ) : null
+                      }
+
+
+
+                    </>
+                  )
+                }
+
+              </View>
+            </ScrollView>
+          ) : null
+        }        
+
         { this.state.current_tab == 'osago' ? (
             <ScrollView>
               <View style={{
@@ -1670,20 +2026,62 @@ class Auto extends React.Component {
                     <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
 
                       { typeof(this.state.auto_rnis_data.registrationOk) == 'undefined' ? (
-                          <Text style={{ fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
+                          <View style={{
+                              flexDirection: "row"
+                          }}>
+                            <Image source={require('../images/rnis_unsuccess.png')}/>
+                            <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
+                          </View>
                         ) : (
                           <>
                             { this.state.auto_rnis_data.registrationOk != 1 ? (
-                                <Text style={{ fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
+                            <View style={{
+                              flexDirection: "row"
+                            }}>
+                              <Image source={require('../images/rnis_unsuccess.png')}/>
+                              <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
+                            </View>
                               ) : (
-                                <>
-                                 <Text style={{ fontSize: 15, color: "#313131"}}>Зарегистрирован в РНИС. </Text>
-                                 { this.state.auto_rnis_data.rnis_registered != null ? (
-                                    <Text style={{ fontSize: 15, color: "#313113"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
-                                    ) : null
-                                 }
-                                </>
+                                <View style={{
+                                  flexDirection: "row"
+                                }}>
+                                  <Image source={require('../images/rnis_success.png')}/>
+                                  <View style={{
+                                    paddingLeft: 10
+                                  }}>
+                                    <Text style={{ fontSize: 15, color: "#313131"}}>Зарегистрирован в РНИС. </Text>
+                                    { this.state.auto_rnis_data.rnis_registered != null ? (
+                                        <Text style={{ fontSize: 15, color: "#313113"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
+                                        ) : null
+                                    }
+                                  </View>
+                                </View>
+                              )
+                            }
 
+                            { this.state.auto_rnis_data.telematicsOk == 0 ? (
+                                <View style={{
+                                    flexDirection: "row"
+                                }}>
+                                  <Image source={require('../images/rnis_unsuccess.png')}/>
+                                  <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Навигационные данные в РНИС не поступали</Text>
+                                </View>
+                              ) : (
+                                <View style={{
+                                  flexDirection: "row"
+                                }}>
+
+                                  <Image source={require('../images/rnis_success.png')}/>
+                                  <View style={{
+                                    paddingLeft: 10
+                                  }}>
+                                    <Text style={{ fontSize: 15, color: "#313131"}}>Телематика передается. </Text>
+                                    { this.state.auto_rnis_data.telematics_date != 0 ? (
+                                        <Text style={{ fontSize: 15, color: "#313113"}}>Последняя передача: {this.state.auto_rnis_data.telematics_date}</Text>
+                                        ) : null
+                                    }
+                                  </View>
+                                </View>
                               )
                             }
                           </>
