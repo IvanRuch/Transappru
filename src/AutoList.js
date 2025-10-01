@@ -2143,6 +2143,17 @@ class AutoList extends React.Component {
                 justifyContent: 'center',
                 //position: 'absolute',
                 //top: 0,
+                ...Platform.select({
+                  ios: {
+                    paddingTop: 30,
+                  },
+                  android: {
+                    paddingTop: 0,
+                  },
+                  default: {
+                    paddingTop: 0,
+                  }
+                }),
                 width: '100%'
               }}>
 
@@ -2195,6 +2206,43 @@ class AutoList extends React.Component {
                   {this.state.our_services_list.map((item, index) => this.renderOurServicesItem(item, index))}
                 </View>
               ) : null }
+
+              <TouchableHighlight 
+                style={{ paddingTop: 20 }}
+                activeOpacity={1}
+                underlayColor='#FFFFFF'
+                onPress={() => {
+                  console.log('check rnis')
+                  this.setState({menuLeftVisible: false})
+                  this.props.navigation.navigate('Inn', { user_data: {}, check_rnis: true })
+                }}
+                >
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "stretch"
+                }}>              
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'center',
+                    height: 29,
+                    padding: 5,
+                    //backgroundColor: "#B8B8B8"
+                  }}>
+                    <Image source={require('../images/menu_left_check_rnis.png')} />
+                  </View>
+                  <View style={{
+                    flex: 7,
+                    alignItems: 'left',
+                    height: 29,
+                    paddingTop: 5,
+                    paddingBottom: 5,
+                    paddingLeft: 10,
+                    //backgroundColor: "grey",
+                  }}>
+                    <Text style={{ fontSize: 14, fontWeight: "bold", color: "#3A3A3A" }}>Проверить в РНИС</Text>
+                  </View>            
+                </View>
+              </TouchableHighlight>   
 
               <TouchableHighlight 
                 style={{ paddingTop: 20 }}

@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View, Button, TextInput, TouchableOpacity, Alert, Pressable, Linking, Modal, TouchableHighlight, Image, ScrollView, Keyboard, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import styles from './styles/Styles.js';
 import Api from "./utils/Api";
 
 class Inn extends React.Component {
@@ -10,6 +11,7 @@ class Inn extends React.Component {
     super(props);
     this.state = {
       user_data: props.route.params.user_data,
+      check_rnis: props.route.params.check_rnis,
       inn: '',
       disabled: true,
       modalWaitInnConfirmation: false,
@@ -76,7 +78,7 @@ class Inn extends React.Component {
 
   setButtonStyle = () => {
     let backgroundColor = this.state.disabled ? "#c0c0c0" : "#3A3A3A";
-    return { height: 50, width: 275, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
+    return { height: 50, fontSize: 10, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor, alignSelf: 'stretch', marginHorizontal: 60, marginTop: 10 }
   }
 
   setButtonTextStyle = () => {
@@ -137,8 +139,8 @@ class Inn extends React.Component {
   }
 
   setCheckRnisButtonTextStyle = () => {
-    let color = this.state.modalCheckRnisButtonDisabled ? "#E8E8E8" : "#FFFFFF";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 500, color: color }
+    let color = this.state.modalCheckRnisButtonDisabled ? "#FFFFFF" : "#FFFFFF";
+    return { paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: 500, color: color, marginHorizontal: 30, }
   }
 
   checkAddAutoEnabled = () => {
@@ -285,103 +287,99 @@ class Inn extends React.Component {
             this.setState({modalVisible: false})
           }}
         >
-          <View style={styles.centeredView}>
-            <View style={styles.modalView}>
-              <Text style={styles.modalText}>введите ИНН для более точной идентификации Вас как клиента</Text>
+          <View style={instyles.centeredView}>
+            <View style={instyles.modalView}>
+              <Text style={instyles.modalText}>введите ИНН для более точной идентификации Вас как клиента</Text>
               <Pressable
-                style={[styles.button, styles.buttonClose]}
+                style={[instyles.button, instyles.buttonClose]}
                 onPress={() => this.setState({modalVisible: false})}
               >
-                <Text style={styles.textStyle}>ok</Text>
+                <Text style={instyles.textStyle}>ok</Text>
               </Pressable>
             </View>
           </View>
         </Modal>
 
-        <View style={{ flex: 1 }}>
         <ScrollView>        
-        <View style={{ flex: 1 ,
-              alignItems: 'center',
-              justifyContent: 'center',
-        }}>
 
-        { Object.keys(this.state.user_data).length != 0 ? (
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
-            console.log('-> move to AutoList')
-            this.props.navigation.navigate('AutoList')
-          }}>
-          <Image source={require('../images/back_2.png')} />
-        </TouchableHighlight> ) : null }         
+          { this.state.check_rnis ? (
+            <Text style={styles.header}>Проверить в РНИС</Text>
+          ) : (
+            <Text style={styles.header}>Введите ИНН</Text>
+          ) }
 
-        <Text style={{ paddingTop: 30, fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите ИНН</Text>
-        <View
-          style={{
-            flexDirection: "row",
-            //height: 100,
-            paddingLeft: 30
-          }}
-        >
-          <TextInput
-            keyboardType='numeric'
-            style={{ height: 60, width: 275, color: '#4C4C4C', textAlign: 'center', fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
-            maxLength={12}
-            //placeholder = '000000000000'
-            onChangeText={this.changeInn}
-          />
-          <TouchableHighlight
-            style={{ width: 24, height: 24 }}
-            activeOpacity={1}
-            underlayColor='#FFFFFF'
-            onPress={() => this.setState({modalVisible: true}) }>
-            <Image
-              style={{ width: 24, height: 24 }}
-              source={{
-                uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAMwSURBVFhHrZc3yFRdEIbXLMbOACpmMGFoxN4cwFK09VexsLEwlmYbS3OjCIpgKEQwBywM6F+YBRPmAGpjRJ9n2Vnu3u/e3bsf3wsP7J2dM+fsPXPmzJaaUE+YDpvgHLyCnxVew3nwO330bTONgp3wEf4W5BPsgtHQanWGzfAd0hO8gKtwsoKftaX9fsAWMFZTGgbXIRnsPqyDidAV0tI2AfTRNzn2BgyHQhoPbyAGv4fl0AmKSt9l4NiI8xZcfF0NAR1jkIk1CPLUrUKeBoIJG/HewVDIlKu+DeF8FDpAlpbCJTD7xc/+4iy1hyMQce9AZk6YcOFkQAem1RvOQvil8Y3pk1Y7uAjhtxVqZIL8Ar/0CPWHLJ2CCGKG+3oleVJOQ5b6QRxl5xoBVe2BCJD3KmdD+DyAsRAaA8nMnwtZ+g/CZ58G1R2+gMYnkPXq1QHQ5zdM0ZDSZPA7fQ5qyJCxH4E+X6EHlKZWDLJWQ45ugj4fwD3N0lPQ51r5KVurIeazbJfrdxjGacjRRnDv9pefWspCFOfeZMyTW/cH9LNKVrPzJTQqNrlnGK2E+CHlwDnqCM9BP09btfBc8aFJuYdWzg0Qk5sHNRmeISfW17mriXPChybk0X0GMXGwAhrpGOjr3K1ewCJITuz+L4EiqllAbMFlH5rQAojJd0AfKKqaLWgmCZNaCLGA+RoKqkUSxh3g0ah3DNOaA7GAeRoKyqoZx7B8J0yrPMgaDQXl21pfoZmOZxXEfDM0WIotixoeQ14pbgtZQaMUf4NyKVZ7IVZVNJNngcdQ3I4iWgwxT01FtXDEdeyV6dXZSN6IEeyhhgbqC3Ede/xGQo1MiAjoyci7cELW+6R/PRkr6b8dWshEsl0KJ9uoevkwGA5VsJfMk5Mfhoj7P+QmrZeNjWM4237ZWLZWA+AMRDyrpS1/XdnbJztjF2SXZAEpKn1tXJM/xs+ToJBMymhAgntgnfD26wJpafM7fe5CcuwtaJF0jeQ+mZg2n8lg4tHz+vYCOw7eI1k3o2O3QdaCC8vSuRs+Q3qCPPS10XVsm6kXzATvDo+Uf0iSf88vgJ2QPln/DTJUKv0DH6REIO5C4q0AAAAASUVORK5CYII=',
-              }}
-            />
-          </TouchableHighlight>
-        </View>
-
-
-          <TouchableOpacity
-              disabled={this.state.disabled}
-              style={this.setButtonStyle()}
+          { Object.keys(this.state.user_data).length != 0 || this.state.check_rnis ? (
+            <TouchableHighlight
+              style={styles.header_back}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
               onPress={() => {
-                  console.log('call bind_inn')
-                  AsyncStorage.getItem('token').then((value) => this.bindInn(value));
-                }
-              }
-          >
-            { Object.keys(this.state.user_data).length != 0 ? (
-              <Text style={this.setButtonTextStyle()}>Добавить</Text>
-            ) : (
-              <Text style={this.setButtonTextStyle()}>Зарегистрироваться</Text>  
-            ) }
-          </TouchableOpacity>
+                console.log('-> move to AutoList')
+                this.props.navigation.navigate('AutoList')
+              }}>
+              <Image source={require('../images/back_2.png')} />
+            </TouchableHighlight> ) : (
+            <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" , textAlign: "justify"}}>для более точной идентификации Вас как клиента</Text>
+          ) }     
+          
+          { !this.state.check_rnis ? (
+            <>
+              <View style={{
+                alignItems: 'stretch',
+                paddingTop: 20,
+                paddingLeft: 60,
+                paddingRight: 60,
+              }}>
+                <TextInput
+                  keyboardType='numeric'
+                  style={{ height: 60, paddingLeft: 30, paddingRight:30, color: '#4C4C4C', textAlign: 'center', fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom : 10 }}
+                  maxLength={12}
+                  //placeholder = '000000000000'
+                  onChangeText={this.changeInn}
+                />
+              </View>
+
+              <TouchableOpacity
+                  disabled={this.state.disabled}
+                  style={this.setButtonStyle()}
+                  onPress={() => {
+                      console.log('call bind_inn')
+                      AsyncStorage.getItem('token').then((value) => this.bindInn(value));
+                    }
+                  }
+              >
+                { Object.keys(this.state.user_data).length != 0 ? (
+                  <Text style={this.setButtonTextStyle()}>Добавить</Text>
+                ) : (
+                  <Text style={this.setButtonTextStyle()}>Зарегистрироваться</Text>  
+                ) }
+              </TouchableOpacity>
+            </> 
+          ) : null }
 
           { Object.keys(this.state.user_data).length == 0 ? (
 
-          <>
+          <View style={{
+            paddingLeft: 30,
+            paddingRight: 30,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
 
-            <Text style={{ paddingLeft: 50, paddingRight: 50, paddingTop: 20, paddingBottom: 20, fontSize: 14, fontWeight: "bold", color: "#656565", textAlign: "justify" }}>Вы также можете проверить автомобиль на наличие регистрации в РНИС и передачу телематики</Text>
+            <Text style={{ paddingLeft: 10, paddingRight: 10, paddingTop: 20, paddingBottom: 20, fontSize: 14, fontWeight: "normal", color: "#656565", textAlign: "justify" }}>Вы можете проверить автомобиль на наличие регистрации в РНИС и передачу телематики</Text>
 
             <Image source={require('../images/down_accordion.png')} />
 
             <View style={{
               backgroundColor: '#F7F7F7',
               borderRadius: 25,
-              alignItems: 'center',
-              justifyContent: 'center',
+              //alignItems: 'center',
+              //justifyContent: 'center',
               marginTop: 24,
               paddingTop: 14,
               paddingBottom: 14,
               paddingLeft: 10,
               paddingRight: 10,
-              alignItems: 'flex-start',
               borderWidth: 1, 
               borderColor: "#B8B8B8",
             }}>
@@ -556,12 +554,17 @@ class Inn extends React.Component {
             ) : null }
 
 
-          </>
+          </View>
           ) : null }
 
-          </View>
-          </ScrollView>
-          </View>
+
+          {/*[...Array(100)].map((_, i) => (
+            <Text key={i} style={{ fontSize: 20, marginVertical: 8 }}>
+              Строка {i + 1}
+            </Text>
+          ))*/}
+
+        </ScrollView>
 
       </View>
     );
@@ -570,12 +573,13 @@ class Inn extends React.Component {
 
 // ...
 
-const styles = StyleSheet.create({
+const instyles = StyleSheet.create({
+  /*
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+      flex: 1,
+      backgroundColor: '#fff',
+      alignItems: 'center',
+      justifyContent: 'center',
   },
 
   header_back: {
@@ -593,8 +597,26 @@ const styles = StyleSheet.create({
       default: {
         top: 20,
       }
-   })
- },
+    })
+  },
+
+  container_in: {
+    flex: 1 ,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+        ios: {
+          paddingTop: 70,
+        },
+        android: {
+          paddingTop: 0,
+        },
+        default: {
+          paddingTop: 0,
+        }
+    })
+  },
+  */
 
   centeredView: {
       flex: 1,

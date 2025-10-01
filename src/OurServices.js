@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from './styles/Styles.js';
@@ -37,6 +37,8 @@ class OurServices extends React.Component {
 
   ourServicesOrder = (value) => {
     console.log('ourServicesOrder. value = ' + value)
+
+    this.setState({modalServiceOrderButtonDisabled: true})
 
     Api.post('/our-services-order', {  token: value,
                                       service_name: this.state.service_data.name,
@@ -331,7 +333,12 @@ class OurServices extends React.Component {
           <Image source={require('../images/back_2.png')} />
         </TouchableHighlight>
 
-        <ScrollView>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          style={{ flex: 1 }}
+        >
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 160 }}>
 
           <View style={{
               flexDirection: "row",
@@ -842,8 +849,8 @@ class OurServices extends React.Component {
           />
           </View>
 
-
         </ScrollView>
+        </KeyboardAvoidingView>
 
 
         {
