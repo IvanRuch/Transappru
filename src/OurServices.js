@@ -70,7 +70,7 @@ class OurServices extends React.Component {
           }
           else
           {
-            //this.setState({modalWaitForConnection: true})
+            this.setState({modalWaitForConnection: true})
           }
         })
         .catch(error => {
@@ -87,23 +87,25 @@ class OurServices extends React.Component {
 
     if(field == 'phone')
     {
-      if(value == '+7')
-      {
-        value = ''
-      }
-      if(value == '7')
-      {
-        value = '+7'
-      }
-      if(value == '+' || value == '8')
-      {
-        value = '+7'
-      }
-      if(value.match(/^\d$/))
-      {
-        value = '+7' + value
-      }
+      // allow only digits and enforce +7 prefix formatting
+      let digits = (value || '').replace(/\D/g, '')
+      if(digits.startsWith('8')) { digits = '7' + digits.slice(1) }
+      if(!digits.startsWith('7') && digits.length > 0) { digits = '7' + digits }
+      if(digits.length > 11) { digits = digits.slice(0, 11) }
+      value = digits.length === 0 ? '' : ('+7' + digits.slice(1))
       our_services_data_new[field] = value
+    }
+    else if(field == 'auto_quantity')
+    {
+      // allow only digits for auto quantity
+      const digitsOnly = (value || '').replace(/\D/g, '')
+      our_services_data_new[field] = digitsOnly
+    }
+    else if(['waybill_quantity', 'spb_pass_quantity', 'tow_truck_quantity', 'permission_quantity', 'map_quantity', 'leasing_time', 'leasing_advance'].includes(field))
+    {
+      // allow only digits for numeric fields
+      const digitsOnly = (value || '').replace(/\D/g, '')
+      our_services_data_new[field] = digitsOnly
     }
     else
     {
@@ -144,7 +146,8 @@ class OurServices extends React.Component {
 
   setOurServicesOrderButtonStyle = () => {
     let backgroundColor = this.state.modalServiceOrderButtonDisabled ? "#c0c0c0" : "#3A3A3A";
-    return { position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
+    //return { position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
+    return { paddingLeft: 30, paddingRight: 30, height: 50, fontSize: 10, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: backgroundColor }
   }
 
   setOurServicesOrderTextStyle = () => {
@@ -335,7 +338,7 @@ class OurServices extends React.Component {
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
           style={{ flex: 1 }}
         >
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 160 }}>
@@ -374,6 +377,8 @@ class OurServices extends React.Component {
               placeholder = 'Номер телефона'
               style={this.setTextInputStyle('phone')}
               maxLength={12}
+              keyboardType='phone-pad'
+              inputMode='numeric'
               onChangeText={(value) => this.changeValue(value, 'phone')}
               value={this.state.our_services_data.phone}
             />
@@ -410,6 +415,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('auto_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'auto_quantity')}
                 value={this.state.our_services_data.auto_quantity}
               />
@@ -429,6 +436,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('waybill_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'waybill_quantity')}
                 value={this.state.our_services_data.waybill_quantity}
               />
@@ -448,6 +457,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('spb_pass_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'spb_pass_quantity')}
                 value={this.state.our_services_data.spb_pass_quantity}
               />
@@ -467,6 +478,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('tow_truck_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'tow_truck_quantity')}
                 value={this.state.our_services_data.tow_truck_quantity}
               />
@@ -486,6 +499,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('map_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'map_quantity')}
                 value={this.state.our_services_data.map_quantity}
               />
@@ -505,6 +520,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('permission_quantity')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'permission_quantity')}
                 value={this.state.our_services_data.permission_quantity}
               />
@@ -789,6 +806,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('leasing_time')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'leasing_time')}
                 value={this.state.our_services_data.leasing_time}
               />
@@ -808,6 +827,8 @@ class OurServices extends React.Component {
               <TextInput
                 placeholder = ''
                 style={this.setTextInputStyle('leasing_advance')}
+                keyboardType='number-pad'
+                inputMode='numeric'
                 onChangeText={(value) => this.changeValue(value, 'leasing_advance')}
                 value={this.state.our_services_data.leasing_advance}
               />
@@ -843,31 +864,33 @@ class OurServices extends React.Component {
           }}>
           <TextInput
             placeholder = ''
-            style={[this.setTextInputStyle('comment'), { marginBottom: 110 }]}
+            style={[this.setTextInputStyle('comment'), { marginBottom: 20 }]}
             onChangeText={(value) => this.changeValue(value, 'comment')}
             value={this.state.our_services_data.comment}
           />
           </View>
 
+          {
+            this.state.modalServiceOrderButtonDisabled ? null : (
+
+              <TouchableHighlight
+                disabled={this.state.modalServiceOrderButtonDisabled}
+                style={this.setOurServicesOrderButtonStyle()}
+                onPress={() =>  {
+                  console.log('call set_ourServicesOrder')
+                  AsyncStorage.getItem('token').then((value) => this.ourServicesOrder(value));
+                }}>
+                <Text style={this.setOurServicesOrderTextStyle()}>Заказать услугу</Text>
+              </TouchableHighlight>
+
+            )
+          }
+
         </ScrollView>
         </KeyboardAvoidingView>
 
 
-        {
-          this.state.modalServiceOrderButtonDisabled ? null : (
 
-            <TouchableHighlight
-              disabled={this.state.modalServiceOrderButtonDisabled}
-              style={this.setOurServicesOrderButtonStyle()}
-              onPress={() =>  {
-                console.log('call set_ourServicesOrder')
-                AsyncStorage.getItem('token').then((value) => this.ourServicesOrder(value));
-              }}>
-              <Text style={this.setOurServicesOrderTextStyle()}>Заказать услугу</Text>
-            </TouchableHighlight>
-
-          )
-        }
 
       </View>
     );

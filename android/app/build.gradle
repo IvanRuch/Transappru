@@ -80,8 +80,8 @@ android {
         applicationId "com.transappru"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 24
-        versionName "1.0.24"
+        versionCode 26
+        versionName "1.0.26"
     }
     signingConfigs {
         debug {
