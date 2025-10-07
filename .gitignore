@@ -65,3 +65,13 @@ yarn-error.log
 # testing
 /coverage
 .metro-cache/
+.tmp/
+
+# Auto-generated Metro bundles and drawable assets
+android/app/src/main/assets/
+android/app/src/main/res/drawable-*/node_modules_*
+android/app/src/main/res/drawable-*/images_*
+android/app/src/main/res/drawable-*/react_*
+android/app/src/main/res/raw/
+android/app/src/debug/
+android/app/src/release/

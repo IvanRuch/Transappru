@@ -5,8 +5,9 @@ import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Api from "./Api";
+import packageJson from '../../package.json';
 
-const Version = '1.0.27';
+const Version = packageJson.version;
 
 export const getDeviceInfo = () => {
 

@@ -1,46 +1,38 @@
+require_relative '../node_modules/react-native/scripts/react_native_pods'
+require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
+
 platform :ios, '13.4'
-pod 'Firebase', :modular_headers => true
-pod 'FirebaseCoreInternal', :modular_headers => true
-pod 'GoogleUtilities', :modular_headers => true
-pod 'FirebaseCore', :modular_headers => true
 
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+install! 'cocoapods', :deterministic_uuids => false
 
-prepare_react_native_project!
-
-flipper_config = FlipperConfiguration.disabled
-
-linkage = ENV['USE_FRAMEWORKS']
-if linkage != nil
-  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
-  use_frameworks! :linkage => linkage.to_sym
-end
+# 🔧 Важно: добавляем эту строку для Swift-подов (FirebaseCoreInternal / GoogleUtilities)
+use_modular_headers!
 
 target 'TransApp' do
   config = use_native_modules!
 
   use_react_native!(
     :path => config[:reactNativePath],
-    :flipper_configuration => flipper_config,
-    :app_path => "#{Pod::Config.instance.installation_root}/..",
-    :hermes_enabled => false  # ← ДОБАВЛЕНА ЭТА СТРОКА
+    :hermes_enabled => true
   )
 
-  target 'TransAppTests' do
-    inherit! :complete
-  end
+  # ❌ Flipper отключён — конфликтует с Xcode 15/16
+  # use_flipper!
+  # post_install do |installer|
+  #   flipper_post_install(installer)
+  # end
 
   post_install do |installer|
     react_native_post_install(
       installer,
-      config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
-    
-    # УДАЛЕН БЛОК HERMES
+
+    # ⬆️ Унифицируем все deployment targets
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.4'
+      end
+    end
   end
 end
