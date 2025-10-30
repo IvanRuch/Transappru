@@ -1220,6 +1220,7 @@ class AutoList extends React.Component {
           auto_list_new[i].check_osago_tab_show = 0
           auto_list_new[i].check_diagnostic_card_tab_show = 0
           auto_list_new[i].check_avtodor_tab_show = 0
+          auto_list_new[i].check_rnis_tab_show = 0
         }
         else if(mode == 'osago')
         {
@@ -1227,6 +1228,7 @@ class AutoList extends React.Component {
           auto_list_new[i].check_osago_tab_show = auto_list_new[i].check_osago_tab_show == 0 ? 1 : 0
           auto_list_new[i].check_diagnostic_card_tab_show = 0
           auto_list_new[i].check_avtodor_tab_show = 0
+          auto_list_new[i].check_rnis_tab_show = 0
         }
         else if(mode == 'diagnostic_card')
         {
@@ -1234,6 +1236,7 @@ class AutoList extends React.Component {
           auto_list_new[i].check_osago_tab_show = 0
           auto_list_new[i].check_diagnostic_card_tab_show = auto_list_new[i].check_diagnostic_card_tab_show == 0 ? 1 : 0
           auto_list_new[i].check_avtodor_tab_show = 0
+          auto_list_new[i].check_rnis_tab_show = 0
         }
         else if(mode == 'avtodor')
         {
@@ -1241,6 +1244,15 @@ class AutoList extends React.Component {
           auto_list_new[i].check_osago_tab_show = 0
           auto_list_new[i].check_diagnostic_card_tab_show = 0
           auto_list_new[i].check_avtodor_tab_show = auto_list_new[i].check_avtodor_tab_show == 0 ? 1 : 0
+          auto_list_new[i].check_rnis_tab_show = 0
+        }
+        else if(mode == 'rnis')
+        {
+          auto_list_new[i].check_fines_tab_show = 0
+          auto_list_new[i].check_osago_tab_show = 0
+          auto_list_new[i].check_diagnostic_card_tab_show = 0
+          auto_list_new[i].check_avtodor_tab_show = 0
+          auto_list_new[i].check_rnis_tab_show = auto_list_new[i].check_rnis_tab_show == 0 ? 1 : 0
         }
       }
     }
@@ -1799,6 +1811,37 @@ class AutoList extends React.Component {
               </View>
             ) }
 
+            { item.check_rnis_expared != 1 ? (         
+              <View style={this.setTabStyle(item.check_rnis_color)}>
+                <TouchableHighlight
+                  style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}
+                  activeOpacity={1}
+                  underlayColor={this.setTabUnderlay(item.check_rnis_color)}
+                  onPress={() => this.showHideTab('rnis', index) }>   
+                  <>           
+                    <Text style={styles[item.check_rnis_color]}>РНИС</Text>
+                    { item.check_rnis_tab_show != 0 ? ( 
+                      <Image source={require('../images/arrow_hide.png')}/>
+                    ) : (
+                      <Image source={require('../images/arrow_show.png')}/>
+                    ) }
+                  </>
+                </TouchableHighlight>
+              </View> ) : (
+              <View style={this.setTabStyle('white')}>
+                <View style={{ 
+                    alignItems: 'center',
+                    flexDirection: "row"
+                  }}>          
+                    <Text style={{ color: "#3A3A3A", paddingRight: 5 }}>РНИС</Text>
+                    <ActivityIndicator size="small" color="#313131" animating={true}/> 
+                </View> 
+              </View>
+            ) }            
+
           </View>              
 
           {/* штрафы */}    
@@ -1893,7 +1936,25 @@ class AutoList extends React.Component {
             }}>
               <Text style={styles[item.check_avtodor_color]}>{ item.check_avtodor_string }</Text>
             </View>
-          </View>) : null }            
+          </View>) : null }     
+
+          {/* РНИС */}       
+          { item.check_rnis_tab_show != 0 ? (     
+          <View style={{
+              flexDirection: "row",
+              alignItems: "justify",
+              marginTop: 10
+          }}>
+            <View style={{
+              flex: 7,
+              alignItems: 'justify'
+            }}>
+              <Text>
+                <Text style={styles[item.check_rnis_reestr_color]}>{ item.check_rnis_reestr_string + ', ' }</Text>
+                <Text style={styles[item.check_rnis_telematics_color]}>{ item.check_rnis_telematics_string }</Text>
+              </Text>
+            </View>
+          </View>) : null }         
 
         </View>
       </Pressable>

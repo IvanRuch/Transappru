@@ -1,6 +1,6 @@
 {
   "name": "TransApp",
-  "version": "1.0.29",
+  "version": "1.0.33",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -24,7 +24,7 @@
     "react-native-gesture-handler": "^2.16.2",
     "react-native-modal": "^13.0.1",
     "react-native-safe-area-context": "^4.8.2",
-    "react-native-screens": "^3.31.1",
+    "react-native-screens": "3.32.x",
     "react-native-yamap": "^4.1.18"
   },
   "devDependencies": {

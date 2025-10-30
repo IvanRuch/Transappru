@@ -1139,7 +1139,7 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - RNScreens (3.31.1):
+  - RNScreens (3.32.0):
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
@@ -1418,7 +1418,7 @@ SPEC CHECKSUMS:
   RNFBMessaging: 48579eec1f6ffaed4038b67426d7076963ab9401
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: 61c3c603d1d25c7f38590ec3268be5099197c336
-  RNScreens: e7c5cb785bf22e871cb07234f76fd9f09792dad6
+  RNScreens: 0a9e32a30ac304bc35ec65f1485bcaace98216f7
   RNYamap: e9e022763db4b546333d68af89f93d3313d028dd
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   YandexMapsMobile: 576340ead47bb112b6387eac1e605cfe7565c162

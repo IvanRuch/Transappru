@@ -58,6 +58,51 @@ class NotificationList extends React.Component {
     }
   }
 
+  onPressItem = (item) => {
+
+    console.log('onPressItem');
+    console.log(item)
+    console.log('item.id = ' + item.id)
+
+    let notification_list_new = this.state.notification_list
+    let notification_ids = []
+
+    for (var i=0; i<notification_list_new.length; i++)
+    {
+      if(notification_list_new[i].id === item.id && notification_list_new[i].viewed === '0')  
+      {
+        notification_list_new[i].viewed = 1
+        notification_ids.push(item.id)
+      }  
+    }
+
+
+    /*
+    for (var i=0; i<viewableItems.length; i++)
+    {
+      if(viewableItems[i].isViewable)
+      {
+        console.log('viewableItems[i].index = ', viewableItems[i].index)
+        console.log('viewableItems[i].item.id = ', viewableItems[i].item.id)
+
+        if(notification_list_new[ viewableItems[i].index ].viewed == 0)
+        {
+          notification_list_new[ viewableItems[i].index ].viewed = 1
+          notification_ids.push(viewableItems[i].item.id)
+        }
+
+      }
+    }
+    */
+
+    this.setState({notification_list: notification_list_new})
+
+    if(notification_ids.length > 0)
+    {
+      AsyncStorage.getItem('token').then((value) => this.setNotificationAsViewed(value, notification_ids));
+    }
+  };
+
   onViewableItemsChanged = ({viewableItems, changed}) => {
     console.log("\n\n\nVisible items are", viewableItems);
     //console.log("Changed in this iteration", changed);
@@ -147,6 +192,13 @@ class NotificationList extends React.Component {
 
     return (
 
+      <Pressable 
+        key={item.id}
+        onPress={() => {
+            console.log('-> press')
+            this.onPressItem(item)
+        }}
+      >
         <View style={this.setItemStyle(index)}>
             <View style={{
               flexDirection: "column",
@@ -160,6 +212,7 @@ class NotificationList extends React.Component {
 
             </View>
         </View>
+      </Pressable>
     );
   }
 
