@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 13.2.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "bundleIdentifier": "org.reactjs.native.example.Transappru"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "bundleIdentifier": "org.reactjs.native.example.Transappru"
+      }
+    },
+    "production": {
+      "ios": {
+        "bundleIdentifier": "org.reactjs.native.example.Transappru"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

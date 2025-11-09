@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "197427559692",
+    "project_id": "transapp-d3b24",
+    "storage_bucket": "transapp-d3b24.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:197427559692:android:f7e15ba6e053ba61365d29",
+        "android_client_info": {
+          "package_name": "com.transappru"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBB5sknaPjsbVdtN3C6dM8PEwnWKKK-gZ0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

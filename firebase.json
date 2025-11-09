@@ -1,0 +1,16 @@
+{
+  "react-native": {
+    "analytics_auto_collection_enabled": false,
+    "crashlytics_auto_collection_enabled": false,
+    "crashlytics_debug_enabled": false,
+    "crashlytics_ndk_enabled": false,
+    "perf_auto_collection_enabled": false,
+    "messaging_auto_init_enabled": true,
+    "in_app_messaging_auto_collection_enabled": false,
+    "app_data_collection_default_enabled": false,
+    "admob_delay_app_measurement_init": false,
+    "admob_ios_app_id": "",
+    "android_task_executor_maximum_pool_size": 10,
+    "android_task_executor_keep_alive_seconds": 3
+  }
+}

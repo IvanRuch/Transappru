@@ -1,50 +1,142 @@
-# Welcome to your Expo app 👋
+# TransApp - Мобильное приложение для управления транспортом
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Современная версия приложения TransApp, мигрированная на **Expo** с **TypeScript** и лучшими практиками разработки.
 
-## Get started
+## 📊 Статус миграции
 
-1. Install dependencies
+✅ **Базовая инфраструктура готова** (API, Firebase, навигация)  
+✅ **2 экрана полностью готовы** (Auth, Pin)  
+🔄 **7 экранов частично готовы** (требуют доработки)  
+❌ **9 экранов ожидают миграции**
 
-   ```bash
-   npm install
-   ```
+**Подробнее:** см. `MIGRATION_STATUS.md`
 
-2. Start the app
+## 🚀 Быстрый старт
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Установить зависимости
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Настроить Firebase (обязательно!)
+```bash
+# Скопируйте примеры конфигов
+cp google-services.json.example google-services.json
+cp GoogleService-Info.plist.example GoogleService-Info.plist
 
-## Learn more
+# Замените содержимое на боевые конфиги из Firebase Console
+# Подробнее: см. FIREBASE_SETUP.md
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Запустить приложение
+```bash
+# Запустить приложение
+npx expo start
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# Для iOS
+npx expo run:ios
 
-## Join the community
+# Для Android
+npx expo run:android
+```
 
-Join our community of developers creating universal apps.
+## 📁 Структура проекта
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+TransApp_upd/
+├── app/                    # Entry point (Expo Router)
+│   └── index.tsx          # Главный файл приложения
+├── src/
+│   ├── screens/           # Экраны приложения
+│   │   ├── auth/         # Авторизация (Auth, Pin)
+│   │   ├── main/         # Главный экран
+│   │   ├── auto/         # Автомобили
+│   │   ├── profile/      # Профиль пользователя
+│   │   └── ...
+│   ├── navigation/        # Настройка навигации
+│   ├── services/          # API и Firebase сервисы
+│   ├── types/            # TypeScript типы
+│   ├── utils/            # Утилиты
+│   └── styles/           # Стили
+├── assets/               # Изображения и ресурсы
+└── ...
+```
+
+## 📚 Документация
+
+**Начните с:** `START_HERE.md`
+
+**Важные файлы:**
+- `FIREBASE_SETUP.md` - **Настройка Firebase и push-уведомлений** 🔥
+- `START_HERE.md` - Введение в проект
+
+**Вся документация в папке `docs/`:**
+- `docs/FINAL_SUMMARY.md` - Полная сводка работы
+- `docs/EXPO_ROUTER_GUIDE.md` - Руководство по Expo Router
+- `docs/TODO.md` - Задачи с приоритетами
+- `docs/CONVERSION_CHEATSHEET.md` - Шпаргалка по TypeScript
+- `docs/MIGRATION_STATUS.md` - Статус миграции экранов
+- И другие...
+
+## 🛠️ Технологии
+
+- **React Native** - фреймворк для мобильной разработки
+- **Expo** - инструменты для разработки и деплоя
+- **Expo Router** - file-based routing (как Next.js)
+- **TypeScript** - типобезопасность
+- **Axios** - HTTP клиент
+- **Firebase** - push-уведомления
+- **AsyncStorage** - локальное хранилище
+
+## 🎯 Следующие шаги
+
+1. **Доработать MainScreen** - главный экран после авторизации
+2. **Доработать AutoListScreen** - список автомобилей
+3. **Мигрировать остальные экраны** по мере необходимости
+
+См. `docs/TODO.md` для детальных инструкций.
+
+## 🔧 Полезные команды
+
+```bash
+# Проверить TypeScript ошибки
+npx tsc --noEmit
+
+# Очистить кэш и перезапустить
+npx expo start -c
+
+# Собрать для production
+npx expo build:ios
+npx expo build:android
+```
+
+## 📝 Миграция из старого проекта
+
+Старый проект: `/Volumes/HP_P800/grizodubov/IdeaProjects/Transappru`
+
+Используйте `docs/CONVERSION_CHEATSHEET.md` для конвертации экранов из старого проекта.
+
+## 🐛 Известные проблемы
+
+- Некоторые экраны требуют доработки (см. `docs/MIGRATION_STATUS.md`)
+- Большие файлы нужно разбить на компоненты (например, AutoListScreen)
+
+## 📞 API
+
+**Base URL:** `https://transapp.ru/api/`
+
+API сервис настроен в `src/services/api.ts` с автоматическим добавлением токена.
+
+## 🔐 Аутентификация
+
+Приложение использует токен-based аутентификацию:
+1. Пользователь вводит телефон (AuthScreen)
+2. Получает PIN-код
+3. Вводит PIN (PinScreen)
+4. Токен сохраняется в AsyncStorage
+5. Автоматически добавляется ко всем API запросам
+
+---
+
+**Версия:** 2.0 (Migrated to Expo + TypeScript)  
+**Дата обновления:** 2025-11-04

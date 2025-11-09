@@ -1,0 +1,193 @@
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Pressable, Modal } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+
+import api from '../../services/api';
+
+export default function PinScreen() {
+  const router = useRouter();
+  
+  // State
+  const [code, setCode] = useState('');
+  const [disabled, setDisabled] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  // Проверку токена убрали - она теперь в app/index.tsx
+  useEffect(() => {
+    console.log('PinScreen mounted');
+  }, []);
+
+  // Handlers
+  const changeCode = (value: string) => {
+    console.log('changeCode. value = ' + value);
+    setCode(value);
+
+    if (value.match(/(\d{4})/)) {
+      setDisabled(false);
+    } else {
+      setDisabled(true);
+    }
+  };
+
+  const confirmToken = async (value: string | null) => {
+    console.log('confirmToken. value = ' + value);
+
+    if (!value) {
+      console.log('No token found');
+      return;
+    }
+
+    try {
+      const res = await api.post('/confirm-token', { token: value, code });
+      const data = res.data;
+      
+      console.log('========================================');
+      console.log('PIN SCREEN - confirm-token response:');
+      console.log('Full response:', data);
+      console.log('error:', data.error);
+      console.log('phone_inn_bind:', data.phone_inn_bind);
+      console.log('is_manager:', data.is_manager);
+      console.log('========================================');
+
+      if (data.error === 1) {
+        setMsg(data.msg);
+        setModalVisible(true);
+      } else {
+        if ((data.phone_inn_bind === 1 || data.phone_inn_bind === "1") || 
+            (data.is_manager === 1 || data.is_manager === "1")) {
+          console.log('✅ PIN confirmed, navigating to AutoList');
+          router.replace('/(authenticated)/auto-list' as any);
+        } else {
+          console.log('⚠️ PIN confirmed but need Inn setup');
+          router.replace('/(authenticated)/inn' as any);
+        }
+      }
+    } catch (error) {
+      console.log('❌ Error confirming PIN:', error);
+      console.log(error);
+    }
+  };
+
+  const getButtonStyle = () => {
+    let backgroundColor = disabled ? "#c0c0c0" : "#3A3A3A";
+    return { 
+      height: 50, 
+      width: 185, 
+      borderRadius: 5, 
+      alignItems: 'center' as const, 
+      justifyContent: 'center' as const, 
+      backgroundColor 
+    };
+  };
+
+  const getButtonTextStyle = () => {
+    let color = disabled ? "#FFFFFF" : "#FFFFFF";
+    return { fontSize: 20, color };
+  };
+
+  const handleSubmit = async () => {
+    console.log('call confirm_token');
+    const token = await AsyncStorage.getItem('token');
+    confirmToken(token);
+  };
+
+  return (
+    <View style={styles.container}>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          Alert.alert("Modal has been closed.");
+          setModalVisible(false);
+        }}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalText}>{msg}</Text>
+            <Pressable
+              style={[styles.button, styles.buttonClose]}
+              onPress={() => { 
+                setModalVisible(false); 
+                router.replace('/' as any); // ✅ Возврат на Auth
+              }}
+            >
+              <Text style={styles.textStyle}>получить еще раз</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите подтверждающий код</Text>
+      <Text style={{ color: '#4C4C4C' }}>ожидайте sms-сообщение с кодом</Text>
+      <TextInput
+        keyboardType='numeric'
+        textAlign={'center'}
+        style={{ height: 60, width: 100, color: '#4C4C4C', fontSize: 34, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom: 10 }}
+        maxLength={4}
+        placeholder='0000'
+        placeholderTextColor='#c0c0c0'
+        onChangeText={changeCode}
+      />
+      <TouchableOpacity
+        disabled={disabled}
+        style={getButtonStyle()}
+        onPress={handleSubmit}
+      >
+        <Text style={getButtonTextStyle()}>Подтвердить</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: -350
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: "white",
+    borderRadius: 15,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5
+  },
+  button: {
+    borderRadius: 5,
+    padding: 10,
+    elevation: 2
+  },
+  buttonOpen: {
+    backgroundColor: "#F194FF",
+  },
+  buttonClose: {
+    backgroundColor: "#fee600",
+  },
+  textStyle: {
+    color: "black",
+    fontWeight: "bold",
+    textAlign: "center"
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: "center"
+  }
+});
