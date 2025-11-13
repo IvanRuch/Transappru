@@ -39,6 +39,7 @@
       "@react-native-firebase/app",
       "./plugins/withPodfileModifications.js",
       "./plugins/withAPSEnvironment.js",
+      "./plugins/withYandexMaps.js",
       [
         "expo-build-properties",
         {

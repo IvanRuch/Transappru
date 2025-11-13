@@ -1489,7 +1489,18 @@ class Auto extends React.Component<AutoProps, AutoState> {
                     <TextInput
                       multiline={true}
                       numberOfLines={2}
-                      style={{ borderRadius: 8, textAlignVertical: 'top', flex: 4, fontSize: 15, borderWidth: 1, color: "#E8E8E8", justifyContent: 'flex-start', }}
+                      style={{ 
+                        borderRadius: 8, 
+                        textAlignVertical: 'top', 
+                        flex: 4, 
+                        fontSize: 15, 
+                        borderWidth: 1, 
+                        color: "#313131", 
+                        backgroundColor: "#FFFFFF",
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        justifyContent: 'flex-start',
+                      }}
                       onChangeText={this.changeFileDescription}
                       value={this.state.auto_file_item.description}
                     />

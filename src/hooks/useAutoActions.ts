@@ -71,12 +71,11 @@ export function useAutoActions(
   }, [router]);
 
   const navigateToAuto = useCallback((autoData: AutoItem) => {
-    console.log('-> move to Auto');
-    // TODO: Создать экран Auto для детальной информации об авто
-    // router.push({
-    //   pathname: `/(authenticated)/auto/[id]` as any,
-    //   params: { id: autoData.id, auto_data: JSON.stringify(autoData) }
-    // });
+    console.log('-> move to Auto', autoData);
+    router.push({
+      pathname: `/(authenticated)/auto/${autoData.id}` as any,
+      params: { auto_data: JSON.stringify(autoData) }
+    });
   }, [router]);
 
   const navigateToProfile = useCallback(() => {
