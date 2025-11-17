@@ -138,16 +138,16 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
                   <TouchableHighlight
                     style={[
                       styles.addButton,
-                      { backgroundColor: modalAddAutoButtonDisabled ? '#D9D9D9' : '#3A8FD9' }
+                      { backgroundColor: modalAddAutoButtonDisabled ? '#C0C0C0' : '#3A3A3A' }
                     ]}
                     activeOpacity={1}
-                    underlayColor={modalAddAutoButtonDisabled ? '#D9D9D9' : '#2E7BC4'}
+                    underlayColor={modalAddAutoButtonDisabled ? '#C0C0C0' : '#2A2A2A'}
                     onPress={onSubmit}
                     disabled={modalAddAutoButtonDisabled}
                   >
                     <Text style={[
                       styles.addButtonText,
-                      { color: modalAddAutoButtonDisabled ? '#8C8C8C' : '#FFFFFF' }
+                      { color: modalAddAutoButtonDisabled ? '#E8E8E8' : '#FFFFFF' }
                     ]}>
                       Добавить
                     </Text>

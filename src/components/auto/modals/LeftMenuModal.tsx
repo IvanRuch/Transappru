@@ -15,6 +15,7 @@ interface LeftMenuModalProps {
   onNavigateToOnBoarding: () => void;
   onNavigateToDriverList: () => void;
   onNavigateToInn: (userData: UserData, checkRnis: boolean) => void;
+  onSwitchOrganization: (inn: string, onSuccess?: () => void) => void;
 }
 
 export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
@@ -28,6 +29,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   onNavigateToOnBoarding,
   onNavigateToDriverList,
   onNavigateToInn,
+  onSwitchOrganization,
 }) => {
   const router = useRouter();
   const [ourServicesVisible, setOurServicesVisible] = useState(false);
@@ -231,8 +233,13 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     activeOpacity={1}
                     underlayColor='#F0F0F0'
                     onPress={() => {
-                      console.log('Switch to user:', item.inn);
-                      // TODO: Переключение между организациями
+                      if (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) {
+                        onSwitchOrganization(item.inn, () => {
+                          onClose();
+                        });
+                      } else {
+                        console.log('Organization not confirmed:', item.inn);
+                      }
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
@@ -283,8 +290,8 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
             </TouchableHighlight>
 
             {/* 6. Как работать в приложении */}
-            {/* Показываем всегда для тестирования. TODO: вернуть условие onboardingExpired === 0 */}
-            <TouchableHighlight 
+            {onboardingExpired === 0 && (
+              <TouchableHighlight 
                 style={{ paddingTop: 20, paddingBottom: 40 }}
                 activeOpacity={1}
                 underlayColor='#FFFFFF'
@@ -311,6 +318,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                   </View>            
                 </View>
               </TouchableHighlight>
+            )}
           </ScrollView>
         </View>
       </View>

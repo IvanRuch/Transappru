@@ -4,14 +4,24 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../src/utils/Api';
 
+interface ContactData {
+  id: string;
+  fio: string;
+  email: string;
+  phone: string;
+  position: string;
+}
+
 export default function UserScreen() {
   const router = useRouter();
   const [userData, setUserData] = useState<any>(null);
+  const [contactList, setContactList] = useState<ContactData[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalDelUserVisible, setModalDelUserVisible] = useState(false);
   const [modalLogoutVisible, setModalLogoutVisible] = useState(false);
   const [modalEditContactVisible, setModalEditContactVisible] = useState(false);
-  const [contactData, setContactData] = useState({ fio: '', email: '', phone: '', position: '' });
+  const [modalEditContactMode, setModalEditContactMode] = useState<'add' | 'edit'>('add');
+  const [contactData, setContactData] = useState<ContactData>({ id: '', fio: '', email: '', phone: '', position: '' });
 
   useEffect(() => {
     loadUserData();
@@ -33,6 +43,9 @@ export default function UserScreen() {
       if (data.user_data) {
         setUserData(data.user_data);
       }
+      if (data.user_contact_list) {
+        setContactList(data.user_contact_list);
+      }
       setLoading(false);
     } catch (error: any) {
       console.log('Error loading user data:', error);
@@ -48,6 +61,87 @@ export default function UserScreen() {
     router.replace('/' as any);
   };
 
+  const openModalEditContact = (mode: 'add' | 'edit', contact?: ContactData) => {
+    setModalEditContactMode(mode);
+    if (mode === 'add') {
+      setContactData({ id: '', fio: '', email: '', phone: '', position: '' });
+    } else if (contact) {
+      setContactData(contact);
+    }
+    setModalEditContactVisible(true);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    let newValue = value;
+
+    // Если удалили +7, очищаем поле
+    if (newValue === '+7') {
+      newValue = '';
+    }
+    // Если ввели только 7, добавляем +
+    else if (newValue === '7') {
+      newValue = '+7';
+    }
+    // Если ввели + или 8, заменяем на +7
+    else if (newValue === '+' || newValue === '8') {
+      newValue = '+7';
+    }
+    // Если ввели одну цифру, добавляем +7 перед ней
+    else if (newValue.match(/^\d$/)) {
+      newValue = '+7' + newValue;
+    }
+
+    setContactData({ ...contactData, phone: newValue });
+  };
+
+  const handleSaveContact = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/' as any);
+        return;
+      }
+
+      // TODO: Добавление новых контактов не работает - сервер не создает новый контакт
+      // При отправке данных с пустым id или id: "0", сервер возвращает те же данные обратно
+      // без создания записи в БД. Нужно исправить на сервере endpoint /edit-contact
+      // или создать отдельный endpoint /add-contact для добавления новых контактов.
+      // Редактирование существующих контактов работает корректно.
+
+      // Подготавливаем данные для отправки
+      const dataToSend = {
+        ...contactData,
+        // Убираем + из номера телефона для отправки на сервер
+        phone: contactData.phone.replace('+', ''),
+      };
+
+      const res = await Api.post('/edit-contact', {
+        token,
+        user_contact_data: dataToSend,
+      });
+
+      const data = res.data;
+
+      if (data.auth_required === 1) {
+        router.replace('/' as any);
+        return;
+      }
+
+      // Закрываем модальное окно
+      setModalEditContactVisible(false);
+      setContactData({ id: '', fio: '', email: '', phone: '', position: '' });
+
+      // Перезагружаем весь список контактов с сервера
+      // чтобы получить актуальные данные (включая новые id)
+      await loadUserData();
+    } catch (error: any) {
+      console.log('Error saving contact:', error);
+      if (error.response?.status === 401) {
+        router.replace('/' as any);
+      }
+    }
+  };
+
   const handleDeleteProfile = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -60,9 +154,9 @@ export default function UserScreen() {
       const data = res.data;
       console.log('Delete user response:', data);
 
-      // После удаления профиля выходим
+      // После удаления профиля показываем экран "Спасибо"
       await AsyncStorage.removeItem('token');
-      router.replace('/' as any);
+      router.replace('/deleted' as any);
     } catch (error: any) {
       console.log('Error deleting user:', error);
       if (error.response?.status === 401) {
@@ -113,7 +207,7 @@ export default function UserScreen() {
           style={styles.addButton}
           activeOpacity={1}
           underlayColor='#FFFFFF'
-          onPress={() => setModalEditContactVisible(true)}
+          onPress={() => openModalEditContact('add')}
         >
           <View style={styles.addButtonContent}>
             <Image source={require('../assets/images/add_button_2.png')} />
@@ -121,8 +215,41 @@ export default function UserScreen() {
           </View>
         </TouchableHighlight>
 
-        {/* Список контактов (пока пустой) */}
-        {/* TODO: Добавить список контактов */}
+        {/* Список контактов */}
+        <View>
+          {contactList.map((item, index) => (
+            <TouchableHighlight
+              key={item.id}
+              style={[
+                styles.contactItem,
+                { backgroundColor: modalEditContactVisible || modalDelUserVisible || modalLogoutVisible ? 'rgba(29,29,29, 0)' : '#EEEEEE' }
+              ]}
+              activeOpacity={1}
+              underlayColor='#EEEEEE'
+              onPress={() => openModalEditContact('edit', item)}
+            >
+              <View style={styles.contactItemContent}>
+                <View style={styles.contactInfo}>
+                  {item.fio !== '' && (
+                    <Text style={styles.contactText}>ФИО: {item.fio}</Text>
+                  )}
+                  {item.email !== '' && (
+                    <Text style={styles.contactText}>E-mail: {item.email}</Text>
+                  )}
+                  {item.phone !== '' && (
+                    <Text style={styles.contactText}>Номер телефона: +{item.phone}</Text>
+                  )}
+                  {item.position !== '' && (
+                    <Text style={styles.contactText}>Должность: {item.position}</Text>
+                  )}
+                </View>
+                <View style={styles.contactEditIcon}>
+                  <Image source={require('../assets/images/edit_2.png')} />
+                </View>
+              </View>
+            </TouchableHighlight>
+          ))}
+        </View>
 
         {/* Кнопка выйти */}
         <View style={styles.logoutSection}>
@@ -135,22 +262,22 @@ export default function UserScreen() {
             <Text style={styles.logoutButtonText}>Выйти из аккаунта</Text>
           </TouchableHighlight>
         </View>
-      </ScrollView>
 
-      {/* Кнопка удалить профиль - плавающая внизу справа */}
-      {!modalDelUserVisible && !modalLogoutVisible && (
-        <TouchableHighlight
-          style={styles.deleteButton}
-          activeOpacity={1}
-          underlayColor='#2E2E2E'
-          onPress={() => setModalDelUserVisible(true)}
-        >
-          <View style={styles.deleteButtonContent}>
-            <Image style={styles.deleteIcon} source={require('../assets/images/delete_white_2.png')} />
-            <Text style={styles.deleteButtonText}>Удалить профиль</Text>
-          </View>
-        </TouchableHighlight>
-      )}
+        {/* Кнопка удалить профиль */}
+        <View style={styles.deleteProfileSection}>
+          <TouchableHighlight
+            style={styles.deleteProfileButton}
+            activeOpacity={1}
+            underlayColor='#2E2E2E'
+            onPress={() => setModalDelUserVisible(true)}
+          >
+            <View style={styles.deleteProfileButtonContent}>
+              <Image source={require('../assets/images/delete_white_2.png')} />
+              <Text style={styles.deleteProfileButtonText}>Удалить профиль</Text>
+            </View>
+          </TouchableHighlight>
+        </View>
+      </ScrollView>
 
       {/* Модалка подтверждения выхода */}
       <Modal
@@ -246,7 +373,7 @@ export default function UserScreen() {
               underlayColor='#FFFFFF'
               onPress={() => {
                 setModalEditContactVisible(false);
-                setContactData({ fio: '', email: '', phone: '', position: '' });
+                setContactData({ id: '', fio: '', email: '', phone: '', position: '' });
               }}
             >
               <Image source={require('../assets/images/xclose_2.png')} />
@@ -272,6 +399,8 @@ export default function UserScreen() {
                 placeholder="E-mail"
                 placeholderTextColor="#8C8C8C"
                 keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
                 value={contactData.email}
                 onChangeText={(value) => setContactData({ ...contactData, email: value })}
               />
@@ -279,11 +408,12 @@ export default function UserScreen() {
               <Text style={styles.contactInputLabel}>Телефон:</Text>
               <TextInput
                 style={styles.contactInput}
-                placeholder="+7"
+                placeholder="Номер телефона *"
                 placeholderTextColor="#8C8C8C"
-                keyboardType="phone-pad"
+                keyboardType="numeric"
+                maxLength={12}
                 value={contactData.phone}
-                onChangeText={(value) => setContactData({ ...contactData, phone: value })}
+                onChangeText={handlePhoneChange}
               />
 
               <Text style={styles.contactInputLabel}>Должность:</Text>
@@ -299,11 +429,7 @@ export default function UserScreen() {
                 style={styles.saveContactButton}
                 activeOpacity={1}
                 underlayColor='#2E2E2E'
-                onPress={() => {
-                  console.log('Save contact:', contactData);
-                  setModalEditContactVisible(false);
-                  setContactData({ fio: '', email: '', phone: '', position: '' });
-                }}
+                onPress={handleSaveContact}
               >
                 <Text style={styles.saveContactButtonText}>Сохранить</Text>
               </TouchableHighlight>
@@ -403,31 +529,28 @@ const styles = StyleSheet.create({
     color: '#313131',
     fontWeight: '500',
   },
-  deleteButton: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    height: 50,
-    margin: 25,
-    borderRadius: 5,
+  deleteProfileSection: {
+    marginTop: 20,
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
+  deleteProfileButton: {
+    height: 60,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3A3A3A',
   },
-  deleteButtonContent: {
-    alignItems: 'center',
+  deleteProfileButtonContent: {
     flexDirection: 'row',
-    paddingLeft: 25,
-    paddingRight: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  deleteIcon: {
-    marginLeft: 0,
-  },
-  deleteButtonText: {
-    fontSize: 24,
-    fontWeight: '500',
+  deleteProfileButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFFFFF',
-    paddingLeft: 15,
+    marginLeft: 10,
   },
   modalOverlay: {
     flex: 1,
@@ -531,5 +654,36 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  contactItem: {
+    flexDirection: 'row',
+    margin: 30,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#B8B8B8',
+  },
+  contactItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  contactInfo: {
+    flex: 3,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    flexDirection: 'column',
+  },
+  contactText: {
+    paddingLeft: 20,
+    paddingRight: 20,
+    fontSize: 20,
+    fontWeight: 'normal',
+    color: '#313131',
+  },
+  contactEditIcon: {
+    flex: 1,
+    paddingRight: 10,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 });

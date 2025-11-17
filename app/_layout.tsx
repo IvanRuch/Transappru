@@ -1,6 +1,16 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { LogBox } from 'react-native';
 import { FirebaseService } from '@/src/services/firebase';
+
+// Предотвращаем автоматическое скрытие splash screen
+SplashScreen.preventAutoHideAsync();
+
+// Скрываем предупреждения Expo в dev режиме (опционально)
+if (__DEV__) {
+  LogBox.ignoreAllLogs(false); // Можно установить true чтобы скрыть все логи
+}
 
 export default function RootLayout() {
   useEffect(() => {
@@ -11,6 +21,9 @@ export default function RootLayout() {
     FirebaseService.initialize(); // Инициализируем Firebase сначала
     FirebaseService.requestPermission();
     FirebaseService.setupNotificationListeners();
+
+    // Скрываем splash screen сразу после инициализации
+    SplashScreen.hideAsync();
   }, []);
 
   return (

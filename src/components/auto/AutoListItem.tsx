@@ -18,9 +18,9 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
     marginLeft: 10,
     marginRight: 10,
     borderRadius: 10,
-    backgroundColor: item.marked ? '#E8F4FE' : '#FFFFFF',
-    borderWidth: item.marked ? 2 : 1,
-    borderColor: item.marked ? '#3A8FD9' : '#EEEEEE',
+    backgroundColor: item.marked ? '#E9E9E9' : '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#B8B8B8',
   };
 
   // Получить цвет для текста

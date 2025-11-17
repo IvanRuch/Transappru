@@ -8,11 +8,6 @@ import packageJson from '../../package.json';
 
 const Version = packageJson.version;
 
-// Background handler временно отключен
-// Причина: В Expo с Firebase требуется сложная настройка для background handler
-// Foreground уведомления работают нормально
-// TODO: Добавить background handler позже при необходимости
-
 export const getDeviceInfo = () => {
 
   // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)

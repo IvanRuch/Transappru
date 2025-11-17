@@ -97,7 +97,7 @@ npx expo start
 - [ ] **AutoScreen** (Auto.js → AutoScreen.tsx)
 - [ ] **AutoDriverScreen** (AutoDriver.js → AutoDriverScreen.tsx)
 - [ ] **AutoFineScreen** (AutoFine.js → AutoFineScreen.tsx)
-- [ ] **PassScreen** (Pass.js → PassScreen.tsx)
+- [x] **PassScreen** (Pass.js → PassScreen.tsx) ✅ **ГОТОВО + Yandex Maps**
 - [ ] **InnScreen** (Inn.js → InnScreen.tsx)
 - [ ] **DriverListScreen** (DriverList.js → DriverListScreen.tsx)
 - [ ] **NotificationListScreen** (NotificationList.js → NotificationListScreen.tsx)
@@ -201,5 +201,6 @@ npx expo run:android
 
 ---
 
-**Обновлено:** 2025-11-04  
+**Обновлено:** 2025-11-17  
+**Последние изменения:** Добавлены экраны Pass с интеграцией Yandex Maps  
 **Следующий шаг:** Запустить проект и доработать MainScreen

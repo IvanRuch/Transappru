@@ -1,10 +1,11 @@
 import React from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView, Linking } from 'react-native';
+import { Modal, View, Text, TouchableHighlight, Image, StyleSheet, Linking } from 'react-native';
 import type { ManagerData } from '../../../types/auto';
 
 interface ContactsModalProps {
   visible: boolean;
   managerData: ManagerData;
+  techSupportData?: ManagerData;
   techSupportName?: string;
   onClose: () => void;
   onContactPhone: (phone: string) => void;
@@ -14,179 +15,274 @@ interface ContactsModalProps {
 export const ContactsModal: React.FC<ContactsModalProps> = ({
   visible,
   managerData,
+  techSupportData,
   techSupportName,
   onClose,
   onContactPhone,
   onContactEmail,
 }) => {
+  const contactWhatsapp = (phone: string, greetings: string) => {
+    const url = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(greetings)}`;
+    Linking.openURL(url).catch(() => {
+      console.log('WhatsApp not installed');
+    });
+  };
+
   return (
     <Modal
       animationType="slide"
-      transparent={false}
+      transparent={true}
       visible={visible}
       onRequestClose={onClose}
+      style={styles.modal}
     >
-      <ScrollView style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-        <View style={{ padding: 20 }}>
-          {/* Заголовок */}
-          <Text style={{ 
-            fontSize: 24, 
-            fontWeight: 'bold', 
-            marginBottom: 20,
-            marginTop: 40,
-            color: '#313131',
-          }}>
-            Контакты
-          </Text>
-
-          {/* Менеджер */}
-          {managerData.name && (
-            <View style={{
-              backgroundColor: 'white',
-              borderRadius: 15,
-              padding: 20,
-              marginBottom: 15,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-              elevation: 2,
-            }}>
-              <Text style={{ fontSize: 12, color: '#999', marginBottom: 5 }}>
-                Ваш менеджер
-              </Text>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#313131', marginBottom: 15 }}>
-                {managerData.name}
-              </Text>
-
-              {/* Телефон менеджера */}
-              {managerData.mobile_phone && (
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 15,
-                    backgroundColor: '#E8F4FE',
-                    borderRadius: 10,
-                    marginBottom: 10,
-                  }}
-                  onPress={() => onContactPhone(managerData.mobile_phone!)}
-                >
-                  <Text style={{ fontSize: 20, marginRight: 10 }}>📞</Text>
-                  <View>
-                    <Text style={{ fontSize: 12, color: '#666' }}>Телефон</Text>
-                    <Text style={{ fontSize: 16, color: '#3A8FD9', fontWeight: 'bold' }}>
-                      {managerData.mobile_phone}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-              {/* Email менеджера */}
-              {managerData.email && (
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 15,
-                    backgroundColor: '#E8F4FE',
-                    borderRadius: 10,
-                  }}
-                  onPress={() => onContactEmail(
-                    managerData.email!,
-                    'Вопрос по TransApp',
-                    'Здравствуйте!'
-                  )}
-                >
-                  <Text style={{ fontSize: 20, marginRight: 10 }}>📧</Text>
-                  <View>
-                    <Text style={{ fontSize: 12, color: '#666' }}>Email</Text>
-                    <Text style={{ fontSize: 16, color: '#3A8FD9', fontWeight: 'bold' }}>
-                      {managerData.email}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* Техподдержка */}
-          {techSupportName && (
-            <View style={{
-              backgroundColor: 'white',
-              borderRadius: 15,
-              padding: 20,
-              marginBottom: 15,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.1,
-              shadowRadius: 2,
-              elevation: 2,
-            }}>
-              <Text style={{ fontSize: 12, color: '#999', marginBottom: 5 }}>
-                Техническая поддержка
-              </Text>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#313131', marginBottom: 15 }}>
-                {techSupportName}
-              </Text>
-
-              {/* Телефон техподдержки */}
-              <TouchableOpacity
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  padding: 15,
-                  backgroundColor: '#FFF3CD',
-                  borderRadius: 10,
-                }}
-                onPress={() => onContactPhone('+74951281212')}
-              >
-                <Text style={{ fontSize: 20, marginRight: 10 }}>☎️</Text>
-                <View>
-                  <Text style={{ fontSize: 12, color: '#666' }}>Телефон поддержки</Text>
-                  <Text style={{ fontSize: 16, color: '#856404', fontWeight: 'bold' }}>
-                    +7 (495) 128-12-12
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Информация */}
-          <View style={{
-            backgroundColor: 'white',
-            borderRadius: 15,
-            padding: 20,
-            marginBottom: 20,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-            elevation: 2,
-          }}>
-            <Text style={{ fontSize: 14, color: '#666', lineHeight: 22 }}>
-              💡 По всем вопросам вы можете обращаться к вашему менеджеру или в техническую поддержку.
-            </Text>
-          </View>
-
-          {/* Кнопка закрыть */}
-          <TouchableOpacity
-            style={{
-              height: 50,
-              backgroundColor: '#3A8FD9',
-              borderRadius: 10,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 40,
-            }}
-            onPress={onClose}
+      <TouchableHighlight
+        style={styles.overlay}
+        activeOpacity={1}
+        underlayColor="rgba(29, 29, 29, 0.6)"
+        onPress={onClose}
+      >
+        <View style={styles.container}>
+          <TouchableHighlight
+            activeOpacity={1}
+            underlayColor="#FFFFFF"
+            onPress={(e) => e.stopPropagation()}
           >
-            <Text style={{ fontSize: 16, color: '#FFF', fontWeight: 'bold' }}>
-              Закрыть
-            </Text>
-          </TouchableOpacity>
+            <View style={styles.content}>
+          <View style={{ flex: 1, flexDirection: 'column' }}>
+            {/* Заголовок и кнопка закрытия */}
+            <View style={styles.header}>
+              <View style={styles.titleContainer}>
+                <Text style={styles.title}>Контакты</Text>
+              </View>
+              <View style={styles.closeButtonContainer}>
+                <TouchableHighlight
+                  style={styles.closeButton}
+                  activeOpacity={1}
+                  underlayColor='#FFFFFF'
+                  onPress={onClose}
+                >
+                  <Image source={require('../../../../assets/images/xclose_2.png')} />
+                </TouchableHighlight>
+              </View>
+            </View>
+
+            {/* Менеджер */}
+            <View style={styles.card}>
+              <View style={styles.cardContent}>
+                <Text style={styles.cardTitle}>Менеджер</Text>
+                <Text style={styles.cardName}>{managerData.name}</Text>
+
+                <View style={styles.actionsRow}>
+                  <View style={styles.actionItem}>
+                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#F7F7F7'
+                      onPress={() => onContactEmail(
+                        managerData.email || '',
+                        managerData.email_subject || '',
+                        managerData.email_body || ''
+                      )}
+                    >
+                      <View style={styles.actionButton}>
+                        <Image source={require('../../../../assets/images/contact_mail_2.png')} />
+                      </View>
+                    </TouchableHighlight>
+                  </View>
+                  <View style={styles.separator}>
+                    <Image source={require('../../../../assets/images/contact_separator.png')} />
+                  </View>
+                  <View style={styles.actionItemCenter}>
+                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#F7F7F7'
+                      onPress={() => onContactPhone(managerData.mobile_phone || '')}
+                    >
+                      <View style={styles.actionButton}>
+                        <Image source={require('../../../../assets/images/contact_phone_2.png')} />
+                      </View>
+                    </TouchableHighlight>
+                  </View>
+                  <View style={styles.separator}>
+                    <Image source={require('../../../../assets/images/contact_separator.png')} />
+                  </View>
+                  <View style={styles.actionItem}>
+                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor='#F7F7F7'
+                      onPress={() => contactWhatsapp(
+                        managerData.mobile_phone || '',
+                        managerData.whatapp_greetings || ''
+                      )}
+                    >
+                      <View style={styles.actionButton}>
+                        <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
+                      </View>
+                    </TouchableHighlight>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Техподдержка */}
+            {techSupportName && techSupportData && (
+              <View style={styles.card}>
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle}>Техническая поддержка</Text>
+                  <Text style={styles.cardName}>{techSupportName}</Text>
+
+                  <View style={styles.actionsRow}>
+                    <View style={styles.actionItem}>
+                      <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor='#F7F7F7'
+                        onPress={() => onContactEmail(
+                          techSupportData.email || '',
+                          techSupportData.email_subject || '',
+                          techSupportData.email_body || ''
+                        )}
+                      >
+                        <View style={styles.actionButton}>
+                          <Image source={require('../../../../assets/images/contact_mail_2.png')} />
+                        </View>
+                      </TouchableHighlight>
+                    </View>
+                    <View style={styles.separator}>
+                      <Image source={require('../../../../assets/images/contact_separator.png')} />
+                    </View>
+                    <View style={styles.actionItemCenter}>
+                      <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor='#F7F7F7'
+                        onPress={() => onContactPhone(techSupportData.mobile_phone || '')}
+                      >
+                        <View style={styles.actionButton}>
+                          <Image source={require('../../../../assets/images/contact_phone_2.png')} />
+                        </View>
+                      </TouchableHighlight>
+                    </View>
+                    <View style={styles.separator}>
+                      <Image source={require('../../../../assets/images/contact_separator.png')} />
+                    </View>
+                    <View style={styles.actionItem}>
+                      <TouchableHighlight
+                        activeOpacity={1}
+                        underlayColor='#F7F7F7'
+                        onPress={() => contactWhatsapp(
+                          techSupportData.mobile_phone || '',
+                          techSupportData.whatapp_greetings || ''
+                        )}
+                      >
+                        <View style={styles.actionButton}>
+                          <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
+                        </View>
+                      </TouchableHighlight>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
-      </ScrollView>
+          </TouchableHighlight>
+        </View>
+      </TouchableHighlight>
     </Modal>
   );
 };
+
+const styles = StyleSheet.create({
+  modal: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(29, 29, 29, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  container: {
+    justifyContent: 'flex-end',
+  },
+  content: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    borderWidth: 1,
+    borderColor: '#B8B8B8',
+  },
+  header: {
+    flexDirection: 'row',
+  },
+  titleContainer: {
+    flex: 5,
+    alignItems: 'flex-start',
+  },
+  title: {
+    paddingLeft: 16,
+    paddingTop: 26,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#313131',
+  },
+  closeButtonContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  closeButton: {
+    padding: 30,
+  },
+  card: {
+    flexDirection: 'row',
+    marginLeft: 20,
+    marginRight: 20,
+    marginBottom: 20,
+    padding: 10,
+    backgroundColor: '#F7F7F7',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#B8B8B8',
+  },
+  cardContent: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  cardTitle: {
+    paddingTop: 10,
+    fontSize: 17,
+    fontWeight: 'normal',
+    color: '#313131',
+  },
+  cardName: {
+    paddingTop: 5,
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#3A3A3A',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    paddingTop: 15,
+    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  actionItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionItemCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  separator: {
+    width: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButton: {
+    alignItems: 'center',
+    padding: 5,
+  },
+});

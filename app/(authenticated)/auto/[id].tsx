@@ -25,8 +25,12 @@ export default function AutoDetailRoute() {
         } else if (screen === 'DriverList') {
           router.push('/(authenticated)/drivers' as any);
         } else if (screen === 'AutoFine') {
-          // TODO: Создать экран AutoFine
-          console.log('Navigate to AutoFine', params);
+          router.push({
+            pathname: '/(authenticated)/auto-fine' as any,
+            params: {
+              fine_data: JSON.stringify(params.fine_data)
+            }
+          });
         } else if (screen === 'Pass') {
           router.push({
             pathname: '/(authenticated)/pass' as any,

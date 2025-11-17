@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import Api from '../utils/Api';
+import api from '../services/api';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
 const auto_list_limit = 10;
@@ -30,6 +30,7 @@ export function useAutoList() {
   const [managerName, setManagerName] = useState('');
   const [techSupportName, setTechSupportName] = useState('');
   const [managerData, setManagerData] = useState<ManagerData>({});
+  const [techSupportData, setTechSupportData] = useState<ManagerData>({});
   const [userData, setUserData] = useState<UserData>({ id: '', firm: '', inn: '', phone: '' });
   const [userStr, setUserStr] = useState('');
   const [userList, setUserList] = useState<UserData[]>([]);
@@ -104,7 +105,7 @@ export function useAutoList() {
     }
 
     try {
-      const res = await Api.post('/get-auto-list', { 
+      const res = await api.post('/get-auto-list', { 
         token,
         auto_str: currentFilters.autoStr,
         auto_cancelled: currentFilters.autoCancelled ? 1 : 0,
@@ -135,27 +136,41 @@ export function useAutoList() {
         setOurServicesList(data.our_services_list || []);
       }
 
-      if (data.manager_data) {
+      // Данные менеджера из user_data
+      if (data.user_data?.manager_data) {
+        setManagerData(data.user_data.manager_data);
+        setManagerName(data.user_data.manager_data.name || '');
+      } else if (data.manager_data) {
         setManagerData(data.manager_data);
         setManagerName(data.manager_data.name || '');
       }
 
+      // Данные техподдержки из user_data
+      if (data.user_data?.tech_support_data) {
+        setTechSupportData(data.user_data.tech_support_data);
+        setTechSupportName(data.user_data.tech_support_data.name || '');
+      }
+
       const onboardingExpiredValue = data.onboarding_expired !== undefined ? data.onboarding_expired : 1;
       setOnboardingExpired(onboardingExpiredValue);
-      setTechSupportName(data.tech_support_name || '');
+      
+      // Проверяем нужно ли показать модальное окно "Наши услуги"
+      if (data.announce_our_services_viewed === 0) {
+        setAnnounceOurServicesVisible(true);
+      }
 
       // Список авто на верхнем уровне
       const newAutoList = data.auto_list || [];
       
-      // Загружаем данные о пропусках для авто где check_passes_expared == 1
+      // Загружаем данные для авто с флагами expared == 1
       for (let i = 0; i < newAutoList.length; i++) {
+        const autoId = newAutoList[i].id;
+        
+        // Пропуска
         if (newAutoList[i].check_passes_expared == 1) {
-          const autoId = newAutoList[i].id;
-          // Загружаем данные о пропусках асинхронно
-          Api.post('/get-auto-check-passes', { token, id: autoId })
+          api.post('/get-auto-check-passes', { token, id: autoId })
             .then(res => {
               const passData = res.data;
-              // Обновляем данные в списке
               setAutoList(prev => prev.map(auto => 
                 auto.id === autoId ? {
                   ...auto,
@@ -167,6 +182,79 @@ export function useAutoList() {
             })
             .catch(err => {
               console.log('Error loading passes for auto:', autoId, err);
+            });
+        }
+        
+        // Диагностическая карта
+        if (newAutoList[i].check_diagnostic_card_expared == 1) {
+          api.post('/get-auto-check-diagnostic-card', { token, id: autoId, intervally: 1 })
+            .then(res => {
+              const data = res.data;
+              if (data.error || data.in_progress == 0) {
+                setAutoList(prev => prev.map(auto => 
+                  auto.id === autoId ? {
+                    ...auto,
+                    check_diagnostic_card_string: data.check_diagnostic_card_string || '',
+                    check_diagnostic_card_period_color: data.check_diagnostic_card_period_color || '',
+                    check_diagnostic_card_date_to_left: data.check_diagnostic_card_date_to_left || '',
+                    check_diagnostic_card_date_to_str: data.check_diagnostic_card_date_to_str || '',
+                    check_diagnostic_card_expared: 0
+                  } : auto
+                ));
+              }
+            })
+            .catch(err => {
+              console.log('Error loading diagnostic card for auto:', autoId, err);
+              // При ошибке тоже сбрасываем флаг
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? { ...auto, check_diagnostic_card_expared: 0 } : auto
+              ));
+            });
+        }
+        
+        // Штрафы
+        if (newAutoList[i].check_fines_expared == 1) {
+          api.post('/get-auto-check-fines', { token, id: autoId })
+            .then(res => {
+              const data = res.data;
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? {
+                  ...auto,
+                  check_fines_string: data.check_fines_string || '',
+                  check_fines_sum: data.check_fines_sum || '',
+                  check_fines_expared: 0
+                } : auto
+              ));
+            })
+            .catch(err => {
+              console.log('Error loading fines for auto:', autoId, err);
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? { ...auto, check_fines_expared: 0 } : auto
+              ));
+            });
+        }
+        
+        // ОСАГО
+        if (newAutoList[i].check_osago_expared == 1) {
+          api.post('/get-auto-check-osago', { token, id: autoId })
+            .then(res => {
+              const data = res.data;
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? {
+                  ...auto,
+                  check_osago_string: data.check_osago_string || '',
+                  check_osago_period_color: data.check_osago_period_color || '',
+                  check_osago_date_to_left: data.check_osago_date_to_left || '',
+                  check_osago_date_to_str: data.check_osago_date_to_str || '',
+                  check_osago_expared: 0
+                } : auto
+              ));
+            })
+            .catch(err => {
+              console.log('Error loading osago for auto:', autoId, err);
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? { ...auto, check_osago_expared: 0 } : auto
+              ));
             });
         }
       }
@@ -294,6 +382,26 @@ export function useAutoList() {
 
   const [onboardingExpired, setOnboardingExpired] = useState(1);
   const [onboardingViewed, setOnboardingViewed] = useState(1);
+  const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
+
+  // Закрытие модального окна "Наши услуги"
+  const closeAnnounceOurServices = useCallback(async () => {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) {
+      router.replace('/');
+      return;
+    }
+
+    try {
+      await api.post('/get-announce-our-services', { token });
+      setAnnounceOurServicesVisible(false);
+    } catch (error: any) {
+      console.log('Error in closeAnnounceOurServices:', error);
+      if (error.response?.status === 401) {
+        router.replace('/');
+      }
+    }
+  }, [router]);
 
   // Очистка таймера при размонтировании
   useEffect(() => {
@@ -627,11 +735,29 @@ export function useAutoList() {
     setAutoList(updatedList);
   }, [autoList]);
 
+  // Функция для перезагрузки всех данных (например, после смены организации)
+  const reloadData = useCallback(async () => {
+    console.log('reloadData - resetting state and fetching data');
+    
+    // Сбрасываем состояние
+    setMarkedCnt(0);
+    setAutoList([]);
+    setAutoListCount(0);
+    setAutoListFrom(0);
+    
+    // Загружаем данные заново
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+      await getAutoList(token);
+    }
+  }, [getAutoList]);
+
   return {
     // State
     managerName,
     techSupportName,
     managerData,
+    techSupportData,
     userData,
     userStr,
     userList,
@@ -652,6 +778,8 @@ export function useAutoList() {
     markedCnt,
     onboardingExpired,
     onboardingViewed,
+    announceOurServicesVisible,
+    closeAnnounceOurServices,
     
     // Refs
     onEndReachedCalledDuringMomentum,
@@ -664,6 +792,7 @@ export function useAutoList() {
     // Methods
     getAutoList,
     refreshAutoList,
+    reloadData,
     invalidateCache,
     onEndReached,
     markItem,

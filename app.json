@@ -1,17 +1,19 @@
 {
   "expo": {
-    "name": "TransApp_upd",
-    "slug": "TransApp_upd",
+    "name": "TransApp",
+    "slug": "TransApp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/truck.png",
-    "scheme": "transappupd",
+    "icon": "./assets/images/icon.png",
+    "scheme": "transapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.reactjs.native.example.Transappru",
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "ru",
+        "CFBundleAllowMixedLocalizations": true,
         "NSLocationWhenInUseUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
         "NSLocationAlwaysUsageDescription": "Приложение использует вашу геолокацию для отображения на карте"
       },
@@ -40,6 +42,7 @@
       "./plugins/withPodfileModifications.js",
       "./plugins/withAPSEnvironment.js",
       "./plugins/withYandexMaps.js",
+      "./plugins/withRussianLocalization.js",
       [
         "expo-build-properties",
         {
@@ -51,12 +54,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/truck.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#ffffff"
           }
         }
       ]

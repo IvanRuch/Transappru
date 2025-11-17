@@ -23,6 +23,7 @@ import {
   ContactsModal,
   LeftMenuModal,
 } from '../../components/auto/modals';
+import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
 
 export default function AutoListScreen() {
@@ -87,16 +88,6 @@ export default function AutoListScreen() {
       {/* Заголовок "Мой автопарк" - в потоке, НЕ absolute */}
       {autoListHook.userData && autoListHook.userData.firm && (
         <Text style={styles.header}>Мой автопарк</Text>
-      )}
-
-      {/* Подзаголовок с фирмой и ИНН - в потоке, выровнен СЛЕВА */}
-      {autoListHook.userData && 
-       autoListHook.userData.firm && 
-       autoListHook.managerData && 
-       Object.keys(autoListHook.managerData).length > 0 && (
-        <Text style={styles.subHeader}>
-          {autoListHook.userData.firm}{'\n'}инн: {autoListHook.userData.inn}
-        </Text>
       )}
 
       {/* Кнопка меню слева (гамбургер) */}
@@ -349,9 +340,18 @@ export default function AutoListScreen() {
 
               <View style={styles.menuItem}>
                 <TouchableHighlight
+                  style={styles.menuItem}
                   activeOpacity={1}
                   underlayColor='#EEEEEE'
-                  onPress={() => console.log('Invite user')}
+                  onPress={() => {
+                    console.log('-> move to invite user');
+                    router.push({
+                      pathname: '/invite-user' as any,
+                      params: {
+                        manager_data: JSON.stringify(autoListHook.managerData)
+                      }
+                    });
+                  }}
                 >
                   <MenuInviteUser />
                 </TouchableHighlight>
@@ -433,7 +433,10 @@ export default function AutoListScreen() {
         markedCount={autoListHook.markedCnt}
         onConfirm={async () => {
           const token = await AsyncStorage.getItem('token');
-          await autoActions.deleteAuto(token);
+          const markedIds = autoListHook.autoList
+            .filter(item => item.marked)
+            .map(item => item.id);
+          await autoActions.deleteAuto(token, markedIds);
         }}
         onCancel={() => autoActions.setModalDelAutoVisible(false)}
       />
@@ -441,6 +444,7 @@ export default function AutoListScreen() {
       <ContactsModal
         visible={autoActions.modalViewContacts}
         managerData={autoListHook.managerData}
+        techSupportData={autoListHook.techSupportData}
         techSupportName={autoListHook.techSupportName}
         onClose={() => autoActions.setModalViewContacts(false)}
         onContactPhone={autoActions.contactPhone}
@@ -459,6 +463,19 @@ export default function AutoListScreen() {
         onNavigateToOnBoarding={autoActions.navigateToOnBoarding}
         onNavigateToDriverList={autoActions.navigateToDriverList}
         onNavigateToInn={autoActions.navigateToInn}
+        onSwitchOrganization={(inn, onSuccess) => {
+          autoActions.switchOrganization(inn, () => {
+            // Перезагружаем данные после переключения
+            autoListHook.reloadData();
+            if (onSuccess) onSuccess();
+          });
+        }}
+      />
+
+      {/* Модальное окно "Наши услуги" */}
+      <AnnounceOurServicesModal
+        visible={autoListHook.announceOurServicesVisible}
+        onClose={autoListHook.closeAnnounceOurServices}
       />
     </View>
   );
@@ -488,12 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#313131',
-  },
-  subHeader: {
-    paddingLeft: 20,
-    paddingRight: 20,
-    fontSize: 15,
-    color: '#8C8C8C',
   },
   headerBack: {
     position: 'absolute',

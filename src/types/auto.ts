@@ -1,8 +1,12 @@
 // Типы для AutoListScreen
 
 export interface ManagerData {
+  id?: string;
   mobile_phone?: string;
   email?: string;
+  email_subject?: string;
+  email_body?: string;
+  whatapp_greetings?: string;
   name?: string;
 }
 

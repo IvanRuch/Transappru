@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import Api from '../utils/Api';
+import api from '../services/api';
 import type { AutoItem } from '../types/auto';
 
 export function useAutoActions(
@@ -31,25 +31,82 @@ export function useAutoActions(
   // Contact methods
   const contactEmail = useCallback((email: string, subject: string, body: string) => {
     console.log('contactEmail. email = ' + email);
-    const emailStr = `mailto:${email}?subject=${subject}&body=${body}`;
-    Linking.openURL(emailStr);
+    const emailStr = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    Linking.openURL(emailStr).catch(err => {
+      console.log('Error opening email:', err);
+    });
   }, []);
 
   const contactPhone = useCallback((phone: string) => {
     console.log('contactPhone. phone = ' + phone);
+    
+    // Проверяем что номер телефона валидный (не пустой и не только +7)
+    if (!phone || phone === '+7' || phone.length < 5) {
+      console.log('Invalid phone number:', phone);
+      return;
+    }
+    
+    // telprompt: для iOS (показывает диалог подтверждения), tel: для Android
+    // Примечание: telprompt: не работает в iOS симуляторе, но работает на реальном устройстве
     const phoneStr = Platform.OS === 'android' ? `tel:${phone}` : `telprompt:${phone}`;
-    Linking.openURL(phoneStr);
+    Linking.openURL(phoneStr).catch(err => {
+      console.log('Error opening phone:', err);
+    });
   }, []);
 
   const contactWhatsapp = useCallback((phone: string, greetings: string) => {
     console.log('contactWhatsapp. phone = ' + phone);
-    const whatsappStr = `whatsapp://send?phone=${phone}&text=${greetings}`;
-    Linking.openURL(whatsappStr);
+    
+    // Проверяем что номер телефона валидный
+    if (!phone || phone === '+7' || phone.length < 5) {
+      console.log('Invalid phone number for WhatsApp:', phone);
+      return;
+    }
+    
+    const whatsappStr = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(greetings)}`;
+    Linking.openURL(whatsappStr).catch(err => {
+      console.log('Error opening WhatsApp:', err);
+    });
   }, []);
 
   const openContacts = useCallback(() => {
     setModalViewContacts(true);
   }, []);
+
+  const switchOrganization = useCallback(async (inn: string, onSuccess?: () => void) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/' as any);
+        return;
+      }
+
+      console.log('Switching to organization with INN:', inn);
+
+      const res = await api.post('/set-current-inn', {
+        token,
+        current_inn: inn,
+      });
+
+      const data = res.data;
+      console.log('Switch organization response:', data);
+
+      if (data.auth_required === 1) {
+        router.replace('/' as any);
+        return;
+      }
+
+      // Вызываем callback для перезагрузки данных
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.log('Error switching organization:', error);
+      if (error.response?.status === 401) {
+        router.replace('/' as any);
+      }
+    }
+  }, [router]);
 
   // Navigation
   const navigateToAutoDriver = useCallback((markedAutos: AutoItem[]) => {
@@ -63,11 +120,10 @@ export function useAutoActions(
 
   const navigateToPass = useCallback((markedAutos: AutoItem[]) => {
     console.log('-> move to Pass');
-    // TODO: Создать экран Pass
-    // router.push({
-    //   pathname: '/(authenticated)/pass',
-    //   params: { auto_list: JSON.stringify(markedAutos) }
-    // });
+    router.push({
+      pathname: '/(authenticated)/pass',
+      params: { auto_list: JSON.stringify(markedAutos) }
+    });
   }, [router]);
 
   const navigateToAuto = useCallback((autoData: AutoItem) => {
@@ -85,8 +141,7 @@ export function useAutoActions(
 
   const navigateToServices = useCallback(() => {
     console.log('-> move to OurServices');
-    // TODO: Создать экран Services
-    // router.push('/(authenticated)/services');
+    router.push('/(authenticated)/services');
   }, [router]);
 
   const navigateToOnBoarding = useCallback(() => {
@@ -111,28 +166,45 @@ export function useAutoActions(
   }, [router]);
 
   // Delete auto
-  const deleteAuto = useCallback(async (token: string | null) => {
+  const deleteAuto = useCallback(async (token: string | null, autoListToDelete: string[]) => {
     if (!token) {
-      console.log('empty token');
       router.replace('/');
       return;
     }
 
     try {
-      const res = await Api.post('/del-auto', { token });
+      console.log('Deleting autos:', autoListToDelete);
+      console.log('Sending to API - ids:', autoListToDelete.join(','));
+      const res = await api.post('/del-auto', {
+        token,
+        ids: autoListToDelete.join(',')
+      });
       const data = res.data;
       console.log('deleteAuto response:', data);
+      console.log('Deleted successfully, res:', data.res);
+
+      // Проверка auth_required
+      if (data.auth_required === 1) {
+        console.log('Auth required, redirecting to auth');
+        router.replace('/');
+        return;
+      }
 
       setModalDelAutoVisible(false);
       
-      // Инвалидируем кэш после удаления авто
+      // Инвалидируем кэш и обновляем список
       if (invalidateCache) {
+        console.log('Invalidating cache after delete...');
         invalidateCache();
       }
       
+      // Обновляем список сразу, не дожидаясь ответа сервера
+      console.log('Refreshing auto list after delete...');
       await refreshAutoList();
+      console.log('Auto list refreshed after delete');
     } catch (error: any) {
       console.log('error in deleteAuto:', error);
+      console.log('error response:', error.response);
       if (error.response?.status === 401) {
         router.replace('/');
       }
@@ -142,9 +214,9 @@ export function useAutoActions(
   // Add auto - валидация
   const changeAutoNumberBase = useCallback((value: string) => {
     setAutoNumberBase(value);
-    const isValid = value.match(/^[АВЕКМНОРСТУХ]{1}[0-9]{3}[АВЕКМНОРСТУХ]{2}$/i);
-    setAutoNumberBaseOk(!!isValid);
-    checkAddAutoEnabled(!!isValid, autoNumberRegionCodeOk, stsOk);
+    const isValid = value.length === 6;
+    setAutoNumberBaseOk(isValid);
+    checkAddAutoEnabled(isValid, autoNumberRegionCodeOk, stsOk);
   }, [autoNumberRegionCodeOk, stsOk]);
 
   const changeAutoNumberRegionCode = useCallback((value: string) => {
@@ -156,9 +228,9 @@ export function useAutoActions(
 
   const changeSts = useCallback((value: string) => {
     setSts(value);
-    const isValid = value.match(/^[0-9]{2}[ ]{0,1}[А-Я]{2}[ ]{0,1}[0-9]{6}$/i);
-    setStsOk(!!isValid);
-    checkAddAutoEnabled(autoNumberBaseOk, autoNumberRegionCodeOk, !!isValid);
+    const isValid = value.length === 10;
+    setStsOk(isValid);
+    checkAddAutoEnabled(autoNumberBaseOk, autoNumberRegionCodeOk, isValid);
   }, [autoNumberBaseOk, autoNumberRegionCodeOk]);
 
   const checkAddAutoEnabled = useCallback((baseOk: boolean, regionOk: boolean, stsValid: boolean) => {
@@ -173,27 +245,37 @@ export function useAutoActions(
       return;
     }
 
-    const autoNumber = autoNumberBase + autoNumberRegionCode;
-
     try {
-      const res = await Api.post('/add-auto', { 
-        token, 
-        auto_number: autoNumber, 
+      const res = await api.post('/add-auto', { 
+        token,
+        auto_number_base: autoNumberBase,
+        auto_number_region_code: autoNumberRegionCode,
         sts 
       });
       const data = res.data;
       console.log('addAuto response:', data);
 
+      // Проверка auth_required
+      if (data.auth_required === 1) {
+        console.log('Auth required, redirecting to auth');
+        router.replace('/');
+        return;
+      }
+
       modalAddAutoCancel();
       
       // Инвалидируем кэш после добавления авто
       if (invalidateCache) {
+        console.log('Invalidating cache...');
         invalidateCache();
       }
       
+      console.log('Refreshing auto list...');
       await refreshAutoList();
+      console.log('Auto list refreshed');
     } catch (error: any) {
       console.log('error in addAuto:', error);
+      console.log('error response:', error.response);
       if (error.response?.status === 401) {
         router.replace('/');
       }
@@ -238,6 +320,7 @@ export function useAutoActions(
     contactPhone,
     contactWhatsapp,
     openContacts,
+    switchOrganization,
     navigateToAutoDriver,
     navigateToPass,
     navigateToAuto,

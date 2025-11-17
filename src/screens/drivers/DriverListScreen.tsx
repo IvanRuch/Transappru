@@ -146,16 +146,12 @@ class DriverListClass extends React.Component<DriverListProps, DriverListState> 
   saveDriver = (value: any) => {
     this.setState({ modalEditDriverButtonDisabled: true });
 
-    const endpoint = this.state.modalEditDriverMode === 'add' ? '/add-driver' : '/edit-driver';
+    console.log('saveDriver. mode =', this.state.modalEditDriverMode);
+    console.log('user_driver_data =', this.state.user_driver_data);
     
-    Api.post(endpoint, {
+    Api.post('/edit-driver', {
       token: value,
-      id: this.state.user_driver_data.id,
-      vu: this.state.user_driver_data.vu,
-      vu_reg: this.state.user_driver_data.vu_reg,
-      name_f: this.state.user_driver_data.name_f,
-      name_i: this.state.user_driver_data.name_i,
-      name_o: this.state.user_driver_data.name_o
+      user_driver_data: this.state.user_driver_data
     })
       .then(res => {
         const data = res.data;
