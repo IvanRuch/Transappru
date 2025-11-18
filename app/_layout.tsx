@@ -1,30 +1,59 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { LogBox } from 'react-native';
+import { LogBox, View, Text, StyleSheet } from 'react-native';
 import { FirebaseService } from '@/src/services/firebase';
 
 // Предотвращаем автоматическое скрытие splash screen
 SplashScreen.preventAutoHideAsync();
 
-// Скрываем предупреждения Expo в dev режиме (опционально)
+// Скрываем предупреждения в dev режиме (опционально)
 if (__DEV__) {
-  LogBox.ignoreAllLogs(false); // Можно установить true чтобы скрыть все логи
+  LogBox.ignoreLogs([
+    'This method is deprecated',
+    'React Native Firebase namespaced API',
+    'Firebase already initialized'
+  ]);
 }
 
 export default function RootLayout() {
+  const [appIsReady, setAppIsReady] = useState(false);
+
   useEffect(() => {
-    console.log('RootLayout mounted');
-    console.log('Setting up Firebase...');
+    async function prepare() {
+      try {
+        console.log('RootLayout mounted');
+        console.log('Setting up Firebase...');
 
-    // Инициализация Firebase при запуске приложения
-    FirebaseService.initialize(); // Инициализируем Firebase сначала
-    FirebaseService.requestPermission();
-    FirebaseService.setupNotificationListeners();
+        // Инициализация Firebase при запуске приложения
+        FirebaseService.initialize();
+        FirebaseService.requestPermission();
+        FirebaseService.setupNotificationListeners();
+      } catch (e) {
+        console.warn('Error during app initialization:', e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
 
-    // Скрываем splash screen сразу после инициализации
-    SplashScreen.hideAsync();
+    prepare();
   }, []);
+
+  useEffect(() => {
+    if (appIsReady) {
+      // Скрываем splash screen сразу
+      SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
+
+  if (!appIsReady) {
+    // Показываем простой splash с текстом пока приложение загружается
+    return (
+      <View style={styles.splashContainer}>
+        <Text style={styles.splashTitle}>TransApp</Text>
+      </View>
+    );
+  }
 
   return (
     <Stack
@@ -40,3 +69,18 @@ export default function RootLayout() {
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splashTitle: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#000000',
+    letterSpacing: 2,
+  },
+});

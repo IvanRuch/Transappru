@@ -8,6 +8,20 @@ module.exports = defineConfig([
     ignores: ['dist/*'],
   },
   {
+    // Конфигурация для Node.js плагинов
+    files: ['plugins/**/*.js'],
+    languageOptions: {
+      globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
+  {
     // Отключаем предупреждение об неиспользуемых экспортах в файлах роутинга
     // Expo Router автоматически использует default export из файлов app/
     files: ['app/**/*.{ts,tsx}'],

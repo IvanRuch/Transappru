@@ -45,8 +45,12 @@ export class FirebaseService {
 
   // Настройка слушателей - аналогично старому проекту
   static setupNotificationListeners() {
-    // Настраиваем foreground слушатели
-    // Background handler временно отключен из-за проблем с инициализацией в Expo
-    NotificationListener();
+    try {
+      // Настраиваем foreground слушатели
+      // Background handler временно отключен из-за проблем с инициализацией в Expo
+      NotificationListener();
+    } catch (error) {
+      console.log('Error setting up notification listeners:', error);
+    }
   }
 }

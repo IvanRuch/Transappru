@@ -2,15 +2,25 @@
   "expo": {
     "name": "TransApp",
     "slug": "TransApp",
-    "version": "1.0.0",
     "orientation": "portrait",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "icon": "./assets/images/icon.png",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
     "scheme": "transapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
+      "requireFullScreen": true,
       "bundleIdentifier": "org.reactjs.native.example.Transappru",
+      "appleTeamId": "XRF3344MB3",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ru",
         "CFBundleAllowMixedLocalizations": true,
@@ -20,7 +30,7 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "org.reactjs.native.example.Transappru",
+      "package": "com.transappru",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -28,8 +38,6 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ],
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -37,12 +45,18 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "./plugins/withVersionSync.js",
       "expo-router",
       "@react-native-firebase/app",
       "./plugins/withPodfileModifications.js",
       "./plugins/withAPSEnvironment.js",
       "./plugins/withYandexMaps.js",
       "./plugins/withRussianLocalization.js",
+      "./plugins/withDestinations.js",
+      "./plugins/withAppCategory.js",
+      "./plugins/withBackgroundModes.js",
+      "./plugins/withDSYM.js",
+      "./plugins/withAndroidNotificationIcon.js",
       [
         "expo-build-properties",
         {
@@ -54,12 +68,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#ffffff",
-          "dark": {
-            "backgroundColor": "#ffffff"
-          }
+          "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

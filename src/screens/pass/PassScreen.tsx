@@ -648,7 +648,42 @@ class Pass extends React.Component<PassProps, PassState> {
 
           </View>
 
-          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Куда едем?</Text>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center',
+            paddingLeft: 20, 
+            paddingRight: 20 
+          }}>
+            <Text style={{ fontSize: 15, fontWeight: "normal", color: "#313131" }}>Куда едем?</Text>
+            {
+              this.state.address !== '' ? (
+                <TouchableOpacity
+                  style={{
+                    marginLeft: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    borderWidth: 1,
+                    borderColor: '#B8B8B8',
+                    backgroundColor: '#F9FAF9'
+                  }}
+                  onPress={() => {
+                    this.setState({ 
+                      address: '', 
+                      lon: '' as string | number, 
+                      lat: '' as string | number, 
+                      location_type: '',
+                      mos_ru_address: 0,
+                      street_list: [],
+                      address_list: []
+                    });
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: '#656565' }}>Очистить</Text>
+                </TouchableOpacity>
+              ) : null
+            }
+          </View>
 
           <TouchableHighlight
             style={{ position: 'absolute', top: 170, right: 30, padding: 10, zIndex: 3, elevation: 3 }}
@@ -671,15 +706,21 @@ class Pass extends React.Component<PassProps, PassState> {
             paddingLeft: 30,
             paddingRight: 75,
             paddingTop: 20,
+            position: 'relative',
           }}>
             <TextInput
               ref={this.addressInputRef}
-              //onEndEditing={(e: any) => { this.endEditingUserData( e.nativeEvent.text, 'firm' ) } }
-              //onChangeText={(value) => this.changeUserData(value, 'firm')}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
               style={[
-                { height: 45, 
+                { minHeight: 45,
+                  maxHeight: 90,
                   fontSize: 14, 
                   paddingLeft: 10,
+                  paddingRight: 10,
+                  paddingTop: 12,
+                  paddingBottom: 12,
                   borderWidth: 1, 
                   borderRadius: 8, 
                   color: "#313131" 

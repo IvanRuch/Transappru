@@ -108,6 +108,18 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
   }
 
   componentDidMount() {
+    // Подписываемся на событие focus для обновления координат при возврате на экран
+    this.props.navigation.addListener('focus', () => {
+      const params = this.props.route.params;
+      console.log('PassYaMap focus event - updating coordinates:', params.lon, params.lat, 'location_type:', params.location_type);
+      this.setState({
+        lon: params.lon || '',
+        lat: params.lat || '',
+        location_type: params.location_type || '',
+        address_map_data: { address: params.address || '' }
+      });
+    });
+
     if(this.map.current)
     {
       if(this.state.location_type === 'mkad' || this.state.location_type === '')
@@ -203,7 +215,10 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
         <YaMap
           ref={this.map}
           rotateGesturesDisabled={true}
-          showUserPosition={true}
+          showUserPosition={false}
+          userLocationAccuracyFillColor="rgba(0, 0, 0, 0)"
+          userLocationAccuracyStrokeColor="rgba(0, 0, 0, 0)"
+          userLocationAccuracyStrokeWidth={0}
           initialRegion={{
               lat: 55.74954,
               lon: 37.621587,
