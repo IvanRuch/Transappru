@@ -1,10 +1,12 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { ScreenHeader } from '../../components/common';
 
 interface OurServicesProps {
   route?: {
@@ -312,7 +314,12 @@ class OurServicesClass extends React.Component<OurServicesProps, OurServicesStat
   render() {
     return (
 
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
 
         {/* модальное окно с уведомлением "ожидайте связи с менеджером" */}
         <Modal
@@ -376,20 +383,13 @@ class OurServicesClass extends React.Component<OurServicesProps, OurServicesStat
             </View>
         </Modal>
 
-
-        <Text style={[styles.header, { marginLeft: 35, marginRight: 20 }]}>{ this.state.service_data.header }</Text>
-
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
+        <ScreenHeader 
+          title={this.state.service_data.header}
+          onBack={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
-          }}>
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+          }}
+        />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -947,7 +947,7 @@ class OurServicesClass extends React.Component<OurServicesProps, OurServicesStat
 
 
 
-      </View>
+      </SafeAreaView>
     );
   }
 }

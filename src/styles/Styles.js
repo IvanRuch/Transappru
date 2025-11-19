@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, StatusBar } from 'react-native';
 
 export default StyleSheet.create({
 
@@ -15,24 +15,27 @@ export default StyleSheet.create({
     marginBottom: 10,
   },
 
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#fff',
+  },
+
+  headerBackButton: {
+    padding: 8,
+    marginRight: 10,
+  },
+
   header: {
+    flex: 1,
     textAlign: 'center',
-    paddingLeft: 20,
-    paddingBottom: 20,
     fontSize: 24,
     fontWeight: "bold",
     color: "#313131",
-    ...Platform.select({
-      ios: {
-        paddingTop: 70,
-      },
-      android: {
-        paddingTop: 25,
-      },
-      default: {
-        paddingTop: 25,
-      }
-    })
+    marginRight: 40,
   },
 
   sub_header: {
@@ -43,74 +46,30 @@ export default StyleSheet.create({
 
   header_back: {
      position: 'absolute',
-     top: 20,
+     top: 18,
      left: 20,
-     padding: 10,
-     ...Platform.select({
-       ios: {
-         top: 65,
-       },
-       android: {
-         top: 20,
-       },
-       default: {
-         top: 20,
-       }
-    })
+     padding: 8,
   },
 
   header_onboarding: {
       position: 'absolute',
-      top: 20,
+      top: 18,
       left: 60,
-      padding: 10,
-      ...Platform.select({
-        ios: {
-          top: 65,
-        },
-        android: {
-          top: 20,
-        },
-        default: {
-          top: 20,
-        }
-    })
+      padding: 8,
   },
 
   header_filter: {
       position: 'absolute',
-      top: 20,
+      top: 18,
       right: 20,
-      padding: 10,
-      ...Platform.select({
-        ios: {
-          top: 65,
-        },
-        android: {
-          top: 20,
-        },
-        default: {
-          top: 20,
-        }
-    })
+      padding: 8,
   },
 
   header_debt: {
       position: 'absolute',
-      top: 20,
+      top: 18,
       right: 60,
-      padding: 10,
-      ...Platform.select({
-        ios: {
-          top: 65,
-        },
-        android: {
-          top: 20,
-        },
-        default: {
-          top: 20,
-        }
-    })
+      padding: 8,
   },
 
   tab_checked: {

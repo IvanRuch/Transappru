@@ -1,10 +1,12 @@
 import React from 'react';
-import { Text, View, Image, TouchableHighlight, TouchableOpacity, Modal, TextInput, ActivityIndicator, FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableHighlight, TouchableOpacity, Modal, TextInput, ActivityIndicator, FlatList, Pressable, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { ScreenHeader } from '../../components/common';
 
 interface DriverData {
   id: string;
@@ -233,17 +235,17 @@ class DriverListClass extends React.Component<DriverListProps, DriverListState> 
 
   render() {
     return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Водители</Text>
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => this.props.navigation?.goBack()}
-        >
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        <ScreenHeader 
+          title="Водители"
+          onBack={() => this.props.navigation?.goBack()}
+        />
 
         <ActivityIndicator size="large" color="#313131" animating={this.state.indicator} />
 
@@ -499,7 +501,7 @@ class DriverListClass extends React.Component<DriverListProps, DriverListState> 
             </View>
           </View>
         </Modal>
-      </View>
+      </SafeAreaView>
     );
   }
 }

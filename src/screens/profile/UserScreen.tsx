@@ -1,9 +1,11 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { ScreenHeader } from '../../components/common';
 
 interface UserProps {
   navigation: any;
@@ -320,21 +322,6 @@ class User extends React.Component<UserProps, UserState> {
     }
   }
 
-  setContainerStyle = () => {
-
-    let container_style: any = styles.container
-    let container_style_new: any = {}
-
-    for (let key in container_style)
-    {
-      container_style_new[key] = key != 'backgroundColor' ? container_style[key] : ( 
-        this.state.modalEditContactVisible ||
-        this.state.modalDelContactVisible ||
-        this.state.modalDelUserVisible ? 'rgba(29,29,29,0.6)' : '#FFFFFF' )
-    }
-
-    return container_style_new
-  }
 
   componentDidMount() {
     console.log('User DidMount')
@@ -387,21 +374,35 @@ class User extends React.Component<UserProps, UserState> {
 
   render() {
     return (
-
-      <View style={this.setContainerStyle()}>
-
-        <Text style={styles.header}>Профиль</Text>
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        {/* Overlay для затемнения фона при открытии модалок */}
+        {(this.state.modalEditContactVisible || 
+          this.state.modalDelContactVisible || 
+          this.state.modalDelUserVisible) && (
+          <View style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(29,29,29,0.6)',
+            zIndex: 1
+          }} />
+        )}
+        
+        <ScreenHeader 
+          title="Профиль"
+          onBack={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
-          }}>
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+          }}
+        />
 
         {/* модальное окно подтверждения удаления профиля */}
         <Modal
@@ -733,19 +734,37 @@ class User extends React.Component<UserProps, UserState> {
                   }
 
 
-                </View>
-
               </View>
+
+              {
+                this.state.modalEditContactMode != 'add' ? (
+
+                  <View style={{
+                    flex: 1,
+                    height: 100,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <TouchableOpacity
+                      style={{ height: 50, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: "#B8B8B8" }}
+                      onPress={() => {
+                        console.log('setState modalDelContactVisible true')
+                        this.setState({ modalEditContactVisible: false })
+                        this.setState({ modalDelContactVisible: true })
+                      }}>
+                      <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, color: "#313131" }}>Удалить</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                ) : null
+              }
             </View>
-          </ScrollView>
-        </Modal>
-        {/* */}
+          </View>
+        </ScrollView>
+      </Modal>
 
-        <ActivityIndicator size="large" color="#313131" animating={this.state.indicator}/>
-
-        <ScrollView>
-
-          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Название организации:</Text>
+      <ScrollView>
+        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Название организации:</Text>
 
           <View style={{
             alignItems: 'stretch',
@@ -822,7 +841,7 @@ class User extends React.Component<UserProps, UserState> {
             </View>  
           </TouchableHighlight> ) : null }
 
-      </View>
+      </SafeAreaView>
     );
   }
 }

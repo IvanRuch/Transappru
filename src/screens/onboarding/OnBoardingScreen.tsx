@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, StatusBar, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Api from '../../utils/Api';
@@ -43,11 +43,51 @@ export default function OnBoardingScreen() {
     });
   }, []);
 
-  const handleNext = () => {
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Разрешение на доступ к местоположению',
+            message: 'Приложению требуется доступ к вашему местоположению для работы с картой и заказа пропусков',
+            buttonNeutral: 'Спросить позже',
+            buttonNegative: 'Отмена',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('✅ Location permission granted');
+        } else {
+          console.log('⚠️ Location permission denied');
+        }
+      } catch (err) {
+        console.warn('Error requesting location permission:', err);
+      }
+    }
+  };
+
+  const handleNext = async () => {
     console.log('tapNext, current:', current);
     
-    if (current >= screens.length - 1) {
-      // Последний экран - переходим к списку авто
+    if (current === screens.length - 1) {
+      // Последний экран - запрашиваем разрешения и помечаем онбординг как просмотренный
+      
+      // Запрашиваем разрешение на геолокацию
+      await requestLocationPermission();
+      
+      try {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          // Вызываем API для пометки онбординга как просмотренного
+          await Api.post('/get-onboarding', { token });
+          console.log('✅ Onboarding marked as viewed');
+        }
+      } catch (error) {
+        console.log('⚠️ Error marking onboarding as viewed:', error);
+      }
+      
+      // Переходим к списку авто
       router.replace('/(authenticated)/auto-list');
     } else {
       // Следующий экран
@@ -116,7 +156,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     left: 20,
     right: 20,
-    top: 70,
+    top: Platform.OS === 'ios' ? 70 : (StatusBar.currentHeight || 0) + 70,
     bottom: 220,
     alignItems: 'center',
     justifyContent: 'center',

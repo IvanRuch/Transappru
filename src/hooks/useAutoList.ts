@@ -117,11 +117,20 @@ export function useAutoList() {
       
       const data = res.data;
 
+      console.log('========================================');
+      console.log('AUTO LIST - get-auto-list response:');
+      console.log('onboarding_viewed:', data.onboarding_viewed);
+      console.log('announce_our_services_viewed:', data.announce_our_services_viewed);
+      console.log('onboarding_expired:', data.onboarding_expired);
+      console.log('========================================');
+
       // Проверяем нужно ли показать OnBoarding
-      if (data.onboarding_viewed === 0) {
+      if (data.onboarding_viewed === 0 || data.onboarding_viewed === '0') {
+        console.log('✅ Showing onboarding (first time user)');
         setOnboardingViewed(0);
         router.push('/onboarding');
       } else {
+        console.log('⏭️ Onboarding already viewed, value:', data.onboarding_viewed);
         setOnboardingViewed(1);
       }
 
@@ -154,8 +163,11 @@ export function useAutoList() {
       setOnboardingExpired(onboardingExpiredValue);
       
       // Проверяем нужно ли показать модальное окно "Наши услуги"
-      if (data.announce_our_services_viewed === 0) {
+      if (data.announce_our_services_viewed === 0 || data.announce_our_services_viewed === '0') {
+        console.log('✅ Showing "Our Services" modal');
         setAnnounceOurServicesVisible(true);
+      } else {
+        console.log('⏭️ "Our Services" already viewed, value:', data.announce_our_services_viewed);
       }
 
       // Список авто на верхнем уровне

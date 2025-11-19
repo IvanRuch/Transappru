@@ -1,10 +1,12 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ScrollView, ActivityIndicator, Platform, Linking, Keyboard } from 'react-native';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ScrollView, ActivityIndicator, Platform, Linking, Keyboard, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { ScreenHeader } from '../../components/common';
 
 interface InnProps {
   route?: {
@@ -195,7 +197,13 @@ class InnClass extends React.Component<InnProps, InnState> {
 
   render() {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
         {/* Модалка ожидания подтверждения ИНН */}
         <Modal
           animationType="slide"
@@ -291,29 +299,25 @@ class InnClass extends React.Component<InnProps, InnState> {
                 }}
                 onPress={() => this.setState({ modalErrorVisible: false })}
               >
-                <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold' }}>OK</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        <ScrollView>
-          {this.state.check_rnis ? (
-            <Text style={styles.header}>Проверить в РНИС</Text>
-          ) : (
-            <Text style={styles.header}>Введите ИНН</Text>
-          )}
+        {(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
+          <ScreenHeader 
+            title={this.state.check_rnis ? "Проверить в РНИС" : "Введите ИНН"}
+            onBack={() => this.props.navigation?.goBack()}
+          />
+        )}
 
-          {Object.keys(this.state.user_data).length != 0 || this.state.check_rnis ? (
-            <TouchableHighlight
-              style={styles.header_back}
-              activeOpacity={1}
-              underlayColor='#FFFFFF'
-              onPress={() => this.props.navigation?.goBack()}
-            >
-              <Image source={require('../../../assets/images/back_2.png')} />
-            </TouchableHighlight>
-          ) : (
+        {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
+          <Text style={styles.header}>Введите ИНН</Text>
+        )}
+        
+        <ScrollView>
+          {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
             <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, fontSize: 14, color: "#656565", textAlign: "justify" }}>
               для более точной идентификации Вас как клиента
             </Text>
@@ -501,7 +505,7 @@ class InnClass extends React.Component<InnProps, InnState> {
             </View>
           ) : null}
         </ScrollView>
-      </View>
+      </SafeAreaView>
     );
   }
 }

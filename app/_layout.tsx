@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { LogBox, View, Text, StyleSheet } from 'react-native';
+import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FirebaseService } from '@/src/services/firebase';
 
 // Предотвращаем автоматическое скрытие splash screen
@@ -12,7 +13,12 @@ if (__DEV__) {
   LogBox.ignoreLogs([
     'This method is deprecated',
     'React Native Firebase namespaced API',
-    'Firebase already initialized'
+    'Firebase already initialized',
+    'Failed to open file',
+    'Ime callback not found',
+    'Looks like you have configured linking in multiple places',
+    'SafeAreaView has been deprecated',
+    'Tried to access onWindowFocusChange while context is not ready'
   ]);
 }
 
@@ -23,15 +29,23 @@ export default function RootLayout() {
     async function prepare() {
       try {
         console.log('RootLayout mounted');
-        console.log('Setting up Firebase...');
-
-        // Инициализация Firebase при запуске приложения
-        FirebaseService.initialize();
-        FirebaseService.requestPermission();
-        FirebaseService.setupNotificationListeners();
+        
+        // Быстро помечаем приложение готовым, чтобы не задерживать UI
+        setAppIsReady(true);
+        
+        // Firebase инициализируем асинхронно в фоне
+        console.log('Setting up Firebase in background...');
+        setTimeout(() => {
+          try {
+            FirebaseService.initialize();
+            FirebaseService.requestPermission();
+            FirebaseService.setupNotificationListeners();
+          } catch (e) {
+            console.warn('Error during Firebase initialization:', e);
+          }
+        }, 100);
       } catch (e) {
         console.warn('Error during app initialization:', e);
-      } finally {
         setAppIsReady(true);
       }
     }
@@ -49,9 +63,16 @@ export default function RootLayout() {
   if (!appIsReady) {
     // Показываем простой splash с текстом пока приложение загружается
     return (
-      <View style={styles.splashContainer}>
-        <Text style={styles.splashTitle}>TransApp</Text>
-      </View>
+      <SafeAreaView style={styles.splashContainer}>
+        <View style={{ 
+          flex: 1, 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
+        }}>
+          <Text style={styles.splashTitle}>TransApp</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 

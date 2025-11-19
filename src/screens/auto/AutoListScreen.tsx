@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableHighlight, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, Image, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableHighlight, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, Image, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -32,11 +33,12 @@ export default function AutoListScreen() {
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
 
-  // При фокусе на экран - обновляем список
+  // При фокусе на экран - НЕ обновляем список автоматически
+  // Данные уже загружены в useEffect или будут загружены при pull-to-refresh
   useFocusEffect(
     useCallback(() => {
       console.log('AutoListScreen focused');
-      autoListHook.refreshAutoList();
+      // Только запускаем анимацию, данные используем из кеша
       autoListHook.startPulseAnimation();
       
       return () => {
@@ -82,38 +84,38 @@ export default function AutoListScreen() {
   }, [handleItemPress, handleItemMark, autoListHook.showHideTab]);
 
   return (
-    <View style={styles.container}>
-      {/* Заголовок "Мой автопарк" - в потоке, НЕ absolute */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar 
+        barStyle="dark-content"
+        backgroundColor="#ffffff"
+        translucent={false}
+      />
+      
+      {/* Хедер с заголовком и кнопками */}
       {autoListHook.userData && autoListHook.userData.firm && (
-        <Text style={styles.header}>Мой автопарк</Text>
-      )}
-
-      {/* Кнопка меню слева (гамбургер) */}
-      {autoListHook.userData && autoListHook.userData.firm && (
-        <TouchableHighlight
-          style={styles.headerBack}
-          activeOpacity={1}
-          underlayColor="#ffffff"
-          onPress={() => {
-            console.log('-> call MenuLeft');
-            autoActions.setMenuLeftVisible(true);
-          }}
-        >
-          <Image 
-            source={
-              (autoListHook.userData.other_user_notification_unviewed_count || 0) > 0
-                ? require('../../../assets/images/menu_left_notification_unviewed.png')
-                : require('../../../assets/images/menu_left.png')
-            } 
-          />
-        </TouchableHighlight>
-      )}
-
-      {/* Кнопка уведомлений (колокольчик) */}
-      {autoListHook.userData && autoListHook.userData.firm && (
-        <View style={styles.headerOnboarding}>
+        <View style={styles.headerContainer}>
+          {/* Кнопка меню слева (гамбургер) */}
           <TouchableHighlight
-            style={{ padding: 10 }}
+            style={styles.headerButton}
+            activeOpacity={1}
+            underlayColor="#ffffff"
+            onPress={() => {
+              console.log('-> call MenuLeft');
+              autoActions.setMenuLeftVisible(true);
+            }}
+          >
+            <Image 
+              source={
+                (autoListHook.userData.other_user_notification_unviewed_count || 0) > 0
+                  ? require('../../../assets/images/menu_left_notification_unviewed.png')
+                  : require('../../../assets/images/menu_left.png')
+              } 
+            />
+          </TouchableHighlight>
+
+          {/* Кнопка уведомлений (колокольчик) */}
+          <TouchableHighlight
+            style={styles.headerButton}
             activeOpacity={1}
             underlayColor="#ffffff"
             onPress={() => {
@@ -132,50 +134,24 @@ export default function AutoListScreen() {
               )}
             </View>
           </TouchableHighlight>
-        </View>
-      )}
 
-      {/* Кнопка фильтра (если есть авто) */}
-      {autoListHook.autoList.length > 0 && (
-        <TouchableHighlight
-          style={styles.headerFilter}
-          activeOpacity={1}
-          underlayColor="#ffffff"
-          onPress={() => autoActions.setFindAutoVisible(!autoActions.findAutoVisible)}
-        >
-          <View>
-            <Image 
-              source={
-                autoActions.findAutoVisible 
-                  ? require('../../../assets/images/filter_2_open.png')
-                  : require('../../../assets/images/filter_2.png')
-              } 
-            />
-            {/* Индикатор активных фильтров */}
-            {autoListHook.hasActiveFilters() && (
-              <View style={{
-                position: 'absolute',
-                top: -2,
-                right: -2,
-                backgroundColor: '#EE505A',
-                borderRadius: 8,
-                minWidth: 16,
-                height: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 4,
-              }}>
-                <Text style={{
-                  color: '#FFFFFF',
-                  fontSize: 10,
-                  fontWeight: 'bold',
-                }}>
-                  {autoListHook.getActiveFiltersText().length}
-                </Text>
-              </View>
-            )}
-          </View>
-        </TouchableHighlight>
+          {/* Заголовок "Мой автопарк" */}
+          <Text style={styles.header}>Мой автопарк</Text>
+
+          {/* Кнопка фильтра (если есть авто) */}
+          {autoListHook.autoList.length > 0 ? (
+            <TouchableHighlight
+              style={styles.headerButton}
+              activeOpacity={1}
+              underlayColor="#ffffff"
+              onPress={() => autoActions.setFindAutoVisible(!autoActions.findAutoVisible)}
+            >
+              <Image source={require('../../../assets/images/filter.png')} />
+            </TouchableHighlight>
+          ) : (
+            <View style={styles.headerButton} />
+          )}
+        </View>
       )}
 
       {/* Панель активных фильтров */}
@@ -472,7 +448,7 @@ export default function AutoListScreen() {
         visible={autoListHook.announceOurServicesVisible}
         onClose={autoListHook.closeAnnounceOurServices}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -492,54 +468,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: '#fff',
+  },
+  headerButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 40,
+  },
   header: {
+    flex: 1,
     textAlign: 'center',
-    paddingLeft: 20,
-    paddingRight: 20,
-    paddingTop: Platform.OS === 'ios' ? 50 : 25,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#313131',
-  },
-  headerBack: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 45 : 20,
-    left: 20,
-    padding: 10,
-    zIndex: 2,
-  },
-  headerOnboarding: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 45 : 20,
-    left: 60,
-    zIndex: 2,
+    marginHorizontal: 10,
   },
   notificationBadge: {
     flexDirection: 'row',
     position: 'absolute',
-    top: 10,
-    left: 22,
+    top: 0,
+    right: 0,
     backgroundColor: '#EE505A',
     borderRadius: 12,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notificationBadgeText: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    margin: 2,
-  },
-  headerFilter: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 45 : 20,
-    right: 20,
-    padding: 10,
-    zIndex: 2,
+    paddingHorizontal: 4,
   },
   autoCountRow: {
     flexDirection: 'row',
-    marginTop: 20,
+    marginTop: 10,
     marginBottom: 5,
   },
   autoCountLeft: {

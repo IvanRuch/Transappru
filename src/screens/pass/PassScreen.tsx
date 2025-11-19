@@ -1,5 +1,7 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { View, Text, ScrollView, TouchableHighlight, TouchableOpacity, TextInput, Image, Modal, ActivityIndicator, Pressable, StatusBar, FlatList, ImageBackground } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from '../../styles/Styles.js';
@@ -30,6 +32,7 @@ interface PassState {
   modalAddAddress: boolean;
   lon: number | string;
   lat: number | string;
+  isLocationTypeManual: boolean; // Флаг: зона выбрана вручную или автоматически
 }
 
 class Pass extends React.Component<PassProps, PassState> {
@@ -55,6 +58,7 @@ class Pass extends React.Component<PassProps, PassState> {
       modalAddAddress: false,
       lon: '',
       lat: '',
+      isLocationTypeManual: false, // Изначально зона не выбрана
     };
   }
 
@@ -72,11 +76,13 @@ class Pass extends React.Component<PassProps, PassState> {
 
     if(this.state.location_type === tab)
     {
-      this.setState({ location_type: '' })
+      // Снимаем выбор зоны
+      this.setState({ location_type: '', isLocationTypeManual: false })
     }
     else
     {
-      this.setState({ location_type: tab })
+      // Выбираем зону ВРУЧНУЮ - устанавливаем флаг
+      this.setState({ location_type: tab, isLocationTypeManual: true })
     }
   }
 
@@ -332,6 +338,17 @@ class Pass extends React.Component<PassProps, PassState> {
     {
       let _address_map_data = this.props.route.params.address_map_data
 
+      // Определяем location_type:
+      // 1. Если зона была выбрана ВРУЧНУЮ - сохраняем её (isLocationTypeManual = true)
+      // 2. Если зоны не было или она была автоматической - используем зону с карты
+      const newLocationType = this.state.isLocationTypeManual
+        ? this.state.location_type 
+        : (_address_map_data.location_type || '');
+
+      // Флаг остаётся true только если зона была выбрана вручную
+      // Если зона пришла с карты - флаг = false (автоматическая)
+      const newIsManual = this.state.isLocationTypeManual;
+
       this.setState({ address: _address_map_data.address,
                       mos_ru_address: _address_map_data.mos_ru_address,
                       mos_ru_address_l_concat: _address_map_data.mos_ru_address_l_concat,
@@ -339,7 +356,8 @@ class Pass extends React.Component<PassProps, PassState> {
                       mos_ru_street_p7: _address_map_data.mos_ru_street_p7,
                       lon: _address_map_data.lon || '',
                       lat: _address_map_data.lat || '',
-                      location_type: _address_map_data.location_type || this.state.location_type })
+                      location_type: newLocationType,
+                      isLocationTypeManual: newIsManual })
       
       // Очистить параметр после использования
       this.props.route.params.address_map_data = undefined;
@@ -540,21 +558,21 @@ class Pass extends React.Component<PassProps, PassState> {
 
   render() {
     return (
-
-      <View style={styles.container}>
-
-        <Text style={styles.header}>Добавить адрес</Text>
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        {/* Заголовок с кнопкой назад */}
+        <ScreenHeader 
+          title="Добавить адрес"
+          onBack={() => {
             console.log('-> go back')
             this.props.navigation.goBack()
-          }}>
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+          }}
+        />
 
         {/* модальное окно уведомления после добавления адреса */}
         <Modal
@@ -616,7 +634,7 @@ class Pass extends React.Component<PassProps, PassState> {
 
         <ScrollView>
 
-          <Text style={{ paddingTop: 30, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
+          <Text style={{ paddingTop: 15, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
 
           <View style={{
             flexDirection: "row",
@@ -685,28 +703,13 @@ class Pass extends React.Component<PassProps, PassState> {
             }
           </View>
 
-          <TouchableHighlight
-            style={{ position: 'absolute', top: 170, right: 30, padding: 10, zIndex: 3, elevation: 3 }}
-            activeOpacity={1}
-            underlayColor='#FFFFFF'
-            onPress={() => {
-              this.props.navigation.navigate('PassYaMap', { 
-                location_type: this.state.location_type,
-                auto_list: this.state.auto_list,
-                lon: this.state.lon,
-                lat: this.state.lat,
-                address: this.state.address
-              })
-            }}>
-            <Image source={require('../../../assets/images/pass_yamap_2.png')}/>
-          </TouchableHighlight>
-
+          {/* Поле адреса с иконкой карты */}
           <View style={{
-            alignItems: 'stretch',
+            flexDirection: 'row',
+            alignItems: 'flex-start',
             paddingLeft: 30,
-            paddingRight: 75,
+            paddingRight: 30,
             paddingTop: 20,
-            position: 'relative',
           }}>
             <TextInput
               ref={this.addressInputRef}
@@ -714,7 +717,9 @@ class Pass extends React.Component<PassProps, PassState> {
               numberOfLines={3}
               textAlignVertical="top"
               style={[
-                { minHeight: 45,
+                { 
+                  flex: 1,
+                  minHeight: 45,
                   maxHeight: 90,
                   fontSize: 14, 
                   paddingLeft: 10,
@@ -731,6 +736,23 @@ class Pass extends React.Component<PassProps, PassState> {
               onChangeText={this.changeAddress}
               value={this.state.address}
             />
+            <TouchableHighlight
+              style={{ padding: 10, marginLeft: 10 }}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
+              onPress={() => {
+                // Передаём location_type на карту ТОЛЬКО если он был выбран вручную
+                // Если зона была определена автоматически - не передаём, чтобы разрешить свободный выбор
+                this.props.navigation.navigate('PassYaMap', { 
+                  location_type: this.state.isLocationTypeManual ? this.state.location_type : '',
+                  auto_list: this.state.auto_list,
+                  lon: this.state.lon,
+                  lat: this.state.lat,
+                  address: this.state.address
+                })
+              }}>
+              <Image source={require('../../../assets/images/pass_yamap_2.png')}/>
+            </TouchableHighlight>
           </View>
 
           <View>
@@ -773,7 +795,7 @@ class Pass extends React.Component<PassProps, PassState> {
           ) : null
         }
 
-      </View>
+      </SafeAreaView>
     );
   }
 

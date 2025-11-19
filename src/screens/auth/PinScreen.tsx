@@ -49,12 +49,15 @@ export default function PinScreen() {
       console.log('error:', data.error);
       console.log('phone_inn_bind:', data.phone_inn_bind);
       console.log('is_manager:', data.is_manager);
+      console.log('onboarding_expired:', data.onboarding_expired);
       console.log('========================================');
 
       if (data.error === 1) {
         setMsg(data.msg);
         setModalVisible(true);
       } else {
+        // PIN подтверждён, переходим дальше
+        // Проверка onboarding_viewed происходит в AutoListScreen через /get-auto-list
         if ((data.phone_inn_bind === 1 || data.phone_inn_bind === "1") || 
             (data.is_manager === 1 || data.is_manager === "1")) {
           console.log('✅ PIN confirmed, navigating to AutoList');

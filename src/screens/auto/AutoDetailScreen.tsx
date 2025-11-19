@@ -1,5 +1,10 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import {
+  View, Text, ScrollView, TouchableHighlight, TouchableOpacity, Image, Modal, ActivityIndicator, Linking, Platform, StatusBar, 
+  FlatList, Pressable, TextInput, ImageBackground
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from "expo-document-picker";
 import axios from "axios";
@@ -1328,21 +1333,21 @@ class Auto extends React.Component<AutoProps, AutoState> {
 
   render() {
     return (
-
-      <View style={this.setContainerStyle()}>
-
-        <Text style={styles.header}>{this.state.auto_data.auto_number}</Text>
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
+      <SafeAreaView style={this.setContainerStyle()} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        {/* Заголовок с кнопкой назад */}
+        <ScreenHeader 
+          title={this.state.auto_data.auto_number}
+          onBack={() => {
             console.log('-> move to AutoList')
             this.props.navigation.navigate('AutoList')
-          }}>
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+          }}
+        />
 
         {/* модальное окно подтверждения удаления файла */}
         <Modal
@@ -1699,7 +1704,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
                 }}>
 
                 <TouchableHighlight 
-                  style={{ paddingLeft: 30, paddingTop: 20 }}
+                  style={{ paddingLeft: 30, paddingTop: 10 }}
                   activeOpacity={1}
                   underlayColor='#FFFFFF'
                   onPress={() => this.openModalEditFile( 'add' )}>
@@ -2142,7 +2147,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
         }
 
 
-      </View>
+      </SafeAreaView>
     );
   }
 

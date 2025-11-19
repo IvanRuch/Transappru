@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../src/utils/Api';
@@ -70,14 +71,22 @@ export default function IndexScreen() {
   // Пока проверяем - показываем загрузку или AuthScreen
   if (isChecking) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#3A8FD9" />
-        {error && (
-          <View style={{ marginTop: 20, padding: 20 }}>
-            <Text style={{ color: 'red', fontSize: 14 }}>Error: {error}</Text>
-          </View>
-        )}
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+        <View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          backgroundColor: '#fff',
+          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
+        }}>
+          <ActivityIndicator size="large" color="#3A8FD9" />
+          {error && (
+            <View style={{ marginTop: 20, padding: 20 }}>
+              <Text style={{ color: 'red', fontSize: 14 }}>Error: {error}</Text>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
     );
   }
 

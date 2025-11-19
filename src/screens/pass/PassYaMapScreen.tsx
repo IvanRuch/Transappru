@@ -1,9 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, Platform, PermissionsAndroid, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { ScreenHeader } from '../../components/common';
 
 import YaMap from 'react-native-yamap-plus';
 import { Marker, Animation, Polygon, YamapInstance } from 'react-native-yamap-plus';
@@ -40,6 +42,7 @@ interface PassYaMapState {
   ttk_polygon: any[];
   ttk_polygon_inner_ring: any[][];
   sk_polygon: any[];
+  isLoadingAddress: boolean;
 }
 
 class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
@@ -61,6 +64,7 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
       ttk_polygon: ttk_polygon_coordinates,
       ttk_polygon_inner_ring: [ sk_polygon_coordinates ],
       sk_polygon: sk_polygon_coordinates,
+      isLoadingAddress: false,
     };
   }
 
@@ -70,7 +74,7 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
     console.log('point')
     console.log(point)
 
-    this.setState({ lon: point.lon, lat: point.lat, wrong_location: false })
+    this.setState({ lon: point.lon, lat: point.lat, wrong_location: false, isLoadingAddress: true })
 
     Api.post('/get-address-map', { lon: point.lon, lat: point.lat, location_type: this.state.location_type })
        .then(res => {
@@ -80,22 +84,24 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
 
           if(data.auth_required === 1)
           {
+            this.setState({ isLoadingAddress: false });
             this.props.navigation.navigate('Auth')
           }
           else
           {
             if(typeof(data.address_map_data.address) !== 'undefined')
             {
-              this.setState({address_map_data: data.address_map_data})
+              this.setState({address_map_data: data.address_map_data, isLoadingAddress: false})
             }
             else
             {
-              this.setState({address_map_data: { address: '' }, wrong_location: true})
+              this.setState({address_map_data: { address: '' }, wrong_location: true, isLoadingAddress: false})
             }
           }
         })
         .catch(error => {
           console.log('error.response.status = ' + error.response.status);
+          this.setState({ isLoadingAddress: false });
           if(error.response.status === 401) { this.props.navigation.navigate('Auth') }
         });
   }
@@ -107,7 +113,34 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
     }
   }
 
+  async requestLocationPermission() {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Разрешение на доступ к местоположению',
+            message: 'Приложению требуется доступ к вашему местоположению для работы с картой',
+            buttonNeutral: 'Спросить позже',
+            buttonNegative: 'Отмена',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('✅ Location permission granted');
+        } else {
+          console.log('⚠️ Location permission denied');
+        }
+      } catch (err) {
+        console.warn('Error requesting location permission:', err);
+      }
+    }
+  }
+
   componentDidMount() {
+    // Запрашиваем разрешение на геолокацию для Android
+    this.requestLocationPermission();
+
     // Подписываемся на событие focus для обновления координат при возврате на экран
     this.props.navigation.addListener('focus', () => {
       const params = this.props.route.params;
@@ -140,25 +173,60 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
 
   render() {
     return (
-      <View style={styles.container}>
-
-        <Text style={styles.header}>Добавить адрес</Text>
-
-        <TouchableHighlight
-          style={styles.header_back}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => {
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <StatusBar 
+          barStyle="dark-content"
+          backgroundColor="#ffffff"
+          translucent={false}
+        />
+        
+        {/* Заголовок с кнопкой назад */}
+        <ScreenHeader 
+          title="Добавить адрес"
+          onBack={() => {
             console.log('-> move to Pass')
             this.props.navigation.navigate('Pass', { 
               address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
               auto_list: this.props.route.params.auto_list 
             })
-          }}>
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+          }}
+        />
 
-        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, paddingBottom: 20, fontSize: 15, fontWeight: "bold", color: "#313131" }}>Укажите адрес на карте</Text>
+        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 15, paddingBottom: 15, fontSize: 15, fontWeight: "bold", color: "#313131" }}>Укажите адрес долгим нажатием на карте</Text>
+
+        {/* Индикатор загрузки адреса */}
+        {
+          this.state.isLoadingAddress ? (
+            <View style={{ 
+              position: 'absolute', 
+              zIndex: 3, elevation: 3, 
+              top: 160, 
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <View style={{
+                flexDirection: "row",
+                alignItems: 'center',
+                margin: 20, 
+                padding: 15, 
+                backgroundColor: "#FFFFFF", 
+                borderRadius: 8,
+                borderWidth: 1, 
+                borderColor: "#B8B8B8",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5,
+              }}>
+                <ActivityIndicator size="small" color="#313131" />
+                <Text style={{ marginLeft: 10, fontSize: 15, color: "#313131" }}>Определение адреса...</Text>
+              </View>
+            </View>
+          ) : null
+        }
 
         {
           this.state.address_map_data.address !== '' ? (
@@ -325,9 +393,10 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
           ) : null
         }
 
-      </View>
+      </SafeAreaView>
     );
-  };
+  }
+
 }
 
 export default PassYaMap;

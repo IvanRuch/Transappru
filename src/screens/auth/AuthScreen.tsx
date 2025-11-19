@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableHighlight, Image, Linking, Modal, ScrollView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableHighlight, Image, Linking, Modal, ScrollView, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
@@ -202,28 +203,58 @@ export default function AuthScreen() {
           setModalUserAgreement(false);
         }}
       >
-        <ScrollView>
-          <View style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <View style={{ 
+            flex: 1, 
+            paddingHorizontal: 20, 
+            paddingTop: 20
           }}>
-            <View style={{
-              backgroundColor: '#EEEEEE',
-              borderRadius: 25,
-              alignItems: 'stretch',
-              justifyContent: 'center',
-              padding: 20,
+            <Text style={{ 
+              fontSize: 20, 
+              fontWeight: 'bold', 
+              color: '#000000', 
+              marginBottom: 20,
+              textAlign: 'center'
             }}>
-              <Text style={{ color: '#000000', fontSize: 14 }}>{userAgreement}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
-            </View>
+              Пользовательское соглашение
+            </Text>
+            <ScrollView 
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={{ 
+                color: '#000000', 
+                fontSize: 14,
+                lineHeight: 22,
+                textAlign: 'left'
+              }}>
+                {userAgreement}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={{ 
+                position: 'absolute', 
+                bottom: 20, 
+                left: 20, 
+                right: 20, 
+                height: 50, 
+                borderRadius: 5, 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: "#3A3A3A",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5
+              }}
+              onPress={() => setModalUserAgreement(false)}
+            >
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: "#FFFFFF" }}>Закрыть</Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
-        <TouchableOpacity
-          style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
-          onPress={() => setModalUserAgreement(false)}>
-          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>ОК</Text>
-        </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
 
       {/* модальное окно с Политикой конфиденциальности */}
@@ -235,28 +266,58 @@ export default function AuthScreen() {
           setModalPrivacyPolicy(false);
         }}
       >
-        <ScrollView>
-          <View style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <View style={{ 
+            flex: 1, 
+            paddingHorizontal: 20, 
+            paddingTop: 20
           }}>
-            <View style={{
-              backgroundColor: '#EEEEEE',
-              borderRadius: 25,
-              alignItems: 'stretch',
-              justifyContent: 'center',
-              padding: 20,
+            <Text style={{ 
+              fontSize: 20, 
+              fontWeight: 'bold', 
+              color: '#000000', 
+              marginBottom: 20,
+              textAlign: 'center'
             }}>
-              <Text style={{ color: '#000000', fontSize: 14 }}>{privacyPolicy}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
-            </View>
+              Политика конфиденциальности
+            </Text>
+            <ScrollView 
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 100 }}
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={{ 
+                color: '#000000', 
+                fontSize: 14,
+                lineHeight: 22,
+                textAlign: 'left'
+              }}>
+                {privacyPolicy}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={{ 
+                position: 'absolute', 
+                bottom: 20, 
+                left: 20, 
+                right: 20, 
+                height: 50, 
+                borderRadius: 5, 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: "#3A3A3A",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5
+              }}
+              onPress={() => setModalPrivacyPolicy(false)}
+            >
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: "#FFFFFF" }}>Закрыть</Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
-        <TouchableOpacity
-          style={{ position: 'absolute', bottom: 20, left: 20, right: 20, height: 50, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
-          onPress={() => setModalPrivacyPolicy(false)}>
-          <Text style={{ paddingLeft: 20, paddingRight: 20, fontSize: 14, fontWeight: 'bold', color: "#FFFFFF" }}>ОК</Text>
-        </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
 
       <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите номер телефона</Text>

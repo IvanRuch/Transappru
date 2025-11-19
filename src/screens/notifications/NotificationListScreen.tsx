@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableHighlight, ActivityIndicator, Image, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableHighlight, ActivityIndicator, Image, Pressable, StyleSheet, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Api from '../../utils/Api';
+import { ScreenHeader } from '../../components/common';
 
 interface NotificationItem {
   id: string;
@@ -133,22 +135,21 @@ export default function NotificationListScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Заголовок */}
-      <Text style={styles.header}>Уведомления</Text>
-
-      {/* Кнопка назад */}
-      <TouchableHighlight
-        style={styles.headerBack}
-        activeOpacity={1}
-        underlayColor='#FFFFFF'
-        onPress={() => {
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar 
+        barStyle="dark-content"
+        backgroundColor="#ffffff"
+        translucent={false}
+      />
+      
+      {/* Заголовок с кнопкой назад */}
+      <ScreenHeader 
+        title="Уведомления"
+        onBack={() => {
           console.log('-> back to AutoList');
           router.back();
         }}
-      >
-        <Image source={require('../../../assets/images/back_2.png')} />
-      </TouchableHighlight>
+      />
 
       {/* Индикатор загрузки */}
       <ActivityIndicator size="large" color="#313131" animating={indicator} />
@@ -171,7 +172,7 @@ export default function NotificationListScreen() {
         renderItem={renderItem}
         keyExtractor={item => item.id}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -181,20 +182,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'stretch',
     justifyContent: 'flex-start',
-  },
-  header: {
-    textAlign: 'center',
-    paddingLeft: 20,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#313131',
-    paddingTop: Platform.OS === 'ios' ? 70 : 25,
-  },
-  headerBack: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 65 : 20,
-    left: 20,
-    padding: 10,
-    zIndex: 2,
   },
 });

@@ -57,8 +57,8 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
           </View>
           <TouchableHighlight
             style={{ paddingLeft: 20, alignItems: 'flex-end', justifyContent: 'flex-end' }}
-            activeOpacity={1}
-            underlayColor="#ffffff"
+            activeOpacity={0.7}
+            underlayColor="transparent"
             onPress={() => onPress(item)}
           >
             <Image source={require('../../../assets/images/arrow_to_right_2.png')} />

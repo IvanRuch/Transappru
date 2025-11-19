@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableHighlight, Image, ScrollView, Platform, Animated } from 'react-native';
+import { View, Text, TouchableHighlight, Image, ScrollView, Platform, Animated, StatusBar, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
 import { useRouter } from 'expo-router';
 import type { UserData, OurService } from '../../../types/auto';
@@ -34,6 +34,10 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   const router = useRouter();
   const [ourServicesVisible, setOurServicesVisible] = useState(false);
   
+  // Адаптивная ширина меню: максимум 75% экрана или 340px
+  const screenWidth = Dimensions.get('window').width;
+  const menuWidth = Math.min(screenWidth * 0.75, 340);
+  
   return (
     <Modal
       isVisible={visible}
@@ -59,7 +63,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
           justifyContent: 'flex-start',
           position: 'absolute',
           left: 0,
-          width: 340,
+          width: menuWidth,
           height: '100%',
         }}>
           {/* Шапка меню */}
@@ -67,7 +71,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
             backgroundColor: '#B8B8B8',
             alignItems: 'stretch',
             justifyContent: 'center',
-            paddingTop: Platform.OS === 'ios' ? 30 : 0,
+            paddingTop: Platform.OS === 'ios' ? 30 : (StatusBar.currentHeight || 0),
             width: '100%'
           }}>
             <Text style={{ 
@@ -154,7 +158,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-                      <View style={{ flex: 8, alignItems: 'flex-start', paddingLeft: 55 }}>
+                      <View style={{ flex: 8, alignItems: 'flex-start', paddingLeft: 55, paddingRight: 16 }}>
                         <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#3A3A3A' }}>
                           {'\u2192'}  {item.header}
                         </Text>
