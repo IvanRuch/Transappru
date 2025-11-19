@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import DocumentPicker from "react-native-document-picker";
+import * as DocumentPicker from "expo-document-picker";
 import axios from "axios";
 import RNFS from 'react-native-fs';
 //import RNFetchBlob from 'rn-fetch-blob'
@@ -492,9 +492,17 @@ class Auto extends React.Component<AutoProps, AutoState> {
       });
       */
 
-      const data = await DocumentPicker.pick({
-        type: [DocumentPicker.types.allFiles],
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
       });
+
+      if (result.canceled) {
+        console.log("cancel pick file");
+        return;
+      }
+
+      const data = result.assets[0];
 
       //console.log('data')
       //console.log(data)
@@ -504,14 +512,8 @@ class Auto extends React.Component<AutoProps, AutoState> {
     }
     catch (err)
     {
-      if (DocumentPicker.isCancel(err))
-      {
-        console.log("cancel pick file", err);
-      }
-      else
-      {
-        throw err;
-      }
+      console.error("Error picking file:", err);
+      throw err;
     }
   }
 

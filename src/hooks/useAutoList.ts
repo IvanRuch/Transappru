@@ -14,7 +14,6 @@ export function useAutoList() {
   const filterDebounceTimer = useRef<number | null>(null);
   
   // Refs
-  const onEndReachedCalledDuringMomentum = useRef(true);
   const intervals = useRef<any>(null);
   
   // Анимация пульсации
@@ -330,12 +329,23 @@ export function useAutoList() {
 
   // Пагинация
   const onEndReached = useCallback(() => {
-    if (!onEndReachedCalledDuringMomentum.current) {
-      console.log('onEndReached work!');
-      AsyncStorage.getItem('token').then(token => getAutoList(token));
-      onEndReachedCalledDuringMomentum.current = true;
+    // Проверяем что не идет загрузка
+    if (indicator) {
+      console.log('onEndReached: already loading, skipping');
+      return;
     }
-  }, [getAutoList]);
+    
+    // Проверяем что есть еще данные для загрузки
+    if (autoList.length >= autoListCount) {
+      console.log('onEndReached: all data loaded', autoList.length, '/', autoListCount);
+      return;
+    }
+    
+    console.log('onEndReached: loading more data from', autoListFrom);
+    AsyncStorage.getItem('token').then(token => {
+      getAutoList(token, { autoListFrom });
+    });
+  }, [indicator, autoList.length, autoListCount, autoListFrom, getAutoList]);
 
   // Отметить/снять отметку с элемента
   const markItem = useCallback((item: AutoItem, index: number) => {
@@ -782,7 +792,6 @@ export function useAutoList() {
     closeAnnounceOurServices,
     
     // Refs
-    onEndReachedCalledDuringMomentum,
     intervals,
     
     // Animation

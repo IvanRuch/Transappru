@@ -46,6 +46,7 @@
     },
     "plugins": [
       "./plugins/withVersionSync.js",
+      "./plugins/withAndroidSdkVersions.js",
       "expo-router",
       "@react-native-firebase/app",
       "./plugins/withPodfileModifications.js",
@@ -57,11 +58,24 @@
       "./plugins/withBackgroundModes.js",
       "./plugins/withDSYM.js",
       "./plugins/withAndroidNotificationIcon.js",
+      "./plugins/withAndroidSplashScreen.js",
+      "./plugins/withAndroidManifestFixes.js",
+      "./plugins/withAndroidNodeConfig.js",
+      [
+        "./plugins/withAndroidGradlePluginVersion.js",
+        {
+          "version": "8.13.1"
+        }
+      ],
       [
         "expo-build-properties",
         {
           "ios": {
             "deploymentTarget": "15.1"
+          },
+          "android": {
+            "gradleVersion": "8.14.3",
+            "androidGradlePluginVersion": "8.13.1"
           }
         }
       ],

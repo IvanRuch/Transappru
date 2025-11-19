@@ -65,9 +65,7 @@ export default function AutoListScreen() {
 
   // Обработчик пагинации
   const handleEndReached = useCallback(() => {
-    if (!autoListHook.onEndReachedCalledDuringMomentum.current) {
-      autoListHook.onEndReached();
-    }
+    autoListHook.onEndReached();
   }, [autoListHook]);
 
   // Рендер элемента списка
@@ -301,9 +299,6 @@ export default function AutoListScreen() {
         )}
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
-        onMomentumScrollBegin={() => {
-          autoListHook.onEndReachedCalledDuringMomentum.current = false;
-        }}
         refreshing={false}
         onRefresh={autoListHook.refreshAutoList}
         contentContainerStyle={{ 

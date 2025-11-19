@@ -28,7 +28,11 @@ const withVersionSync = (config) => {
   if (!config.android) config.android = {};
   config.android.versionCode = versionCode;
   
-  console.log(`📦 Version sync: ${version} (iOS build: 1, Android versionCode: ${versionCode})`);
+  // Выводим сообщение только если это не повторный вызов
+  if (!process.env.VERSION_SYNC_LOGGED) {
+    console.log(`📦 Version sync: ${version} (iOS build: 1, Android versionCode: ${versionCode})`);
+    process.env.VERSION_SYNC_LOGGED = 'true';
+  }
   
   // Применяем к iOS Info.plist
   config = withInfoPlist(config, (config) => {

@@ -215,7 +215,7 @@ export default function AuthScreen() {
               justifyContent: 'center',
               padding: 20,
             }}>
-              <Text>{userAgreement}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
+              <Text style={{ color: '#000000', fontSize: 14 }}>{userAgreement}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
             </View>
           </View>
         </ScrollView>
@@ -248,7 +248,7 @@ export default function AuthScreen() {
               justifyContent: 'center',
               padding: 20,
             }}>
-              <Text>{privacyPolicy}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
+              <Text style={{ color: '#000000', fontSize: 14 }}>{privacyPolicy}{"\n"}{"\n"}{"\n"}{"\n"}</Text>
             </View>
           </View>
         </ScrollView>

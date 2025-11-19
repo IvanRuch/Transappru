@@ -15,6 +15,7 @@ const withDSYM = (config) => {
 
     // @ts-ignore - xcodeProject методы из xcode library
     const configurations = xcodeProject.pbxXCBuildConfigurationSection();
+    let configCount = 0;
     
     for (const key in configurations) {
       if (key.endsWith('_comment')) continue;
@@ -39,8 +40,12 @@ const withDSYM = (config) => {
         // Генерируем dSYM для всех архитектур
         buildConfig.buildSettings.ONLY_ACTIVE_ARCH = 'NO';
         
-        console.log('✅ dSYM enabled for Release configuration');
+        configCount++;
       }
+    }
+    
+    if (configCount > 0) {
+      console.log(`✅ dSYM enabled for ${configCount} Release configuration(s)`);
     }
 
     return config;
