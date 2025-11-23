@@ -66,7 +66,7 @@ export default function IndexScreen() {
     };
 
     checkInitialAuth();
-  }, []);
+  }, [router]);
 
   // Пока проверяем - показываем загрузку или AuthScreen
   if (isChecking) {

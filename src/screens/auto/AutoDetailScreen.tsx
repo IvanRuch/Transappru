@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from "expo-document-picker";
 import axios from "axios";
 import RNFS from 'react-native-fs';
+import { router } from 'expo-router';
 //import RNFetchBlob from 'rn-fetch-blob'
 
 import styles from '../../styles/Styles.js';
@@ -784,7 +785,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
             underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
-              this.props.navigation.navigate('AutoFine', { fine_data: item })
+              router.push({
+                pathname: '/(authenticated)/auto-fine' as any,
+                params: { fine_data: JSON.stringify(item) }
+              });
           }}>
             <Image source={require('../../../assets/images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
@@ -885,7 +889,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
             underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
-              this.props.navigation.navigate('AutoFine', { fine_data: item })
+              router.push({
+                pathname: '/(authenticated)/auto-fine' as any,
+                params: { fine_data: JSON.stringify(item) }
+              });
           }}>
             <Image source={require('../../../assets/images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
@@ -1005,7 +1012,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
             underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
-              this.props.navigation.navigate('AutoFine', { fine_data: item })
+              router.push({
+                pathname: '/(authenticated)/auto-fine' as any,
+                params: { fine_data: JSON.stringify(item) }
+              });
           }}>
             <Image source={require('../../../assets/images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
@@ -1093,7 +1103,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
             underlayColor='#EEEEEE'
             onPress={() => {
               console.log('-> move to AutoFine')
-              this.props.navigation.navigate('AutoFine', { fine_data: item })
+              router.push({
+                pathname: '/(authenticated)/auto-fine' as any,
+                params: { fine_data: JSON.stringify(item) }
+              });
           }}>
             <Image source={require('../../../assets/images/arrow_to_right_2.png')}/>
           </TouchableHighlight>
@@ -1817,24 +1830,113 @@ class Auto extends React.Component<AutoProps, AutoState> {
                             </View>
 
                             { this.state.auto_fine_data.unpaid_list.length ? (
-                                <View style={{ 
-                                  flexDirection: "row", 
-                                  margin: 20, 
-                                  padding: 10, 
-                                  backgroundColor: "#EEEEEE", 
-                                  borderRadius: 8,
-                                  borderWidth: 1, 
-                                  borderColor: "#B8B8B8" 
-                                }}>
-                                  <View style={{
-                                    flex: 5,
-                                    flexDirection: "column",
-                                    paddingLeft: 10,
+                                <>
+                                  <View style={{ 
+                                    flexDirection: "row", 
+                                    margin: 20, 
+                                    padding: 10, 
+                                    backgroundColor: "#EEEEEE", 
+                                    borderRadius: 8,
+                                    borderWidth: 1, 
+                                    borderColor: "#B8B8B8" 
                                   }}>
-                                    <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Всего: {this.unpaidFinesSum()} руб</Text>
+                                    <View style={{
+                                      flex: 5,
+                                      flexDirection: "column",
+                                      paddingLeft: 10,
+                                    }}>
+                                      <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>Всего: {this.unpaidFinesSum()} руб</Text>
+                                    </View>
                                   </View>
+
+                                  {/* Кнопка оплаты всех штрафов */}
+                                  <View style={{ margin: 20, marginTop: 0 }}>
+                                    <TouchableHighlight
+                                      style={{
+                                        backgroundColor: '#3A3A3A',
+                                        borderRadius: 12,
+                                        padding: 18,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                      }}
+                                      activeOpacity={0.8}
+                                      underlayColor='#2E2E2E'
+                                      onPress={() => {
+                                        console.log('-> move to FinePaymentSelect');
+                                        router.push({
+                                          pathname: '/(authenticated)/fine-payment-select' as any,
+                                          params: { 
+                                            fines: JSON.stringify(this.state.auto_fine_data.unpaid_list),
+                                            auto_data: JSON.stringify(this.state.auto_data)
+                                          }
+                                        });
+                                      }}
+                                    >
+                                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>
+                                        Оплатить все штрафы
+                                      </Text>
+                                    </TouchableHighlight>
+                                  </View>
+                                </>
+                              ) : (
+                                /* Тестовая кнопка для разработки (показывается когда нет штрафов) */
+                                <View style={{ margin: 20 }}>
+                                  <View style={{
+                                    backgroundColor: '#FFF3CD',
+                                    borderRadius: 12,
+                                    padding: 15,
+                                    marginBottom: 15,
+                                    borderWidth: 1,
+                                    borderColor: '#FFE082',
+                                  }}>
+                                    <Text style={{ fontSize: 14, color: '#856404', textAlign: 'center' }}>
+                                      🧪 Режим разработки: тестовая кнопка оплаты
+                                    </Text>
+                                  </View>
+                                  
+                                  <TouchableHighlight
+                                    style={{
+                                      backgroundColor: '#FF9800',
+                                      borderRadius: 12,
+                                      padding: 18,
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                    }}
+                                    activeOpacity={0.8}
+                                    underlayColor='#F57C00'
+                                    onPress={() => {
+                                      console.log('-> move to FinePaymentSelect (TEST)');
+                                      // Создаём тестовые данные штрафа
+                                      const testFine = {
+                                        is_paid: '0',
+                                        discount_time_left: '15 дней',
+                                        discount_date_end: '2025-12-08',
+                                        discount_percent: '50',
+                                        dat: '2025-11-01',
+                                        code: '12.9 ч.2',
+                                        description: 'Превышение скорости на 40-60 км/ч',
+                                        uin: '18810123456789012345',
+                                        sum: '1000',
+                                        full_sum: '2000',
+                                        vendor: 'ГИБДД МВД России',
+                                        comment: 'Тестовый штраф для разработки'
+                                      };
+                                      
+                                      router.push({
+                                        pathname: '/(authenticated)/fine-payment-select' as any,
+                                        params: { 
+                                          fines: JSON.stringify([testFine]),
+                                          auto_data: JSON.stringify(this.state.auto_data)
+                                        }
+                                      });
+                                    }}
+                                  >
+                                    <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#FFFFFF' }}>
+                                      🧪 Тест: Оплатить штраф
+                                    </Text>
+                                  </TouchableHighlight>
                                 </View>
-                              ) : null
+                              )
                             }
 
                           </>

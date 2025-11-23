@@ -15,6 +15,8 @@ export function useAutoList() {
   
   // Refs
   const intervals = useRef<any>(null);
+  const isLoadingMore = useRef(false); // Флаг для предотвращения множественных вызовов onEndReached
+  const lastEndReachedTime = useRef(0); // Timestamp последнего вызова onEndReached
   
   // Анимация пульсации
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -341,6 +343,20 @@ export function useAutoList() {
 
   // Пагинация
   const onEndReached = useCallback(() => {
+    const now = Date.now();
+    
+    // Debounce: игнорировать вызовы чаще чем раз в 500ms
+    if (now - lastEndReachedTime.current < 500) {
+      console.log('onEndReached: debounced, skipping');
+      return;
+    }
+    
+    // Проверяем флаг загрузки
+    if (isLoadingMore.current) {
+      console.log('onEndReached: already loading more, skipping');
+      return;
+    }
+    
     // Проверяем что не идет загрузка
     if (indicator) {
       console.log('onEndReached: already loading, skipping');
@@ -353,9 +369,23 @@ export function useAutoList() {
       return;
     }
     
+    // Защита от ложных срабатываний: не загружать если autoListFrom = 0
+    // (это значит что список только что был сброшен/отфильтрован)
+    if (autoListFrom === 0) {
+      console.log('onEndReached: skipping, list was just reset (autoListFrom = 0)');
+      return;
+    }
+    
+    // Устанавливаем флаги
+    lastEndReachedTime.current = now;
+    isLoadingMore.current = true;
+    
     console.log('onEndReached: loading more data from', autoListFrom);
     AsyncStorage.getItem('token').then(token => {
-      getAutoList(token, { autoListFrom });
+      getAutoList(token, { autoListFrom }).finally(() => {
+        // Сбрасываем флаг после завершения загрузки
+        isLoadingMore.current = false;
+      });
     });
   }, [indicator, autoList.length, autoListCount, autoListFrom, getAutoList]);
 
@@ -569,6 +599,9 @@ export function useAutoList() {
   const clearAllFilters = useCallback(() => {
     console.log('clearAllFilters');
     
+    // Сбрасываем флаг загрузки пагинации
+    isLoadingMore.current = false;
+    
     // Сбрасываем фильтры
     setAutoStr('');
     setAutoCancelled(false);
@@ -628,6 +661,9 @@ export function useAutoList() {
   }, [getAutoList, cachedFullList, cacheTimestamp, CACHE_LIFETIME_MS]);
 
   const toggleAutoCancelled = useCallback(() => {
+    // Сбрасываем флаг загрузки пагинации
+    isLoadingMore.current = false;
+    
     setAutoCancelled(prev => {
       const newValue = !prev;
       
@@ -641,6 +677,9 @@ export function useAutoList() {
   }, [getAutoList]);
 
   const toggleAutoPassEnded = useCallback(() => {
+    // Сбрасываем флаг загрузки пагинации
+    isLoadingMore.current = false;
+    
     setAutoPassEnded(prev => {
       const newValue = !prev;
       
@@ -653,6 +692,9 @@ export function useAutoList() {
   }, [getAutoList]);
 
   const toggleAutoPassEnds = useCallback(() => {
+    // Сбрасываем флаг загрузки пагинации
+    isLoadingMore.current = false;
+    
     setAutoPassEnds(prev => {
       const newValue = !prev;
       

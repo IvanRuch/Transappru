@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import { View, Text, StyleSheet, TouchableHighlight, Image, ScrollView, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,38 +23,37 @@ export default function UserScreen() {
   const [modalEditContactMode, setModalEditContactMode] = useState<'add' | 'edit'>('add');
   const [contactData, setContactData] = useState<ContactData>({ id: '', fio: '', email: '', phone: '', position: '' });
 
+  const loadUserData = useCallback(async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                router.replace('/' as any);
+                return;
+            }
+
+            const res = await Api.post('/get-contact-list', { token });
+            const data = res.data;
+            console.log('User screen - User data:', data);
+
+            if (data.user_data) {
+                setUserData(data.user_data);
+            }
+            if (data.user_contact_list) {
+                setContactList(data.user_contact_list);
+            }
+            setLoading(false);
+        } catch (error: any) {
+            console.log('Error loading user data:', error);
+            if (error.response?.status === 401) {
+                router.replace('/' as any);
+            }
+            setLoading(false);
+        }
+    }, [router, setUserData, setContactList, setLoading]);
+
   useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        router.replace('/' as any);
-        return;
-      }
-
-      // Используем тот же endpoint что и в AutoList
-      const res = await Api.post('/get-contact-list', { token });
-      const data = res.data;
-      console.log('User screen - User data:', data);
-      
-      if (data.user_data) {
-        setUserData(data.user_data);
-      }
-      if (data.user_contact_list) {
-        setContactList(data.user_contact_list);
-      }
-      setLoading(false);
-    } catch (error: any) {
-      console.log('Error loading user data:', error);
-      if (error.response?.status === 401) {
-        router.replace('/' as any);
-      }
-      setLoading(false);
-    }
-  };
+      loadUserData();
+  }, [loadUserData]);
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('token');

@@ -108,6 +108,33 @@ export default function AutoFineScreen() {
             </Text>
             <Text style={styles.infoText}>{fineData.vendor}</Text>
           </View>
+
+          {/* Кнопка оплаты (только для неоплаченных штрафов) */}
+          {(fineData.is_paid === 0 || fineData.is_paid === '0') && (
+            <View style={styles.paymentButtonContainer}>
+              <TouchableHighlight
+                style={styles.paymentButton}
+                activeOpacity={0.8}
+                underlayColor='#2E2E2E'
+                onPress={() => {
+                  console.log('-> move to FinePaymentConfirm');
+                  router.push({
+                    pathname: '/(authenticated)/fine-payment-confirm' as any,
+                    params: { fine_data: JSON.stringify(fineData) }
+                  });
+                }}
+              >
+                <View style={styles.paymentButtonContent}>
+                  <Text style={styles.paymentButtonText}>Оплатить штраф</Text>
+                  {fineData.discount_time_left && fineData.discount_time_left !== '' && (
+                    <Text style={styles.paymentButtonSubtext}>
+                      со скидкой {fineData.discount_percent}%
+                    </Text>
+                  )}
+                </View>
+              </TouchableHighlight>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -193,5 +220,30 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#313131',
+  },
+  paymentButtonContainer: {
+    margin: 20,
+    marginTop: 30,
+  },
+  paymentButton: {
+    backgroundColor: '#3A3A3A',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentButtonContent: {
+    alignItems: 'center',
+  },
+  paymentButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  paymentButtonSubtext: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    marginTop: 5,
+    opacity: 0.8,
   },
 });
