@@ -1,4 +1,95 @@
 {
-  "name": "TransApp",
-  "displayName": "TransApp"
+  "expo": {
+    "name": "TransApp",
+    "slug": "TransApp",
+    "orientation": "portrait",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "scheme": "transapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "requireFullScreen": true,
+      "bundleIdentifier": "org.reactjs.native.example.Transappru",
+      "appleTeamId": "XRF3344MB3",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "ru",
+        "CFBundleAllowMixedLocalizations": true,
+        "NSLocationWhenInUseUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
+        "NSLocationAlwaysUsageDescription": "Приложение использует вашу геолокацию для отображения на карте"
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "package": "com.transappru",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "./plugins/withVersionSync.js",
+      "./plugins/withAndroidSdkVersions.js",
+      "expo-router",
+      "@react-native-firebase/app",
+      "./plugins/withPodfileModifications.js",
+      "./plugins/withAPSEnvironment.js",
+      "./plugins/withYandexMaps.js",
+      "./plugins/withRussianLocalization.js",
+      "./plugins/withDestinations.js",
+      "./plugins/withAppCategory.js",
+      "./plugins/withBackgroundModes.js",
+      "./plugins/withDSYM.js",
+      "./plugins/withAndroidNotificationIcon.js",
+      "./plugins/withAndroidSplashScreen.js",
+      "./plugins/withAndroidManifestFixes.js",
+      "./plugins/withAndroidNodeConfig.js",
+      [
+        "./plugins/withAndroidGradlePluginVersion.js",
+        {
+          "version": "8.13.1"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.1"
+          },
+          "android": {
+            "gradleVersion": "8.14.3",
+            "androidGradlePluginVersion": "8.13.1"
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
 }

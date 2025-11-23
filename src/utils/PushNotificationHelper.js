@@ -1,140 +1,172 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import {PermissionsAndroid, Platform} from 'react-native';
 import DeviceInfo from 'react-native-device-info';
 import messaging from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Api from './Api';
+
+import Api from "./Api";
 import packageJson from '../../package.json';
 
 const Version = packageJson.version;
 
-// ———————————————————————————————————————
-// Получение информации об устройстве
-// ———————————————————————————————————————
 export const getDeviceInfo = () => {
-  const getDeviceId = DeviceInfo.getDeviceId();
-  const deviceModel = DeviceInfo.getModel();
-  const systemName = DeviceInfo.getSystemName();
-  const systemVersion = DeviceInfo.getSystemVersion();
 
-  const device_info = `Version: ${Version}, Device Id: ${getDeviceId}, Device Model: ${deviceModel}, OS: ${systemName}${systemVersion}`;
-  console.log('device_info =', device_info);
+  // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
+  let getDeviceId = DeviceInfo.getDeviceId();
+  console.log('Device Id:', getDeviceId);
+
+  // Get the device's model (e.g., iPhone X, Samsung Galaxy S10)
+  let deviceModel = DeviceInfo.getModel();
+  console.log('Device Model:', deviceModel);
+
+  // Get the device's system name (e.g., iOS, Android)
+  let systemName = DeviceInfo.getSystemName();
+  console.log('System Name:', systemName);
+
+  // Get the device's system version (e.g., 14.5, 11)
+  let systemVersion = DeviceInfo.getSystemVersion();
+  console.log('System Version:', systemVersion);
+
+  let device_info = 'Version: ' + Version + ', Device Id: ' + getDeviceId + ', Device Model: ' + deviceModel + ', OS: ' + systemName + systemVersion;
+
+  console.log('device_info = ' + device_info)
+
   return device_info;
-};
+}
 
-// ———————————————————————————————————————
-// Разрешения на уведомления
-// ———————————————————————————————————————
-export const requestAndroidPermission = async () => {
-  console.log('requestAndroidPermission');
-  try {
-    await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-    );
-  } catch (err) {
-    console.log('Error requesting Android permission:', err);
-  }
-};
+export const requestAndroidPermission = () => {
+  console.log('requestAndroidPermission')
+  PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+}
 
 export const requestUserPermission = async () => {
-  console.log('requestUserPermission');
-  try {
-    if (Platform.OS === 'ios') {
-      const authorizationStatus = await messaging().requestPermission();
-      console.log('authorizationStatus:', authorizationStatus);
-    } else {
-      await requestAndroidPermission();
-    }
-  } catch (error) {
-    console.log('Error in requestUserPermission:', error);
-  }
-};
 
-// ———————————————————————————————————————
-// Отправка токена на сервер
-// ———————————————————————————————————————
+  console.log('requestUserPermission')
+
+  if(Platform.OS === 'android')
+  {
+    //console.log('Platform.OS is android')
+    //requestAndroidPermission();
+  }
+  else
+  {
+    console.log('Platform.OS is ' + Platform.OS)
+
+    try
+    {
+      let authorizationStatus = await messaging().requestPermission();
+  
+      if (authorizationStatus) {
+        console.log('authorizationStatus:', authorizationStatus);
+      }
+      else
+      {
+        console.log("empty authorizationStatus")
+      }
+    }
+    catch(error)
+    {
+      console.log(error, "error in requestUserPermission")
+    } 
+  }
+}
+
 export const setFCMToken = async (fcmtoken) => {
-  console.log('setFCMToken');
-  const token = await AsyncStorage.getItem('token');
-  console.log('auth token:', token);
-  console.log('fcmtoken:', fcmtoken);
 
-  if (token && fcmtoken) {
-    const device_info = getDeviceInfo();
-    console.log('device_info:', device_info);
+  console.log('setFCMToken')
 
-    try {
-      const res = await Api.post('/set-fcmtoken', {
-        token,
-        fcmtoken,
-        device_info,
-      });
-      console.log('set-fcmtoken response:', res.data);
-    } catch (error) {
-      console.log('Error setting fcmtoken:', error?.response?.status || error);
-    }
+  let token = await AsyncStorage.getItem("token");
+  console.log('token: ', token)
+
+  if(token)
+  {
+    let device_info = getDeviceInfo();
+
+    Api.post('/set-fcmtoken', { token: token, fcmtoken: fcmtoken, device_info: device_info })
+       .then(res => {
+
+          const data = res.data;
+          console.log('data')
+          console.log(data);
+
+        })
+        .catch(error => {
+          console.log('error.response.status = ' + error.response.status);
+        });
   }
-};
 
-// ———————————————————————————————————————
-// Получение и сохранение FCM токена (однократно)
-// ———————————————————————————————————————
+}
+
 export const getFCMToken = async () => {
-  console.log('getFCMToken');
-  try {
-    const storedToken = await AsyncStorage.getItem('fcmtoken');
-    const newToken = await messaging().getToken();
 
-    if (!storedToken || storedToken !== newToken) {
-      console.log('Updating FCM token:', newToken);
-      await AsyncStorage.setItem('fcmtoken', newToken);
-      await setFCMToken(newToken);
-    } else {
-      console.log('FCM token unchanged');
+  console.log('getFCMToken')
+
+  let fcmtoken = await AsyncStorage.getItem("fcmtoken");
+
+  console.log('old fcmtoken: ', fcmtoken)
+
+  if(!fcmtoken)
+  {
+    console.log('no fcmtoken')
+
+    try
+    {
+      let fcmtoken = await messaging().getToken();
+
+      if(fcmtoken)
+      {
+        console.log('new fcmtoken: ', fcmtoken)
+        await AsyncStorage.setItem("fcmtoken",fcmtoken);
+
+        setFCMToken(fcmtoken);
+      }
+      else
+      {
+          console.log("empty token")
+      }
     }
-
-    // Обновление при изменении токена Firebase
-    messaging().onTokenRefresh(async (token) => {
-      console.log('FCM token refreshed:', token);
-      await AsyncStorage.setItem('fcmtoken', token);
-      await setFCMToken(token);
-    });
-  } catch (error) {
-    console.log('Error in getFCMToken:', error);
+    catch(error)
+    {
+      console.log(error, "error in fcmtoken")
+    }
   }
-};
-
-// ———————————————————————————————————————
-// Слушатель уведомлений (инициализация один раз)
-// ———————————————————————————————————————
-let listenersInitialized = false;
+  
+  if(fcmtoken)
+  {
+    setFCMToken(fcmtoken);
+  }
+}
 
 export const NotificationListener = () => {
-  if (listenersInitialized) return;
-  listenersInitialized = true;
 
-  console.log('NotificationListener initialized');
+  console.log('NotificationListener')
 
-  // Обработка фоновых сообщений
-  messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-    console.log('Background message handled:', remoteMessage);
-  });
+  try {
+    // Когда приложение в фоне и пользователь нажимает на уведомление
+    const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
+      console.log('onNotificationOpenedApp: When the application is running, but in the background.', remoteMessage.notification )
+    });
 
-  // Когда приложение в фоне и пользователь нажал уведомление
-  messaging().onNotificationOpenedApp((remoteMessage) => {
-    console.log('Opened from background:', remoteMessage?.notification);
-  });
-
-  // Когда приложение было полностью закрыто и открыто через уведомление
-  messaging()
-    .getInitialNotification()
-    .then((remoteMessage) => {
-      if (remoteMessage) {
-        console.log('Opened from quit state:', remoteMessage?.notification);
+    // Когда приложение открывается из закрытого состояния через уведомление
+    messaging().getInitialNotification().then(remoteMessage => {
+      if(remoteMessage)
+      {
+        console.log('getInitialNotification: When the application is opened from a quit state.', remoteMessage.notification )
       }
     });
 
-  // Когда приложение активно (foreground)
-  messaging().onMessage(async (remoteMessage) => {
-    console.log('Foreground message:', remoteMessage);
-  });
-};
+    // Когда приложение открыто и приходит уведомление
+    const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
+      console.log('notification on foreground state...', remoteMessage )
+    });
+    
+    console.log('Notification listeners registered successfully');
+    
+    // Возвращаем функцию для отписки (опционально)
+    return () => {
+      unsubscribeOnNotificationOpenedApp();
+      unsubscribeOnMessage();
+    };
+  } catch (error) {
+    console.log('Error registering notification listeners:', error);
+  }
+}

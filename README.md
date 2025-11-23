@@ -1,79 +1,144 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# TransApp - Мобильное приложение для управления транспортом
 
-# Getting Started
+Современная версия приложения TransApp, мигрированная на **Expo** с **TypeScript** и лучшими практиками разработки.
 
->**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
+## 📊 Статус миграции
 
-## Step 1: Start the Metro Server
+✅ **Базовая инфраструктура готова** (API, Firebase, навигация)  
+✅ **4 экрана полностью готовы** (Auth, Pin, Pass, PassYaMap)  
+🔄 **7 экранов частично готовы** (требуют доработки)  
+❌ **8 экранов ожидают миграции**
 
-First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
+**Подробнее:** см. `MIGRATION_STATUS.md`
 
-To start Metro, run the following command from the _root_ of your React Native project:
+## 🚀 Быстрый старт
 
+### 1. Установить зависимости
 ```bash
-# using npm
-npm start
-
-# OR using Yarn
-yarn start
+npm install
 ```
 
-## Step 2: Start your Application
-
-Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
-
-### For Android
-
+### 2. Настроить Firebase (обязательно!)
 ```bash
-# using npm
-npm run android
+# Скопируйте примеры конфигов
+cp google-services.json.example google-services.json
+cp GoogleService-Info.plist.example GoogleService-Info.plist
 
-# OR using Yarn
-yarn android
+# Замените содержимое на боевые конфиги из Firebase Console
+# Подробнее: см. FIREBASE_SETUP.md
 ```
 
-### For iOS
-
+### 3. Запустить приложение
 ```bash
-# using npm
-npm run ios
+# Запустить приложение
+npx expo start
 
-# OR using Yarn
-yarn ios
+# Для iOS
+npx expo run:ios
+
+# Для Android
+npx expo run:android
 ```
 
-If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
+## 📁 Структура проекта
 
-This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
+```
+TransApp_upd/
+├── app/                    # Entry point (Expo Router)
+│   └── index.tsx          # Главный файл приложения
+├── src/
+│   ├── screens/           # Экраны приложения
+│   │   ├── auth/         # Авторизация (Auth, Pin)
+│   │   ├── main/         # Главный экран
+│   │   ├── auto/         # Автомобили
+│   │   ├── profile/      # Профиль пользователя
+│   │   └── ...
+│   ├── navigation/        # Настройка навигации
+│   ├── services/          # API и Firebase сервисы
+│   ├── types/            # TypeScript типы
+│   ├── utils/            # Утилиты
+│   └── styles/           # Стили
+├── assets/               # Изображения и ресурсы
+└── ...
+```
 
-## Step 3: Modifying your App
+## 📚 Документация
 
-Now that you have successfully run the app, let's modify it.
+**Начните с:** `START_HERE.md`
 
-1. Open `App.tsx` in your text editor of choice and edit some lines.
-2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
+**Важные файлы:**
+- `FIREBASE_SETUP.md` - **Настройка Firebase и push-уведомлений** 🔥
+- `START_HERE.md` - Введение в проект
 
-   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
+**Вся документация в папке `docs/`:**
+- `docs/FINAL_SUMMARY.md` - Полная сводка работы
+- `docs/EXPO_ROUTER_GUIDE.md` - Руководство по Expo Router
+- `docs/TODO.md` - Задачи с приоритетами
+- `docs/CONVERSION_CHEATSHEET.md` - Шпаргалка по TypeScript
+- `docs/MIGRATION_STATUS.md` - Статус миграции экранов
+- И другие...
 
-## Congratulations! :tada:
+## 🛠️ Технологии
 
-You've successfully run and modified your React Native App. :partying_face:
+- **React Native** - фреймворк для мобильной разработки
+- **Expo** - инструменты для разработки и деплоя
+- **Expo Router** - file-based routing (как Next.js)
+- **TypeScript** - типобезопасность
+- **Axios** - HTTP клиент
+- **Firebase** - push-уведомления
+- **AsyncStorage** - локальное хранилище
+- **Yandex Maps** - интеграция карт для Pass экранов
 
-### Now what?
+## 🎯 Следующие шаги
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
+1. **Доработать MainScreen** - главный экран после авторизации
+2. **Доработать AutoListScreen** - список автомобилей
+3. **Мигрировать остальные экраны** по мере необходимости
 
-# Troubleshooting
+См. `docs/TODO.md` для детальных инструкций.
 
-If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## 🔧 Полезные команды
 
-# Learn More
+```bash
+# Проверить TypeScript ошибки
+npx tsc --noEmit
 
-To learn more about React Native, take a look at the following resources:
+# Очистить кэш и перезапустить
+npx expo start -c
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+# Собрать для production
+npx expo build:ios
+npx expo build:android
+```
+
+## 📝 Миграция из старого проекта
+
+Старый проект: `/Volumes/HP_P800/grizodubov/IdeaProjects/Transappru`
+
+Используйте `docs/CONVERSION_CHEATSHEET.md` для конвертации экранов из старого проекта.
+
+## 🐛 Известные проблемы
+
+- Некоторые экраны требуют доработки (см. `docs/MIGRATION_STATUS.md`)
+- Большие файлы нужно разбить на компоненты (например, AutoListScreen)
+
+## 📞 API
+
+**Base URL:** `https://transapp.ru/api/`
+
+API сервис настроен в `src/services/api.ts` с автоматическим добавлением токена.
+
+## 🔐 Аутентификация
+
+Приложение использует токен-based аутентификацию:
+1. Пользователь вводит телефон (AuthScreen)
+2. Получает PIN-код
+3. Вводит PIN (PinScreen)
+4. Токен сохраняется в AsyncStorage
+5. Автоматически добавляется ко всем API запросам
+
+---
+
+**Версия:** 2.0 (Migrated to Expo + TypeScript)  
+**Дата обновления:** 2025-11-17  
+**Последние изменения:** Добавлены экраны Pass с интеграцией Yandex Maps

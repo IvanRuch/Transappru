@@ -1,0 +1,96 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Api from '../src/utils/Api';
+import AuthScreen from '../src/screens/auth/AuthScreen';
+
+export default function IndexScreen() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkInitialAuth = async () => {
+      console.log('===========================================');
+      console.log('IndexScreen: Starting initial auth check');
+      console.log('===========================================');
+      
+      try {
+        const token = await AsyncStorage.getItem('token');
+        console.log('Token from storage:', token ? 'EXISTS' : 'NULL');
+        
+        if (!token) {
+          // Нет токена - показываем AuthScreen
+          console.log('✅ No token found, showing AuthScreen');
+          setIsChecking(false);
+          return;
+        }
+
+        // Токен есть - проверяем его статус
+        console.log('📡 Token found, checking status with API...');
+        const res = await Api.post('/get-session-data', { token });
+        const data = res.data;
+        
+        console.log('========================================');
+        console.log('INDEX SCREEN - Session data check:');
+        console.log('data.session_data:', data.session_data);
+        console.log('phone_inn_confirmed:', data.session_data?.user_data?.phone_inn_confirmed);
+        console.log('user_confirmed:', data.session_data?.user_data?.user_confirmed);
+        console.log('========================================');
+
+        // Проверяем статус (значения могут быть строками или числами)
+        const phoneInnConfirmed = data.session_data?.user_data?.phone_inn_confirmed;
+        const userConfirmed = data.session_data?.user_data?.user_confirmed;
+        
+        if ((phoneInnConfirmed === 1 || phoneInnConfirmed === "1") &&
+            (userConfirmed === 1 || userConfirmed === "1")) {
+          // Пользователь полностью подтвержден - переходим на главный экран
+          console.log('✅ User confirmed, navigating to AutoList');
+          router.replace('/(authenticated)/auto-list' as any);
+        } else {
+          // Пользователь не подтвержден - нужен PIN
+          console.log('⚠️ User not confirmed, navigating to PIN');
+          console.log('Reason: phone_inn_confirmed =', phoneInnConfirmed, typeof phoneInnConfirmed);
+          console.log('Reason: user_confirmed =', userConfirmed, typeof userConfirmed);
+          router.replace('/pin' as any);
+        }
+      } catch (error: any) {
+        console.log('❌ Error checking auth state:', error);
+        console.log('Error details:', error.message);
+        setError(error.message);
+        // При ошибке показываем AuthScreen
+        setIsChecking(false);
+      }
+    };
+
+    checkInitialAuth();
+  }, []);
+
+  // Пока проверяем - показываем загрузку или AuthScreen
+  if (isChecking) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+        <View style={{ 
+          flex: 1, 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          backgroundColor: '#fff',
+          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
+        }}>
+          <ActivityIndicator size="large" color="#3A8FD9" />
+          {error && (
+            <View style={{ marginTop: 20, padding: 20 }}>
+              <Text style={{ color: 'red', fontSize: 14 }}>Error: {error}</Text>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Если проверка завершилась и мы здесь - показываем AuthScreen
+  console.log('✅ Rendering AuthScreen');
+  return <AuthScreen />;
+}
