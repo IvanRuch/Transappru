@@ -157,9 +157,9 @@ export default function AutoListScreen() {
       {/* Панель активных фильтров */}
       {autoListHook.hasActiveFilters() && !autoListHook.indicator && (
         <View style={{
-          backgroundColor: '#F0F8FF',
+          backgroundColor: '#EEEEEE',
           borderBottomWidth: 1,
-          borderBottomColor: '#B8E0FF',
+          borderBottomColor: '#B8B8B8',
           paddingHorizontal: 20,
           paddingVertical: 10,
         }}>
@@ -178,10 +178,10 @@ export default function AutoListScreen() {
                   marginRight: 6,
                   marginBottom: 4,
                   borderWidth: 1,
-                  borderColor: '#3A9BDC',
+                  borderColor: '#3A3A3A',
                 }}
               >
-                <Text style={{ fontSize: 11, color: '#3A9BDC', fontWeight: '500' }}>
+                <Text style={{ fontSize: 11, color: '#3A3A3A', fontWeight: '500' }}>
                   {filter}
                 </Text>
               </View>
@@ -193,7 +193,7 @@ export default function AutoListScreen() {
                 paddingVertical: 4,
               }}
             >
-              <Text style={{ fontSize: 11, color: '#3A9BDC', fontWeight: 'bold' }}>
+              <Text style={{ fontSize: 11, color: '#3A3A3A', fontWeight: 'bold' }}>
                 Изменить
               </Text>
             </TouchableOpacity>
