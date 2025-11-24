@@ -13,6 +13,21 @@
 
 ## 🚀 Быстрый старт
 
+### Для Mac M2 (Apple Silicon)
+
+**⚠️ ВАЖНО:** Если у вас Mac M2 и возникают проблемы с запуском Android, используйте:
+
+```bash
+# Автоматическая настройка для Mac M2
+bash scripts/setup-mac-m2.sh
+```
+
+**Подробная инструкция:** `SETUP_INSTRUCTIONS.md`
+
+---
+
+### Стандартная установка
+
 ### 1. Установить зависимости
 ```bash
 npm install
@@ -67,10 +82,13 @@ TransApp_upd/
 **Начните с:** `START_HERE.md`
 
 **Важные файлы:**
+- `SETUP_INSTRUCTIONS.md` - **Настройка для Mac M2** 🍎
 - `FIREBASE_SETUP.md` - **Настройка Firebase и push-уведомлений** 🔥
 - `START_HERE.md` - Введение в проект
 
 **Вся документация в папке `docs/`:**
+- `docs/SETUP_MAC_M2.md` - Подробная инструкция для Mac M2
+- `docs/FINE_PAYMENT_INTEGRATION.md` - Интеграция оплаты штрафов
 - `docs/FINAL_SUMMARY.md` - Полная сводка работы
 - `docs/EXPO_ROUTER_GUIDE.md` - Руководство по Expo Router
 - `docs/TODO.md` - Задачи с приоритетами

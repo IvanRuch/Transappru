@@ -6,6 +6,8 @@
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
+    "android:clear": "adb shell pm clear com.transappru && npm run android",
+    "android:fresh": "adb uninstall com.transappru; npm run android",
     "android:device": "npm run setup:device && expo run:android --device",
     "android:device:specific": "npm run setup:device:specific && expo run:android --device 28J9K24319016011",
     "setup:device": "adb reverse tcp:8081 tcp:8081 && adb reverse tcp:8097 tcp:8097",
@@ -16,7 +18,9 @@
     "ios": "expo run:ios",
     "ios:16": "expo run:ios --device 'iPhone 16 Plus'",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "push:colleague": "bash scripts/push-to-colleague.sh",
+    "git:sync": "git fetch upstream && git merge upstream/functional-ts"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
