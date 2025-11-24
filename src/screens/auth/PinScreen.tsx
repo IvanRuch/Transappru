@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
 import api from '../../services/api';
+import { getFCMToken } from '../../utils/PushNotificationHelper';
 
 export default function PinScreen() {
   const router = useRouter();
@@ -56,14 +57,17 @@ export default function PinScreen() {
         setMsg(data.msg);
         setModalVisible(true);
       } else {
-        // PIN подтверждён, переходим дальше
+        // PIN подтверждён, получаем FCM токен и переходим дальше
+        console.log('✅ PIN confirmed, getting FCM token...');
+        getFCMToken();
+        
         // Проверка onboarding_viewed происходит в AutoListScreen через /get-auto-list
         if ((data.phone_inn_bind === 1 || data.phone_inn_bind === "1") || 
             (data.is_manager === 1 || data.is_manager === "1")) {
-          console.log('✅ PIN confirmed, navigating to AutoList');
+          console.log('✅ Navigating to AutoList');
           router.replace('/(authenticated)/auto-list' as any);
         } else {
-          console.log('⚠️ PIN confirmed but need Inn setup');
+          console.log('⚠️ Need Inn setup, navigating to Inn');
           router.replace('/(authenticated)/inn' as any);
         }
       }

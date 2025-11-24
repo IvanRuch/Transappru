@@ -72,41 +72,53 @@ export const requestUserPermission = async () => {
 
 export const setFCMToken = async (fcmtoken) => {
 
-  console.log('setFCMToken')
+  console.log('📤 setFCMToken - Sending token to server...')
 
   let token = await AsyncStorage.getItem("token");
-  console.log('token: ', token)
+  console.log('🔑 Auth token:', token ? 'EXISTS' : 'NOT FOUND')
 
   if(token)
   {
     let device_info = getDeviceInfo();
 
+    console.log('📱 Device info:', device_info)
+    console.log('🔔 FCM token to send:', fcmtoken)
+
     Api.post('/set-fcmtoken', { token: token, fcmtoken: fcmtoken, device_info: device_info })
        .then(res => {
 
           const data = res.data;
-          console.log('data')
-          console.log(data);
+          console.log('✅ FCM token sent successfully to server')
+          console.log('Server response:', data);
 
         })
         .catch(error => {
-          console.log('error.response.status = ' + error.response.status);
+          console.log('❌ Error sending FCM token to server:', error.response?.status || error.message);
+          if(error.response?.data) {
+            console.log('Error details:', error.response.data);
+          }
         });
+  }
+  else
+  {
+    console.log('⚠️ Cannot send FCM token: no auth token found')
   }
 
 }
 
 export const getFCMToken = async () => {
 
-  console.log('getFCMToken')
+  console.log('========================================')
+  console.log('🔔 getFCMToken - Starting...')
+  console.log('========================================')
 
   let fcmtoken = await AsyncStorage.getItem("fcmtoken");
 
-  console.log('old fcmtoken: ', fcmtoken)
+  console.log('📱 Cached FCM token:', fcmtoken || 'NOT FOUND')
 
   if(!fcmtoken)
   {
-    console.log('no fcmtoken')
+    console.log('⚠️ No cached token, requesting new one from Firebase...')
 
     try
     {
@@ -114,20 +126,30 @@ export const getFCMToken = async () => {
 
       if(fcmtoken)
       {
-        console.log('new fcmtoken: ', fcmtoken)
+        console.log('========================================')
+        console.log('✅ NEW FCM TOKEN RECEIVED:')
+        console.log(fcmtoken)
+        console.log('========================================')
         await AsyncStorage.setItem("fcmtoken",fcmtoken);
 
         setFCMToken(fcmtoken);
       }
       else
       {
-          console.log("empty token")
+          console.log("❌ Empty token received from Firebase")
       }
     }
     catch(error)
     {
-      console.log(error, "error in fcmtoken")
+      console.log('❌ Error getting FCM token:', error)
     }
+  }
+  else
+  {
+    console.log('========================================')
+    console.log('✅ USING CACHED FCM TOKEN:')
+    console.log(fcmtoken)
+    console.log('========================================')
   }
   
   if(fcmtoken)
@@ -138,28 +160,53 @@ export const getFCMToken = async () => {
 
 export const NotificationListener = () => {
 
-  console.log('NotificationListener')
+  console.log('========================================')
+  console.log('🔔 NotificationListener - Registering...')
+  console.log('========================================')
 
   try {
     // Когда приложение в фоне и пользователь нажимает на уведомление
     const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('onNotificationOpenedApp: When the application is running, but in the background.', remoteMessage.notification )
+      console.log('========================================')
+      console.log('📲 NOTIFICATION OPENED (Background)')
+      console.log('Title:', remoteMessage.notification?.title)
+      console.log('Body:', remoteMessage.notification?.body)
+      console.log('Data:', remoteMessage.data)
+      console.log('========================================')
     });
 
     // Когда приложение открывается из закрытого состояния через уведомление
     messaging().getInitialNotification().then(remoteMessage => {
       if(remoteMessage)
       {
-        console.log('getInitialNotification: When the application is opened from a quit state.', remoteMessage.notification )
+        console.log('========================================')
+        console.log('📲 NOTIFICATION OPENED (Quit State)')
+        console.log('Title:', remoteMessage.notification?.title)
+        console.log('Body:', remoteMessage.notification?.body)
+        console.log('Data:', remoteMessage.data)
+        console.log('========================================')
       }
     });
 
     // Когда приложение открыто и приходит уведомление
     const unsubscribeOnMessage = messaging().onMessage(async remoteMessage => {
-      console.log('notification on foreground state...', remoteMessage )
+      console.log('========================================')
+      console.log('📲 NOTIFICATION RECEIVED (Foreground)')
+      console.log('Title:', remoteMessage.notification?.title)
+      console.log('Body:', remoteMessage.notification?.body)
+      console.log('Data:', remoteMessage.data)
+      console.log('========================================')
+      
+      // Показываем уведомление через глобальный обработчик
+      if (remoteMessage.notification && global.showInAppNotification) {
+        global.showInAppNotification(
+          remoteMessage.notification.title || 'Уведомление',
+          remoteMessage.notification.body || ''
+        );
+      }
     });
     
-    console.log('Notification listeners registered successfully');
+    console.log('✅ Notification listeners registered successfully');
     
     // Возвращаем функцию для отписки (опционально)
     return () => {
@@ -167,6 +214,6 @@ export const NotificationListener = () => {
       unsubscribeOnMessage();
     };
   } catch (error) {
-    console.log('Error registering notification listeners:', error);
+    console.log('❌ Error registering notification listeners:', error);
   }
 }

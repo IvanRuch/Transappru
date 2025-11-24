@@ -17,6 +17,8 @@
     "device:clear": "adb shell pm clear com.transappru",
     "ios": "expo run:ios",
     "ios:16": "expo run:ios --device 'iPhone 16 Plus'",
+    "ios:clear": "xcrun simctl uninstall booted org.reactjs.native.example.Transappru && npm run ios",
+    "ios:fresh": "xcrun simctl erase booted && npm run ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "push:colleague": "bash scripts/push-to-colleague.sh",

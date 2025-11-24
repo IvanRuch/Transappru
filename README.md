@@ -124,10 +124,20 @@ npx tsc --noEmit
 # Очистить кэш и перезапустить
 npx expo start -c
 
+# Очистить данные приложения (Android)
+npm run android:clear
+
+# Очистить данные приложения (iOS)
+npm run ios:clear
+
 # Собрать для production
 npx expo build:ios
 npx expo build:android
 ```
+
+**Подробнее:**
+- Android: см. `CLEAR_APP_DATA.md`
+- iOS: см. `CLEAR_APP_DATA_IOS.md`
 
 ## 📝 Миграция из старого проекта
 

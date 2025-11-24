@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, ActivityIndicator, Platform, StatusBar, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../src/utils/Api';
 import AuthScreen from '../src/screens/auth/AuthScreen';
+import { getFCMToken } from '../src/utils/PushNotificationHelper';
 
 export default function IndexScreen() {
   const router = useRouter();
@@ -46,8 +47,10 @@ export default function IndexScreen() {
         
         if ((phoneInnConfirmed === 1 || phoneInnConfirmed === "1") &&
             (userConfirmed === 1 || userConfirmed === "1")) {
-          // Пользователь полностью подтвержден - переходим на главный экран
-          console.log('✅ User confirmed, navigating to AutoList');
+          // Пользователь полностью подтвержден - получаем FCM токен и переходим на главный экран
+          console.log('✅ User confirmed, getting FCM token...');
+          getFCMToken();
+          console.log('✅ Navigating to AutoList');
           router.replace('/(authenticated)/auto-list' as any);
         } else {
           // Пользователь не подтвержден - нужен PIN
@@ -68,6 +71,18 @@ export default function IndexScreen() {
     checkInitialAuth();
   }, [router]);
 
+  // Функция очистки данных (только для разработки)
+  const clearAppData = async () => {
+    try {
+      await AsyncStorage.clear();
+      console.log('✅ App data cleared!');
+      setIsChecking(false);
+      setError(null);
+    } catch (e) {
+      console.log('❌ Error clearing app data:', e);
+    }
+  };
+
   // Пока проверяем - показываем загрузку или AuthScreen
   if (isChecking) {
     return (
@@ -84,6 +99,25 @@ export default function IndexScreen() {
             <View style={{ marginTop: 20, padding: 20 }}>
               <Text style={{ color: 'red', fontSize: 14 }}>Error: {error}</Text>
             </View>
+          )}
+          
+          {/* Кнопка очистки данных (только в dev режиме) */}
+          {__DEV__ && (
+            <TouchableOpacity
+              onPress={clearAppData}
+              style={{
+                position: 'absolute',
+                bottom: 50,
+                backgroundColor: '#EE505A',
+                paddingHorizontal: 20,
+                paddingVertical: 12,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>
+                🗑️ Очистить данные (DEV)
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </SafeAreaView>

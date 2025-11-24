@@ -4,6 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FirebaseService } from '@/src/services/firebase';
+import { NotificationProvider, useNotification } from '@/src/contexts/NotificationContext';
+import InAppNotification from '@/src/components/InAppNotification';
 
 // Предотвращаем автоматическое скрытие splash screen
 SplashScreen.preventAutoHideAsync();
@@ -77,17 +79,45 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
-      <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
-      <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
-      <Stack.Screen name="user" options={{ title: 'Профиль' }} />
-      <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
-    </Stack>
+    <NotificationProvider>
+      <NotificationOverlay />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
+        <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
+        <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
+        <Stack.Screen name="user" options={{ title: 'Профиль' }} />
+        <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
+      </Stack>
+    </NotificationProvider>
+  );
+}
+
+// Компонент для отображения уведомлений поверх всего
+function NotificationOverlay() {
+  const { notification, visible, hideNotification, showNotification } = useNotification();
+  
+  // Регистрируем глобальный обработчик для показа уведомлений
+  useEffect(() => {
+    (global as any).showInAppNotification = showNotification;
+    
+    return () => {
+      delete (global as any).showInAppNotification;
+    };
+  }, [showNotification]);
+  
+  if (!notification) return null;
+  
+  return (
+    <InAppNotification
+      title={notification.title}
+      body={notification.body}
+      visible={visible}
+      onDismiss={hideNotification}
+    />
   );
 }
 
