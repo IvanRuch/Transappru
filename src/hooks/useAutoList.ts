@@ -292,7 +292,22 @@ export function useAutoList() {
         setAutoList(prev => [...prev, ...newAutoList]);
       }
       
-      setAutoListCount(data.auto_list_count || 0);
+      // Используем значение с сервера, но проверяем корректность
+      const serverCount = data.auto_list_count || 0;
+      const hasActiveFilters = currentFilters.autoStr || 
+                               currentFilters.autoCancelled || 
+                               currentFilters.autoPassEnded || 
+                               currentFilters.autoPassEnds;
+      
+      // Если есть фильтры и это первая загрузка - используем длину списка
+      // (на случай если сервер возвращает общее количество вместо отфильтрованного)
+      if (hasActiveFilters && currentFilters.autoListFrom === 0 && newAutoList.length < serverCount) {
+        console.log('Using list length as count (filtered):', newAutoList.length);
+        setAutoListCount(newAutoList.length);
+      } else {
+        setAutoListCount(serverCount);
+      }
+      
       setAutoListFrom(currentFilters.autoListFrom + auto_list_limit);
 
       setIndicator(false);
