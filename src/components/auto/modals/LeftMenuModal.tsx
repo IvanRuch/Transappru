@@ -246,12 +246,16 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                       }
                     }}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
-                      <View style={{ flex: 1, alignItems: 'center', padding: 5 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ width: 40, alignItems: 'center', padding: 5 }}>
                         <Image source={require('../../../../assets/images/menu_left_other_user.png')} />
                       </View>
-                      <View style={{ flex: 7, alignItems: 'flex-start', paddingLeft: 10 }}>
-                        <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}>
+                      <View style={{ flex: 1, alignItems: 'flex-start', paddingLeft: 10, paddingRight: 16 }}>
+                        <Text 
+                          style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}
+                          numberOfLines={2}
+                          ellipsizeMode="tail"
+                        >
                           {item.firm}
                         </Text>
                         <Text style={{ fontSize: 12, color: '#666' }}>

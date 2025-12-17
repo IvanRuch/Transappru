@@ -48,6 +48,26 @@ export function useAutoList() {
   const [autoList, setAutoList] = useState<AutoItem[]>([]);
   const [autoListCount, setAutoListCount] = useState(0);
   const [autoListFrom, setAutoListFrom] = useState(0);
+  
+  // Refs для актуальных значений фильтров (чтобы избежать stale closures)
+  const filtersRef = useRef({
+    autoStr: '',
+    autoCancelled: false,
+    autoPassEnded: false,
+    autoPassEnds: false,
+    autoPassEndsUntilDate: '',
+    autoListFrom: 0,
+  });
+  
+  // Синхронизируем ref с состоянием
+  filtersRef.current = {
+    autoStr,
+    autoCancelled,
+    autoPassEnded,
+    autoPassEnds,
+    autoPassEndsUntilDate,
+    autoListFrom,
+  };
   const [indicator, setIndicator] = useState(false);
   const [markedCnt, setMarkedCnt] = useState(0);
   
@@ -77,14 +97,14 @@ export function useAutoList() {
       return;
     }
 
-    // Используем переданные фильтры или текущие значения
+    // Используем переданные фильтры или текущие значения из ref (избегаем stale closures)
     const currentFilters = {
-      autoStr: filters?.autoStr ?? autoStr,
-      autoCancelled: filters?.autoCancelled ?? autoCancelled,
-      autoPassEnded: filters?.autoPassEnded ?? autoPassEnded,
-      autoPassEnds: filters?.autoPassEnds ?? autoPassEnds,
-      autoPassEndsUntilDate: filters?.autoPassEndsUntilDate ?? autoPassEndsUntilDate,
-      autoListFrom: filters?.autoListFrom ?? autoListFrom,
+      autoStr: filters?.autoStr ?? filtersRef.current.autoStr,
+      autoCancelled: filters?.autoCancelled ?? filtersRef.current.autoCancelled,
+      autoPassEnded: filters?.autoPassEnded ?? filtersRef.current.autoPassEnded,
+      autoPassEnds: filters?.autoPassEnds ?? filtersRef.current.autoPassEnds,
+      autoPassEndsUntilDate: filters?.autoPassEndsUntilDate ?? filtersRef.current.autoPassEndsUntilDate,
+      autoListFrom: filters?.autoListFrom ?? filtersRef.current.autoListFrom,
     };
 
     console.log('getAutoList called with filters:', {
@@ -124,7 +144,21 @@ export function useAutoList() {
       console.log('onboarding_viewed:', data.onboarding_viewed);
       console.log('announce_our_services_viewed:', data.announce_our_services_viewed);
       console.log('onboarding_expired:', data.onboarding_expired);
+      console.log('user_confirmed:', data.user_data?.user_confirmed);
+      console.log('phone_inn_confirmed:', data.user_data?.phone_inn_confirmed);
       console.log('========================================');
+
+      // Проверяем статус подтверждения пользователя
+      // Если менеджер отозвал подтверждение - редиректим на авторизацию
+      const userConfirmed = data.user_data?.user_confirmed;
+      if (userConfirmed === 0 || userConfirmed === "0") {
+        console.log('⚠️ User confirmation revoked! Redirecting to auth...');
+        // Удаляем токен и редиректим на авторизацию
+        await AsyncStorage.removeItem('token');
+        router.replace('/');
+        setIndicator(false);
+        return;
+      }
 
       // Проверяем нужно ли показать OnBoarding
       if (data.onboarding_viewed === 0 || data.onboarding_viewed === '0') {
@@ -311,14 +345,19 @@ export function useAutoList() {
       setAutoListFrom(currentFilters.autoListFrom + auto_list_limit);
 
       setIndicator(false);
+      
+      // Снимаем блокировку пагинации после загрузки
+      paginationRef.current.isFilterChanging = false;
     } catch (error: any) {
       console.log('error in getAutoList:', error);
       if (error.response?.status === 401) {
         router.replace('/');
       }
       setIndicator(false);
+      // Снимаем блокировку пагинации при ошибке тоже
+      paginationRef.current.isFilterChanging = false;
     }
-  }, [router, autoListFrom, autoStr, autoCancelled, autoPassEnded, autoPassEnds, autoPassEndsUntilDate]);
+  }, [router]);  // Убираем зависимости от фильтров - используем filtersRef
 
   // Обновление списка (сброс)
   const refreshAutoList = useCallback(async () => {
@@ -356,53 +395,49 @@ export function useAutoList() {
     setCacheTimestamp(0);
   }, []);
 
+  // Refs для пагинации (избегаем stale closures)
+  const paginationRef = useRef({
+    autoListCount: 0,
+    autoListFrom: 0,
+    autoListLength: 0,
+    indicator: false,
+    isFilterChanging: false,  // Флаг блокировки пагинации при смене фильтра
+  });
+  
+  // Синхронизируем ref с состоянием (кроме isFilterChanging - он управляется вручную)
+  paginationRef.current.autoListCount = autoListCount;
+  paginationRef.current.autoListFrom = autoListFrom;
+  paginationRef.current.autoListLength = autoList.length;
+  paginationRef.current.indicator = indicator;
+
   // Пагинация
   const onEndReached = useCallback(() => {
-    const now = Date.now();
+    // Используем актуальные значения из ref
+    const { autoListCount: count, autoListFrom: from, autoListLength: length, indicator: loading, isFilterChanging } = paginationRef.current;
     
-    // Debounce: игнорировать вызовы чаще чем раз в 500ms
-    if (now - lastEndReachedTime.current < 500) {
-      console.log('onEndReached: debounced, skipping');
-      return;
-    }
-    
-    // Проверяем флаг загрузки
-    if (isLoadingMore.current) {
-      console.log('onEndReached: already loading more, skipping');
+    // Блокируем пагинацию во время смены фильтра
+    if (isFilterChanging) {
+      console.log('onEndReached: filter is changing, skipping');
       return;
     }
     
     // Проверяем что не идет загрузка
-    if (indicator) {
+    if (loading) {
       console.log('onEndReached: already loading, skipping');
       return;
     }
     
     // Проверяем что есть еще данные для загрузки
-    if (autoList.length >= autoListCount) {
-      console.log('onEndReached: all data loaded', autoList.length, '/', autoListCount);
+    if (length >= count || count === 0) {
+      console.log('onEndReached: all data loaded', length, '/', count);
       return;
     }
     
-    // Защита от ложных срабатываний: не загружать если autoListFrom = 0
-    // (это значит что список только что был сброшен/отфильтрован)
-    if (autoListFrom === 0) {
-      console.log('onEndReached: skipping, list was just reset (autoListFrom = 0)');
-      return;
-    }
-    
-    // Устанавливаем флаги
-    lastEndReachedTime.current = now;
-    isLoadingMore.current = true;
-    
-    console.log('onEndReached: loading more data from', autoListFrom);
+    console.log('onEndReached: loading more data from', from);
     AsyncStorage.getItem('token').then(token => {
-      getAutoList(token, { autoListFrom }).finally(() => {
-        // Сбрасываем флаг после завершения загрузки
-        isLoadingMore.current = false;
-      });
+      getAutoList(token, { autoListFrom: from });
     });
-  }, [indicator, autoList.length, autoListCount, autoListFrom, getAutoList]);
+  }, [getAutoList]);
 
   // Отметить/снять отметку с элемента
   const markItem = useCallback((item: AutoItem, index: number) => {
@@ -676,8 +711,10 @@ export function useAutoList() {
   }, [getAutoList, cachedFullList, cacheTimestamp, CACHE_LIFETIME_MS]);
 
   const toggleAutoCancelled = useCallback(() => {
-    // Сбрасываем флаг загрузки пагинации
-    isLoadingMore.current = false;
+    // Блокируем пагинацию и сбрасываем offset
+    paginationRef.current.isFilterChanging = true;
+    paginationRef.current.autoListFrom = 0;
+    setAutoListFrom(0);
     
     setAutoCancelled(prev => {
       const newValue = !prev;
@@ -692,8 +729,10 @@ export function useAutoList() {
   }, [getAutoList]);
 
   const toggleAutoPassEnded = useCallback(() => {
-    // Сбрасываем флаг загрузки пагинации
-    isLoadingMore.current = false;
+    // Блокируем пагинацию и сбрасываем offset
+    paginationRef.current.isFilterChanging = true;
+    paginationRef.current.autoListFrom = 0;
+    setAutoListFrom(0);
     
     setAutoPassEnded(prev => {
       const newValue = !prev;
@@ -707,8 +746,10 @@ export function useAutoList() {
   }, [getAutoList]);
 
   const toggleAutoPassEnds = useCallback(() => {
-    // Сбрасываем флаг загрузки пагинации
-    isLoadingMore.current = false;
+    // Блокируем пагинацию и сбрасываем offset
+    paginationRef.current.isFilterChanging = true;
+    paginationRef.current.autoListFrom = 0;
+    setAutoListFrom(0);
     
     setAutoPassEnds(prev => {
       const newValue = !prev;
@@ -736,12 +777,22 @@ export function useAutoList() {
     setAutoPassEndsUntilDate(value_new);
     
     if (value_new.length === 0) {
+      // Блокируем пагинацию и сбрасываем offset
+      paginationRef.current.isFilterChanging = true;
+      paginationRef.current.autoListFrom = 0;
+      setAutoListFrom(0);
+      
       setAutoPassEnds(false);
       
       AsyncStorage.getItem('token').then(token => 
         getAutoList(token, { autoPassEnds: false, autoPassEndsUntilDate: value_new, autoListFrom: 0 })
       );
     } else if (value_new.length === 10) {
+      // Блокируем пагинацию и сбрасываем offset
+      paginationRef.current.isFilterChanging = true;
+      paginationRef.current.autoListFrom = 0;
+      setAutoListFrom(0);
+      
       setAutoPassEnds(true);
       
       AsyncStorage.getItem('token').then(token => 

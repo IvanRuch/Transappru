@@ -145,6 +145,18 @@ export default function PinScreen() {
       >
         <Text style={getButtonTextStyle()}>Подтвердить</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          marginTop: 30,
+        }}
+        onPress={async () => {
+          await AsyncStorage.removeItem('token');
+          router.replace('/');
+        }}
+      >
+        <Text style={{ fontSize: 14, color: '#666666', textDecorationLine: 'underline' }}>Войти с другим номером</Text>
+      </TouchableOpacity>
     </View>
   );
 }

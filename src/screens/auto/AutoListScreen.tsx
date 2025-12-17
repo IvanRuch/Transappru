@@ -23,6 +23,7 @@ import {
   DeleteAutoModal,
   ContactsModal,
   LeftMenuModal,
+  DebtInfoModal,
 } from '../../components/auto/modals';
 import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
@@ -134,6 +135,21 @@ export default function AutoListScreen() {
               )}
             </View>
           </TouchableHighlight>
+
+          {/* Кнопка задолженности (если есть) */}
+          {autoListHook.userData.debt_sum && autoListHook.userData.debt_sum !== '0.00' && (
+            <TouchableHighlight
+              style={styles.headerButton}
+              activeOpacity={1}
+              underlayColor="#ffffff"
+              onPress={() => {
+                console.log('-> show debt info');
+                autoActions.setModalDebtInfoVisible(true);
+              }}
+            >
+              <Image source={require('../../../assets/images/alert-circle_2.png')} />
+            </TouchableHighlight>
+          )}
 
           {/* Заголовок "Мой автопарк" */}
           <Text style={styles.header}>Мой автопарк</Text>
@@ -273,7 +289,7 @@ export default function AutoListScreen() {
             </View>
           ) : null
         )}
-        onEndReached={handleEndReached}
+        onEndReached={autoListHook.autoList.length > 0 && !autoListHook.indicator ? handleEndReached : undefined}
         onEndReachedThreshold={0.5}
         refreshing={false}
         onRefresh={autoListHook.refreshAutoList}
@@ -447,6 +463,13 @@ export default function AutoListScreen() {
       <AnnounceOurServicesModal
         visible={autoListHook.announceOurServicesVisible}
         onClose={autoListHook.closeAnnounceOurServices}
+      />
+
+      {/* Модальное окно задолженности */}
+      <DebtInfoModal
+        visible={autoActions.modalDebtInfoVisible}
+        debtSum={autoListHook.userData.debt_sum || '0'}
+        onClose={() => autoActions.setModalDebtInfoVisible(false)}
       />
     </SafeAreaView>
   );
