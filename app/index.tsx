@@ -49,11 +49,18 @@ export default function IndexScreen() {
           // Пользователь полностью подтвержден - переходим на главный экран
           console.log('✅ User confirmed, navigating to AutoList');
           router.replace('/(authenticated)/auto-list' as any);
-        } else {
-          // Пользователь не подтвержден - нужен PIN
-          console.log('⚠️ User not confirmed, navigating to PIN');
-          console.log('Reason: phone_inn_confirmed =', phoneInnConfirmed, typeof phoneInnConfirmed);
+        } else if (userConfirmed === 0 || userConfirmed === "0") {
+          // Подтверждение менеджера отозвано или ещё не получено
+          // Показываем AuthScreen с модалкой ожидания подтверждения
+          console.log('⚠️ User confirmation revoked/pending, showing AuthScreen with wait modal');
           console.log('Reason: user_confirmed =', userConfirmed, typeof userConfirmed);
+          // Удаляем токен чтобы AuthScreen показал модалку ожидания при следующем входе
+          await AsyncStorage.removeItem('token');
+          setIsChecking(false);
+        } else {
+          // Другие случаи (phone_inn_confirmed === 0) - нужен PIN
+          console.log('⚠️ Phone/INN not confirmed, navigating to PIN');
+          console.log('Reason: phone_inn_confirmed =', phoneInnConfirmed, typeof phoneInnConfirmed);
           router.replace('/pin' as any);
         }
       } catch (error: any) {

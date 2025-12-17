@@ -1,7 +1,7 @@
 {
   "name": "transapp_upd",
   "main": "expo-router/entry",
-  "version": "1.0.35",
+  "version": "2.0.2",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -14,7 +14,7 @@
     "device:logs": "adb logcat -s ReactNativeJS:I ReactNative:I",
     "device:clear": "adb shell pm clear com.transappru",
     "ios": "expo run:ios",
-    "ios:16": "expo run:ios --device 'iPhone 16 Plus'",
+    "ios:17": "expo run:ios --device 'iPhone 17 Pro Max'",
     "web": "expo start --web",
     "lint": "expo lint"
   },

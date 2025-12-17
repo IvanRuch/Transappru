@@ -384,6 +384,7 @@ export default function AuthScreen() {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
+          padding: 20,
         }}>
           <View style={{
             backgroundColor: '#EEEEEE',
@@ -392,7 +393,8 @@ export default function AuthScreen() {
             justifyContent: 'center',
             padding: 20,
             borderWidth: 1,
-            borderColor: "#B8B8B8"
+            borderColor: "#B8B8B8",
+            maxWidth: 350,
           }}>
             <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: "bold", color: "#313131" }}>Ваша заявка зарегистрирована!</Text>
             <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы</Text>
@@ -407,6 +409,29 @@ export default function AuthScreen() {
                 </View>
               </TouchableHighlight>
             )}
+
+            <TouchableOpacity
+              style={{
+                marginTop: 24,
+                marginHorizontal: 16,
+                height: 44,
+                borderRadius: 5,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#FFFFFF',
+                borderWidth: 1,
+                borderColor: '#3A3A3A',
+              }}
+              onPress={async () => {
+                // Удаляем токен и закрываем модалку для перелогина
+                await AsyncStorage.removeItem('token');
+                setSessionData({});
+                setPhone('');
+                setModalWaitConfirmation(false);
+              }}
+            >
+              <Text style={{ fontSize: 14, color: '#3A3A3A' }}>Войти с другим номером</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

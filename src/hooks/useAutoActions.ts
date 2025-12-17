@@ -15,6 +15,7 @@ export function useAutoActions(
   const [modalViewContacts, setModalViewContacts] = useState(false);
   const [modalDelAutoVisible, setModalDelAutoVisible] = useState(false);
   const [modalAddAutoVisible, setModalAddAutoVisible] = useState(false);
+  const [modalDebtInfoVisible, setModalDebtInfoVisible] = useState(false);
   const [findAutoVisible, setFindAutoVisible] = useState(false);
   const [menuLeftVisible, setMenuLeftVisible] = useState(false);
   
@@ -111,11 +112,10 @@ export function useAutoActions(
   // Navigation
   const navigateToAutoDriver = useCallback((markedAutos: AutoItem[]) => {
     console.log('-> move to AutoDriver');
-    // TODO: Создать экран AutoDriver
-    // router.push({
-    //   pathname: '/(authenticated)/auto-driver',
-    //   params: { auto_list: JSON.stringify(markedAutos) }
-    // });
+    router.push({
+      pathname: '/(authenticated)/auto-driver' as any,
+      params: { auto_list: JSON.stringify(markedAutos) }
+    });
   }, [router]);
 
   const navigateToPass = useCallback((markedAutos: AutoItem[]) => {
@@ -212,30 +212,30 @@ export function useAutoActions(
   }, [refreshAutoList, invalidateCache, router]);
 
   // Add auto - валидация
+  const checkAddAutoEnabled = useCallback((baseOk: boolean, regionOk: boolean, stsValid: boolean) => {
+    setModalAddAutoButtonDisabled(!(baseOk && regionOk && stsValid));
+  }, []);
+
   const changeAutoNumberBase = useCallback((value: string) => {
     setAutoNumberBase(value);
     const isValid = value.length === 6;
     setAutoNumberBaseOk(isValid);
     checkAddAutoEnabled(isValid, autoNumberRegionCodeOk, stsOk);
-  }, [autoNumberRegionCodeOk, stsOk]);
+  }, [autoNumberRegionCodeOk, stsOk, checkAddAutoEnabled]);
 
   const changeAutoNumberRegionCode = useCallback((value: string) => {
     setAutoNumberRegionCode(value);
     const isValid = value.match(/^[0-9]{2,3}$/);
     setAutoNumberRegionCodeOk(!!isValid);
     checkAddAutoEnabled(autoNumberBaseOk, !!isValid, stsOk);
-  }, [autoNumberBaseOk, stsOk]);
+  }, [autoNumberBaseOk, stsOk, checkAddAutoEnabled]);
 
   const changeSts = useCallback((value: string) => {
     setSts(value);
     const isValid = value.length === 10;
     setStsOk(isValid);
     checkAddAutoEnabled(autoNumberBaseOk, autoNumberRegionCodeOk, isValid);
-  }, [autoNumberBaseOk, autoNumberRegionCodeOk]);
-
-  const checkAddAutoEnabled = useCallback((baseOk: boolean, regionOk: boolean, stsValid: boolean) => {
-    setModalAddAutoButtonDisabled(!(baseOk && regionOk && stsValid));
-  }, []);
+  }, [autoNumberBaseOk, autoNumberRegionCodeOk, checkAddAutoEnabled]);
 
   // Add auto - submit
   const addAuto = useCallback(async (token: string | null) => {
@@ -302,6 +302,8 @@ export function useAutoActions(
     setModalDelAutoVisible,
     modalAddAutoVisible,
     setModalAddAutoVisible,
+    modalDebtInfoVisible,
+    setModalDebtInfoVisible,
     findAutoVisible,
     setFindAutoVisible,
     menuLeftVisible,
