@@ -64,7 +64,7 @@
       [
         "./plugins/withAndroidGradlePluginVersion.js",
         {
-          "version": "8.13.1"
+          "version": "8.13.2"
         }
       ],
       [
@@ -75,7 +75,7 @@
           },
           "android": {
             "gradleVersion": "8.14.3",
-            "androidGradlePluginVersion": "8.13.1"
+            "androidGradlePluginVersion": "8.13.2"
           }
         }
       ],

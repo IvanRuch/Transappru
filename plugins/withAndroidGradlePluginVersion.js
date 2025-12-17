@@ -5,7 +5,7 @@ const { withProjectBuildGradle } = require('@expo/config-plugins');
  * Config plugin to explicitly set Android Gradle Plugin version in build.gradle
  * This ensures Android Studio sees the correct AGP version
  */
-module.exports = function withAndroidGradlePluginVersion(config, { version = '8.12.0' } = {}) {
+module.exports = function withAndroidGradlePluginVersion(config, { version = '8.13.2' } = {}) {
   return withProjectBuildGradle(config, (config) => {
     const buildGradle = config.modResults.contents;
 
