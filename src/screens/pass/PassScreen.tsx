@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableHighlight, TouchableOpacity, TextInput, Image, Modal, ActivityIndicator, Pressable, StatusBar, FlatList, ImageBackground } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -33,6 +33,7 @@ interface PassState {
   lon: number | string;
   lat: number | string;
   isLocationTypeManual: boolean; // Флаг: зона выбрана вручную или автоматически
+  originalLocationTypeFromMap: string; // Исходная зона, определенная картой
 }
 
 class Pass extends React.Component<PassProps, PassState> {
@@ -59,6 +60,7 @@ class Pass extends React.Component<PassProps, PassState> {
       lon: '',
       lat: '',
       isLocationTypeManual: false, // Изначально зона не выбрана
+      originalLocationTypeFromMap: '', // Исходная зона с карты
     };
   }
 
@@ -66,13 +68,8 @@ class Pass extends React.Component<PassProps, PassState> {
   checkTab = (tab: string) => {
     console.log('checkTab. tab = ' + tab)
 
-    // Если адрес был выбран на карте (есть координаты), не даем менять зону
-    // При ручном изменении/удалении адреса координаты очищаются в changeAddress
-    if(this.state.lon !== '' && this.state.lat !== '')
-    {
-      console.log('Зона заблокирована, так как адрес выбран на карте. Измените адрес вручную, чтобы разблокировать.')
-      return;
-    }
+    // Разрешаем изменение зоны даже при выбранном адресе
+    const hasMapAddress = this.state.lon !== '' && this.state.lat !== '';
 
     if(this.state.location_type === tab)
     {
@@ -81,8 +78,14 @@ class Pass extends React.Component<PassProps, PassState> {
     }
     else
     {
-      // Выбираем зону ВРУЧНУЮ - устанавливаем флаг
-      this.setState({ location_type: tab, isLocationTypeManual: true })
+      // Выбираем зону
+      // Если пользователь выбрал ту же зону, что была с карты - это НЕ ручное изменение
+      const isManual = hasMapAddress && tab !== this.state.originalLocationTypeFromMap;
+      
+      this.setState({ 
+        location_type: tab, 
+        isLocationTypeManual: isManual
+      })
     }
   }
 
@@ -288,16 +291,20 @@ class Pass extends React.Component<PassProps, PassState> {
 
     // Определяем зону на основе location_types из сохранённого адреса
     let detectedLocationType = '';
-    if (item.location_types) {
-      if (item.location_types.sk === 1) {
-        detectedLocationType = 'sk';
-      } else if (item.location_types.ttk === 1) {
-        detectedLocationType = 'ttk';
-      } else if (item.location_types.mkad === 1) {
-        detectedLocationType = 'mkad';
-      }
+    const types = item.location_types || {};
+    
+    if (types.sk === 1) {
+      detectedLocationType = 'sk';
+    } else if (types.ttk === 1) {
+      detectedLocationType = 'ttk';
+    } else if (types.mkad === 1) {
+      detectedLocationType = 'mkad';
     }
+    // Если зоны не определены в базе - оставляем пустым, пользователь выберет вручную
 
+    // При выборе из "Ранее введенных" адрес вводится вручную (без карты)
+    // Координаты отсутствуют, поэтому зона считается выбранной вручную
+    // но предупреждение не показывается (нет lon/lat)
     this.setState({address: item.mos_ru_street_p7 + ' ' + item.mos_ru_address_l_concat,
                    mos_ru_street: item.mos_ru_street,
                    mos_ru_street_p7: item.mos_ru_street_p7,
@@ -305,7 +312,9 @@ class Pass extends React.Component<PassProps, PassState> {
                    mos_ru_address_l_concat: item.mos_ru_address_l_concat,
                    location_type: detectedLocationType,
                    lon: '',
-                   lat: ''})
+                   lat: '',
+                   isLocationTypeManual: false,
+                   originalLocationTypeFromMap: ''})
   };
 
 
@@ -341,9 +350,10 @@ class Pass extends React.Component<PassProps, PassState> {
       // Определяем location_type:
       // 1. Если зона была выбрана ВРУЧНУЮ - сохраняем её (isLocationTypeManual = true)
       // 2. Если зоны не было или она была автоматической - используем зону с карты
+      const mapLocationType = _address_map_data.location_type || '';
       const newLocationType = this.state.isLocationTypeManual
         ? this.state.location_type 
-        : (_address_map_data.location_type || '');
+        : mapLocationType;
 
       // Флаг остаётся true только если зона была выбрана вручную
       // Если зона пришла с карты - флаг = false (автоматическая)
@@ -357,7 +367,8 @@ class Pass extends React.Component<PassProps, PassState> {
                       lon: _address_map_data.lon || '',
                       lat: _address_map_data.lat || '',
                       location_type: newLocationType,
-                      isLocationTypeManual: newIsManual })
+                      isLocationTypeManual: newIsManual,
+                      originalLocationTypeFromMap: mapLocationType })
       
       // Очистить параметр после использования
       this.props.route.params.address_map_data = undefined;
@@ -377,20 +388,23 @@ class Pass extends React.Component<PassProps, PassState> {
 
   /* Рендер иконок зон */
   renderLocationTypes = (locationTypes: any) => {
+    // Защита от пустого объекта или undefined
+    const types = locationTypes || {};
+    
     return (
       <View style={{
         flex: 1,
         flexDirection: "column",
       }}>
-        { locationTypes.mkad === 1 ?
+        { types.mkad === 1 ?
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#57B6ED" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>МКАД</Text></View> ) :
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#8C8C8C" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>МКАД</Text></View> )
         }
-        { locationTypes.ttk === 1 ?
+        { types.ttk === 1 ?
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#19B28D" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>ТТК</Text></View> ) :
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#8C8C8C" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>ТТК</Text></View> )
         }
-        { locationTypes.sk === 1 ?
+        { types.sk === 1 ?
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#EE505A" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>СК</Text></View> ) :
           ( <View style={{ alignItems: 'center', margin: 1, borderRadius: 2, backgroundColor: "#8C8C8C" }}><Text style={{ fontSize: 10, fontWeight: "bold" }}>СК</Text></View> )
         }
@@ -632,16 +646,18 @@ class Pass extends React.Component<PassProps, PassState> {
           </View>
         </Modal>
 
-        <ScrollView>
+        <SafeAreaInsetsContext.Consumer>
+          {(insets) => (
+            <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
 
-          <Text style={{ paddingTop: 15, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
+              <Text style={{ paddingTop: 15, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
 
           <View style={{
             flexDirection: "row",
           }}>
 
             <Pressable 
-              style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 20, marginRight: 10, opacity: (this.state.lon !== '' && this.state.lat !== '' && this.state.location_type !== 'mkad') ? 0.3 : 1 }} 
+              style={{ flex: 1, marginTop: 20, marginBottom: 5, marginLeft: 20, marginRight: 10 }} 
               onPress={() => this.checkTab('mkad')}>
               <View style={this.setTabStyle('mkad')}>
                 <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>МКАД</Text>
@@ -649,7 +665,7 @@ class Pass extends React.Component<PassProps, PassState> {
             </Pressable>
 
             <Pressable 
-              style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 10, marginRight: 10, opacity: (this.state.lon !== '' && this.state.lat !== '' && this.state.location_type !== 'ttk') ? 0.3 : 1 }} 
+              style={{ flex: 1, marginTop: 20, marginBottom: 5, marginLeft: 10, marginRight: 10 }} 
               onPress={() => this.checkTab('ttk')}>
               <View style={this.setTabStyle('ttk')}>
                 <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>ТТК</Text>
@@ -657,7 +673,7 @@ class Pass extends React.Component<PassProps, PassState> {
             </Pressable>
 
             <Pressable 
-              style={{ flex: 1, marginTop: 20, marginBottom: 20, marginLeft: 10, marginRight: 20, opacity: (this.state.lon !== '' && this.state.lat !== '' && this.state.location_type !== 'sk') ? 0.3 : 1 }} 
+              style={{ flex: 1, marginTop: 20, marginBottom: 5, marginLeft: 10, marginRight: 20 }} 
               onPress={() => this.checkTab('sk')}>
               <View style={this.setTabStyle('sk')}>
                 <Text style={{ fontSize: 15, fontWeight: "bold", color: "#313131" }}>СК</Text>
@@ -665,6 +681,26 @@ class Pass extends React.Component<PassProps, PassState> {
             </Pressable>
 
           </View>
+
+          {/* Предупреждение при ручном изменении зоны */}
+          {this.state.lon !== '' && this.state.lat !== '' && this.state.isLocationTypeManual && (
+            <View style={{ 
+              marginLeft: 20, 
+              marginRight: 20, 
+              marginBottom: 15,
+              padding: 10,
+              backgroundColor: '#FFF3CD',
+              borderRadius: 5,
+              borderWidth: 1,
+              borderColor: '#FFE69C'
+            }}>
+              <Text style={{ fontSize: 12, color: '#856404', textAlign: 'center' }}>
+                ⚠️ Зона изменена вручную. Убедитесь, что выбранная зона соответствует адресу.
+              </Text>
+            </View>
+          )}
+
+          <View style={{ height: 10 }} />
 
           <View style={{ 
             flexDirection: 'row', 
@@ -741,10 +777,9 @@ class Pass extends React.Component<PassProps, PassState> {
               activeOpacity={1}
               underlayColor='#FFFFFF'
               onPress={() => {
-                // Передаём location_type на карту ТОЛЬКО если он был выбран вручную
-                // Если зона была определена автоматически - не передаём, чтобы разрешить свободный выбор
+                // Передаём выбранную зону на карту для отображения и масштабирования
                 this.props.navigation.navigate('PassYaMap', { 
-                  location_type: this.state.isLocationTypeManual ? this.state.location_type : '',
+                  location_type: this.state.location_type,
                   auto_list: this.state.auto_list,
                   lon: this.state.lon,
                   lat: this.state.lat,
@@ -779,21 +814,36 @@ class Pass extends React.Component<PassProps, PassState> {
             {this.state.auto_list.map((item) => this.renderItem(item))}
           </View>
 
-        </ScrollView>
+            </ScrollView>
+          )}
+        </SafeAreaInsetsContext.Consumer>
 
         {/* ********  */}
-        {
-          this.state.mos_ru_address || ( this.state.location_type !== '' )  ? (
-            <TouchableHighlight
-              style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
-              onPress={() => {
-                console.log('call add_address')
-                AsyncStorage.getItem('token').then((value) => this.addAddress(value));
-              }}>
-              <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Заказать пропуск</Text>
-            </TouchableHighlight>
-          ) : null
-        }
+        <SafeAreaInsetsContext.Consumer>
+          {(insets) => (
+            this.state.mos_ru_address || ( this.state.location_type !== '' )  ? (
+              <TouchableHighlight
+                style={{ 
+                  position: 'absolute', 
+                  left: 10, 
+                  bottom: Math.max(insets?.bottom || 0, 10), 
+                  right: 10, 
+                  height: 50, 
+                  margin: 25, 
+                  borderRadius: 5, 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  backgroundColor: "#3A3A3A" 
+                }}
+                onPress={() => {
+                  console.log('call add_address')
+                  AsyncStorage.getItem('token').then((value) => this.addAddress(value));
+                }}>
+                <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Заказать пропуск</Text>
+              </TouchableHighlight>
+            ) : null
+          )}
+        </SafeAreaInsetsContext.Consumer>
 
       </SafeAreaView>
     );

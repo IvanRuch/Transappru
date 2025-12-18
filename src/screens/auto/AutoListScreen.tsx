@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { View, Text, FlatList, TouchableHighlight, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, Image, Platform, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 
@@ -31,6 +31,7 @@ import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
 export default function AutoListScreen() {
   // Хуки
   const router = useRouter();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
 
@@ -294,14 +295,14 @@ export default function AutoListScreen() {
         refreshing={false}
         onRefresh={autoListHook.refreshAutoList}
         contentContainerStyle={{ 
-          paddingBottom: 100 
+          paddingBottom: 80 + Math.max(bottomInset, 10) + 20
         }}
         style={{ flex: 1 }}
       />
 
       {/* Нижнее меню - как в оригинале (position: absolute) */}
       {autoListHook.userData && autoListHook.userData.firm && (
-        <View style={styles.bottomMenu}>
+        <View style={[styles.bottomMenu, { paddingBottom: Math.max(bottomInset, 10) }]}>
           {autoListHook.markedCnt === 0 ? (
             // Обычное меню
             <View style={styles.menuContainer}>
@@ -590,7 +591,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 10,
     backgroundColor: '#FFFFFF',
   },
   menuContainer: {

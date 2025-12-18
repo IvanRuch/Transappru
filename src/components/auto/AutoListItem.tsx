@@ -28,7 +28,7 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
     const colorMap: Record<string, string> = {
       green: '#40882C',
       red: '#EE505A',
-      yellow: '#705B00',
+      yellow: '#FFA500',
       white: '#3A3A3A',
     };
     return colorMap[color] || '#3A3A3A';
@@ -39,7 +39,7 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
     const bgMap: Record<string, string> = {
       green: '#E8F8E8',
       red: '#FFE7E7',
-      yellow: '#FFF9E6',
+      yellow: '#FAEEBA',
       white: '#F7F7F7',
     };
     return bgMap[color] || '#F7F7F7';

@@ -247,12 +247,39 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 40, alignItems: 'center', padding: 5 }}>
+                      <View style={{ width: 40, alignItems: 'center', padding: 5, position: 'relative' }}>
                         <Image source={require('../../../../assets/images/menu_left_other_user.png')} />
+                        {(item.notification_unviewed_count || 0) > 0 && (
+                          <View style={{ 
+                            position: 'absolute',
+                            top: 17,
+                            left: 17, 
+                            backgroundColor: '#EE505A', 
+                            borderRadius: 12,
+                            minWidth: 16,
+                            height: 16,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 4
+                          }}>
+                            <Text style={{ 
+                              textAlign: 'center',
+                              fontSize: 10,
+                              fontWeight: 'bold', 
+                              color: '#FFFFFF'
+                            }} numberOfLines={1}>
+                              {item.notification_unviewed_count}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                       <View style={{ flex: 1, alignItems: 'flex-start', paddingLeft: 10, paddingRight: 16 }}>
                         <Text 
-                          style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}
+                          style={{ 
+                            fontSize: 14, 
+                            fontWeight: 'bold', 
+                            color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#999'
+                          }}
                           numberOfLines={2}
                           ellipsizeMode="tail"
                         >
@@ -261,6 +288,11 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                         <Text style={{ fontSize: 12, color: '#666' }}>
                           инн: {item.inn}
                         </Text>
+                        {(item.user_confirmed === 0 || item.phone_inn_confirmed === 0) && (
+                          <Text style={{ fontSize: 11, color: '#FF9800', fontStyle: 'italic', marginTop: 2 }}>
+                            Ожидает подтверждения
+                          </Text>
+                        )}
                       </View>
                     </View>
                   </TouchableHighlight>

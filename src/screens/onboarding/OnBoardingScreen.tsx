@@ -19,6 +19,7 @@ const screens: Screen[] = [
 export default function OnBoardingScreen() {
   const router = useRouter();
   const [current, setCurrent] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     console.log('OnBoarding DidMount');
@@ -68,27 +69,34 @@ export default function OnBoardingScreen() {
   };
 
   const handleNext = async () => {
+    if (isLoading) {
+      console.log('Already processing, ignoring tap');
+      return;
+    }
+    
     console.log('tapNext, current:', current);
     
     if (current === screens.length - 1) {
       // Последний экран - запрашиваем разрешения и помечаем онбординг как просмотренный
-      
-      // Запрашиваем разрешение на геолокацию
-      await requestLocationPermission();
+      setIsLoading(true);
       
       try {
+        // Запрашиваем разрешение на геолокацию
+        await requestLocationPermission();
+        
         const token = await AsyncStorage.getItem('token');
         if (token) {
           // Вызываем API для пометки онбординга как просмотренного
           await Api.post('/get-onboarding', { token });
           console.log('✅ Onboarding marked as viewed');
         }
+        
+        // Переходим к списку авто
+        router.replace('/(authenticated)/auto-list');
       } catch (error) {
-        console.log('⚠️ Error marking onboarding as viewed:', error);
+        console.log('⚠️ Error in onboarding completion:', error);
+        setIsLoading(false);
       }
-      
-      // Переходим к списку авто
-      router.replace('/(authenticated)/auto-list');
     } else {
       // Следующий экран
       setCurrent(current + 1);
@@ -132,11 +140,12 @@ export default function OnBoardingScreen() {
 
       {/* Кнопка "Далее" */}
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleNext}
+        disabled={isLoading}
       >
         <Text style={styles.buttonText}>
-          {current >= screens.length - 1 ? 'Начать' : 'Далее'}
+          {isLoading ? 'Загрузка...' : (current >= screens.length - 1 ? 'Начать' : 'Далее')}
         </Text>
       </TouchableOpacity>
     </View>
@@ -201,6 +210,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#3A3A3A',
+  },
+  buttonDisabled: {
+    backgroundColor: '#7A7A7A',
+    opacity: 0.6,
   },
   buttonText: {
     paddingLeft: 20,

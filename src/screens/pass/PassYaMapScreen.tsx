@@ -1,14 +1,13 @@
 import React from 'react';
 import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, Platform, PermissionsAndroid, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
 import { ScreenHeader } from '../../components/common';
 
-import YaMap from 'react-native-yamap-plus';
-import { Marker, Animation, Polygon, YamapInstance } from 'react-native-yamap-plus';
+import YaMap, { Marker, Animation, Polygon, YamapInstance } from 'react-native-yamap-plus';
 
 YamapInstance.init('9247644d-4157-4d20-bd95-eb97583fc962');
 
@@ -152,22 +151,6 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
         address_map_data: { address: params.address || '' }
       });
     });
-
-    if(this.map.current)
-    {
-      if(this.state.location_type === 'mkad' || this.state.location_type === '')
-      {
-        this.map.current.setCenter({ lat: 55.74954, lon: 37.621587 }, 10, 0, 0, 0.7, Animation.SMOOTH)
-      }
-      else if(this.state.location_type === 'ttk')
-      {
-        this.map.current.setCenter({ lat: 55.74954, lon: 37.621587 }, 11.4, 0, 0, 0.7, Animation.SMOOTH)
-      }
-      else if(this.state.location_type === 'sk')
-      {
-        this.map.current.setCenter({ lat: 55.74954, lon: 37.621587 }, 12.4, 0, 0, 0.7, Animation.SMOOTH)
-      }
-    }
   }
 
 
@@ -290,7 +273,8 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
           initialRegion={{
               lat: 55.74954,
               lon: 37.621587,
-              zoom: 10
+              zoom: this.state.location_type === 'sk' ? 12.4 : 
+                    this.state.location_type === 'ttk' ? 11.4 : 10
           }}
           onMapLongPress={(point) => this.yaMapLongPress(point.nativeEvent)}
           style={{ flex: 1 }}
@@ -364,34 +348,36 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
 
         </YaMap>
 
-        {
-          this.state.address_map_data.address !== '' ? (
-            <TouchableHighlight
-              style={{ 
-                position: 'absolute', 
-                zIndex: 3, 
-                elevation: 3, 
-                left: 10, 
-                bottom: 20, 
-                right: 10, 
-                height: 50, 
-                margin: 25, 
-                borderRadius: 5, 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                backgroundColor: "#3A3A3A"
-              }}
-              onPress={() => {
-                console.log('call add_address')
-                this.props.navigation.navigate('Pass', { 
-                  address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
-                  auto_list: this.props.route.params.auto_list 
-                })
-              }}>
-              <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Добавить</Text>
-            </TouchableHighlight>
-          ) : null
-        }
+        <SafeAreaInsetsContext.Consumer>
+          {(insets) => (
+            this.state.address_map_data.address !== '' ? (
+              <TouchableHighlight
+                style={{ 
+                  position: 'absolute', 
+                  zIndex: 3, 
+                  elevation: 3, 
+                  left: 10, 
+                  bottom: Math.max(insets?.bottom || 0, 20), 
+                  right: 10, 
+                  height: 50, 
+                  margin: 25, 
+                  borderRadius: 5, 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  backgroundColor: "#3A3A3A"
+                }}
+                onPress={() => {
+                  console.log('call add_address')
+                  this.props.navigation.navigate('Pass', { 
+                    address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
+                    auto_list: this.props.route.params.auto_list 
+                  })
+                }}>
+                <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Добавить</Text>
+              </TouchableHighlight>
+            ) : null
+          )}
+        </SafeAreaInsetsContext.Consumer>
 
       </SafeAreaView>
     );

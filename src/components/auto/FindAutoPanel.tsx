@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FindAutoPanelProps {
   visible: boolean;
@@ -34,6 +35,8 @@ export function FindAutoPanel({
   onClearAllFilters,
   onClose,
 }: FindAutoPanelProps) {
+  const insets = useSafeAreaInsets();
+  
   // Состояние для date picker
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -82,7 +85,7 @@ export function FindAutoPanel({
       onBackdropPress={onClose}
       style={styles.modal}
     >
-      <View style={styles.modalContent}>
+      <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {/* Заголовок с кнопкой закрытия */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Фильтр авто</Text>
@@ -266,7 +269,7 @@ export function FindAutoPanel({
       </View>
     </Modal>
   );
-};
+}
 
 const styles = StyleSheet.create({
   modal: {
@@ -298,7 +301,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 10,
   },
   container: {
     flexDirection: 'column',

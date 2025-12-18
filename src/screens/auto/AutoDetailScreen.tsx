@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableHighlight, TouchableOpacity, Image, Modal, ActivityIndicator, Linking, Platform, StatusBar, 
   FlatList, Pressable, TextInput, ImageBackground
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from "expo-document-picker";
@@ -1707,66 +1707,59 @@ class Auto extends React.Component<AutoProps, AutoState> {
         </View>
 
         { this.state.current_tab == 'files' ? (
-            <>
-              <ScrollView>
-                <View style={{
-                  flex: 1,
-                  alignItems: 'stretch',
-                  justifyContent: 'flex-start',
-                  paddingBottom: 80,
-                }}>
+            <SafeAreaInsetsContext.Consumer>
+              {(insets) => (
+                <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                  }}>
 
-                <TouchableHighlight 
-                  style={{ paddingLeft: 30, paddingTop: 10 }}
-                  activeOpacity={1}
-                  underlayColor='#FFFFFF'
-                  onPress={() => this.openModalEditFile( 'add' )}>
-                  <View style={{ 
-                      alignItems: 'center',
-                      flexDirection: "row"
-                    }}>     
-                    <Image source={require('../../../assets/images/add_button_2.png')} />
-                    <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
-                  </View>  
-                </TouchableHighlight>
+                  <TouchableHighlight 
+                    style={{ paddingLeft: 30, paddingTop: 10 }}
+                    activeOpacity={1}
+                    underlayColor='#FFFFFF'
+                    onPress={() => this.openModalEditFile( 'add' )}>
+                    <View style={{ 
+                        alignItems: 'center',
+                        flexDirection: "row"
+                      }}>     
+                      <Image source={require('../../../assets/images/add_button_2.png')} />
+                      <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
+                    </View>  
+                  </TouchableHighlight>
 
-                  { this.state.files_indicator ? (
-                      <ActivityIndicator size="large" color="#313131" animating={true}/>
-                    ) : (
-                      <>
-                        { this.state.auto_file_data.length ? (
-                            <View>
-                              {this.state.auto_file_data.map((item) => this.renderAutoFileItem(item))}
-                            </View>
-                          ) : null
-                        }
-                      </>
-                    )
-                  }
+                    { this.state.files_indicator ? (
+                        <ActivityIndicator size="large" color="#313131" animating={true}/>
+                      ) : (
+                        <>
+                          { this.state.auto_file_data.length ? (
+                              <View>
+                                {this.state.auto_file_data.map((item) => this.renderAutoFileItem(item))}
+                              </View>
+                            ) : null
+                          }
+                        </>
+                      )
+                    }
 
-                </View>
-              </ScrollView>
-
-              {/*    
-              <TouchableHighlight
-                style={{ position: 'absolute', bottom: 20, right: 20, padding: 10 }}
-                onPress={() => this.openModalEditFile( 'add' )}
-              >
-                <Image source={require('../../../assets/images/add_button.png')} />
-              </TouchableHighlight>
-              */}
-
-            </>
+                  </View>
+                </ScrollView>
+              )}
+            </SafeAreaInsetsContext.Consumer>
           ) : null
         }
 
         { this.state.current_tab == 'fines' ? (
-            <ScrollView>
-              <View style={{
-                flex: 1,
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
-              }}>
+            <SafeAreaInsetsContext.Consumer>
+              {(insets) => (
+                <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                  }}>
 
                 { this.state.fines_indicator ? (
                     <ActivityIndicator size="large" color="#313131" animating={true}/>
@@ -1949,19 +1942,23 @@ class Auto extends React.Component<AutoProps, AutoState> {
                   )
                 }
 
-              </View>
-            </ScrollView>
+                  </View>
+                </ScrollView>
+              )}
+            </SafeAreaInsetsContext.Consumer>
           ) : null
         }
 
 
         { this.state.current_tab == 'avtodor' ? (
-            <ScrollView>
-              <View style={{
-                flex: 1,
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
-              }}>
+            <SafeAreaInsetsContext.Consumer>
+              {(insets) => (
+                <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                  }}>
 
                 { this.state.avtodor_indicator ? (
                     <ActivityIndicator size="large" color="#313131" animating={true}/>
@@ -2055,8 +2052,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
                   )
                 }
 
-              </View>
-            </ScrollView>
+                  </View>
+                </ScrollView>
+              )}
+            </SafeAreaInsetsContext.Consumer>
           ) : null
         }        
 
@@ -2130,12 +2129,14 @@ class Auto extends React.Component<AutoProps, AutoState> {
 
         { this.state.current_tab == 'passes' ? (
             <>
-              <ScrollView>
-                <View style={{
-                  flex: 1,
-                  alignItems: 'stretch',
-                  justifyContent: 'flex-start',
-                }}>
+              <SafeAreaInsetsContext.Consumer>
+                {(insets) => (
+                  <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+                    <View style={{
+                      flex: 1,
+                      alignItems: 'stretch',
+                      justifyContent: 'flex-start',
+                    }}>
                   { this.state.passes_indicator ? (
                       <ActivityIndicator size="large" color="#313131" animating={true}/>
                     ) : (
@@ -2146,30 +2147,49 @@ class Auto extends React.Component<AutoProps, AutoState> {
                       </>
                     )
                   }
-                </View>
-              </ScrollView>
-              <TouchableHighlight
-                style={{ position: 'absolute', left: 10, bottom: 10, right: 10, height: 50, margin: 25, borderRadius: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: "#3A3A3A" }}
-                onPress={() => {
-                  console.log('-> move to Pass')
-                  let auto_data_new = this.state.auto_data
-                  auto_data_new.marked = true
-                  this.setState({auto_data: auto_data_new})
-                  this.props.navigation.navigate('Pass', { auto_list: [ this.state.auto_data ] })
-                }}>
-                <Text style={{ fontSize: 24, color: "#EEEEEE" }}>Заказать пропуск</Text>
-              </TouchableHighlight>
+                    </View>
+                  </ScrollView>
+                )}
+              </SafeAreaInsetsContext.Consumer>
+              <SafeAreaInsetsContext.Consumer>
+                {(insets) => (
+                  <TouchableHighlight
+                    style={{ 
+                      position: 'absolute', 
+                      left: 10, 
+                      bottom: Math.max(insets?.bottom || 0, 10), 
+                      right: 10, 
+                      height: 50, 
+                      margin: 25, 
+                      borderRadius: 5, 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      backgroundColor: "#3A3A3A" 
+                    }}
+                    onPress={() => {
+                      console.log('-> move to Pass')
+                      let auto_data_new = this.state.auto_data
+                      auto_data_new.marked = true
+                      this.setState({auto_data: auto_data_new})
+                      this.props.navigation.navigate('Pass', { auto_list: [ this.state.auto_data ] })
+                    }}>
+                    <Text style={{ fontSize: 24, color: "#EEEEEE" }}>Заказать пропуск</Text>
+                  </TouchableHighlight>
+                )}
+              </SafeAreaInsetsContext.Consumer>
             </>
           ) : null
         }
 
         { this.state.current_tab == 'rnis' ? (
-            <ScrollView>
-              <View style={{
-                flex: 1,
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
-              }}>
+            <SafeAreaInsetsContext.Consumer>
+              {(insets) => (
+                <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+                  <View style={{
+                    flex: 1,
+                    alignItems: 'stretch',
+                    justifyContent: 'flex-start',
+                  }}>
 
                 { this.state.rnis_indicator ? (
                     <ActivityIndicator size="large" color="#313131" animating={true}/>
@@ -2243,8 +2263,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
                   )
                 }
 
-              </View>
-            </ScrollView>
+                  </View>
+                </ScrollView>
+              )}
+            </SafeAreaInsetsContext.Consumer>
           ) : null
         }
 
