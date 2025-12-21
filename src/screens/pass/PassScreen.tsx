@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableHighlight, TouchableOpacity, TextInput, Image, Modal, ActivityIndicator, Pressable, StatusBar, FlatList, ImageBackground } from 'react-native';
+import { View, Text, TouchableHighlight, TouchableOpacity, TextInput, Image, Modal, ActivityIndicator, Pressable, StatusBar, FlatList, ImageBackground, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -648,7 +649,12 @@ class Pass extends React.Component<PassProps, PassState> {
 
         <SafeAreaInsetsContext.Consumer>
           {(insets) => (
-            <ScrollView contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 10) }}>
+            <KeyboardAwareScrollView
+              enableOnAndroid={true}
+              extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
+            >
 
               <Text style={{ paddingTop: 15, paddingLeft: 20, paddingRight: 20, fontSize: 15, fontWeight: "normal", color: "#313131" }}>Вы можете указать зону</Text>
 
@@ -814,7 +820,7 @@ class Pass extends React.Component<PassProps, PassState> {
             {this.state.auto_list.map((item) => this.renderItem(item))}
           </View>
 
-            </ScrollView>
+            </KeyboardAwareScrollView>
           )}
         </SafeAreaInsetsContext.Consumer>
 

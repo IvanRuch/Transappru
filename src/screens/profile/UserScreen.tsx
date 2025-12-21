@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, StatusBar, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import styles from '../../styles/Styles.js';
@@ -567,7 +568,12 @@ class User extends React.Component<UserProps, UserState> {
             this.setState({modalEditContactVisible: false})
           }}
         >
-          <ScrollView>
+          <KeyboardAwareScrollView
+            enableOnAndroid={true}
+            extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 150 }}
+          >
             <View style={{
               flex: 1,
               alignItems: 'stretch',
@@ -760,10 +766,17 @@ class User extends React.Component<UserProps, UserState> {
               }
             </View>
           </View>
-        </ScrollView>
+          </KeyboardAwareScrollView>
       </Modal>
 
-      <ScrollView>
+      <SafeAreaInsetsContext.Consumer>
+        {(insets) => (
+          <KeyboardAwareScrollView
+            enableOnAndroid={true}
+            extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
+          >
         <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Название организации:</Text>
 
           <View style={{
@@ -826,7 +839,9 @@ class User extends React.Component<UserProps, UserState> {
           </View>
           
 
-        </ScrollView>
+          </KeyboardAwareScrollView>
+        )}
+      </SafeAreaInsetsContext.Consumer>
 
         { !this.state.modalEditContactVisible || this.state.modalDelContactVisible || this.state.modalDelUserVisible ? (        
           <TouchableHighlight

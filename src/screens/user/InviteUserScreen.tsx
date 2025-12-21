@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableHighlight, Image, ScrollView, StyleSheet, Share } from 'react-native';
+import { View, Text, TextInput, TouchableHighlight, Image, StyleSheet, Share, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../../utils/Api';
@@ -161,7 +162,13 @@ export default function InviteUserScreen() {
         <Text style={styles.headerTitle}>Пригласи друга</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <KeyboardAwareScrollView
+        style={styles.content}
+        enableOnAndroid={true}
+        extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 150 }}
+      >
         <View style={styles.discountInfo}>
           <Text style={styles.discountText}>Подробности скидки по телефону </Text>
           <Text style={styles.phoneLink}>{managerPhone}</Text>
@@ -219,7 +226,7 @@ export default function InviteUserScreen() {
           />
         </View>
 
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Кнопка отправить - показывается только когда все поля заполнены */}
       {!buttonDisabled && (

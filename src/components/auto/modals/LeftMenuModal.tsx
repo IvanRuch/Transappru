@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableHighlight, Image, ScrollView, Platform, Animated, StatusBar, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { UserData, OurService } from '../../../types/auto';
 
 interface LeftMenuModalProps {
@@ -32,6 +33,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   onSwitchOrganization,
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [ourServicesVisible, setOurServicesVisible] = useState(false);
   
   // Адаптивная ширина меню: максимум 75% экрана или 340px
@@ -108,7 +110,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
             </Text>
           </View>
 
-          <ScrollView>
+          <ScrollView contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) + 40 }}>
             {/* 1. Наши услуги */}
             <TouchableHighlight 
               style={{ paddingTop: 20, borderTopWidth: 1, borderTopColor: '#B8B8B8' }}

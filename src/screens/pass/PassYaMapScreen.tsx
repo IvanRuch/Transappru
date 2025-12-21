@@ -53,7 +53,7 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
     this.map = React.createRef();
 
     this.state = {
-      location_type: props.route.params.location_type,
+      location_type: props.route.params.location_type || '',
       lon: props.route.params.lon || '',
       lat: props.route.params.lat || '',
       wrong_location: false,
@@ -69,9 +69,8 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
 
   yaMapLongPress = (point: any) => {
     console.log('yaMapLongPress')
-
-    console.log('point')
-    console.log(point)
+    console.log('point:', point)
+    console.log('current location_type:', this.state.location_type)
 
     this.setState({ lon: point.lon, lat: point.lat, wrong_location: false, isLoadingAddress: true })
 
@@ -94,7 +93,10 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
             }
             else
             {
-              this.setState({address_map_data: { address: '' }, wrong_location: true, isLoadingAddress: false})
+              // Показываем "вне зоны" только если зона была выбрана
+              // Если зона не выбрана (location_type пустой) - просто не показываем адрес
+              const showWrongLocation = this.state.location_type !== '';
+              this.setState({address_map_data: { address: '' }, wrong_location: showWrongLocation, isLoadingAddress: false})
             }
           }
         })
@@ -167,11 +169,8 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
         <ScreenHeader 
           title="Добавить адрес"
           onBack={() => {
-            console.log('-> move to Pass')
-            this.props.navigation.navigate('Pass', { 
-              address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
-              auto_list: this.props.route.params.auto_list 
-            })
+            console.log('-> move to Pass (without saving address)')
+            this.props.navigation.goBack()
           }}
         />
 

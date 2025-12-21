@@ -70,15 +70,14 @@ const withAndroidNodeConfig = (config) => {
     return config;
   });
 
-  // 2. Патчим settings.gradle
+  // 2. Патчим settings.gradle и app/build.gradle
   config = withDangerousMod(config, [
     'android',
     async (config) => {
-      const settingsGradlePath = path.join(
-        config.modRequest.platformProjectRoot,
-        'settings.gradle'
-      );
-
+      const platformRoot = config.modRequest.platformProjectRoot;
+      
+      // 2a. Патчим settings.gradle
+      const settingsGradlePath = path.join(platformRoot, 'settings.gradle');
       if (fs.existsSync(settingsGradlePath)) {
         let content = fs.readFileSync(settingsGradlePath, 'utf-8');
         const originalContent = content;
@@ -91,11 +90,34 @@ const withAndroidNodeConfig = (config) => {
 
         if (content !== originalContent) {
           fs.writeFileSync(settingsGradlePath, content, 'utf-8');
-          if (!process.env.NODE_CONFIG_LOGGED) {
-            console.log('✅ Android Node.js configuration applied');
-            process.env.NODE_CONFIG_LOGGED = 'true';
-          }
         }
+      }
+
+      // 2b. Патчим app/build.gradle - заменяем ["node" на [nodeExecutable
+      const appBuildGradlePath = path.join(platformRoot, 'app', 'build.gradle');
+      if (fs.existsSync(appBuildGradlePath)) {
+        let content = fs.readFileSync(appBuildGradlePath, 'utf-8');
+        const originalContent = content;
+        
+        // Добавляем определение nodeExecutable после projectRoot, если его нет
+        if (!content.includes('def nodeExecutable')) {
+          content = content.replace(
+            /def projectRoot = rootDir\.getAbsoluteFile\(\)\.getParentFile\(\)\.getAbsolutePath\(\)/,
+            `def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()\ndef nodeExecutable = findProperty('react.nodeExecutableAndArgs') ?: 'node'`
+          );
+        }
+        
+        // Заменяем ["node" на [nodeExecutable
+        content = content.replace(/\["node"/g, '[nodeExecutable');
+
+        if (content !== originalContent) {
+          fs.writeFileSync(appBuildGradlePath, content, 'utf-8');
+        }
+      }
+
+      if (!process.env.NODE_CONFIG_LOGGED) {
+        console.log('✅ Android Node.js configuration applied');
+        process.env.NODE_CONFIG_LOGGED = 'true';
       }
 
       return config;

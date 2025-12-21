@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, View, Image, TouchableHighlight, TouchableOpacity, Modal, TextInput, ActivityIndicator, FlatList, Pressable, ScrollView, StatusBar } from 'react-native';
+import { Text, View, Image, TouchableHighlight, TouchableOpacity, Modal, TextInput, ActivityIndicator, FlatList, Pressable, ScrollView, StatusBar, Platform } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -273,7 +274,12 @@ class DriverListClass extends React.Component<DriverListProps, DriverListState> 
           visible={this.state.modalEditDriverVisible}
           onRequestClose={() => this.setState({ modalEditDriverVisible: false })}
         >
-          <ScrollView>
+          <KeyboardAwareScrollView
+            enableOnAndroid={true}
+            extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 150 }}
+          >
             <View style={{
               flex: 1,
               alignItems: 'stretch',
@@ -440,7 +446,7 @@ class DriverListClass extends React.Component<DriverListProps, DriverListState> 
                 </View>
               </View>
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </Modal>
 
         {/* Модалка подтверждения удаления */}

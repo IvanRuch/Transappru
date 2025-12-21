@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, Platform, StatusBar } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -391,21 +392,23 @@ class OurServicesClass extends React.Component<OurServicesProps, OurServicesStat
           }}
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-          style={{ flex: 1 }}
-        >
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 160 }}>
+        <SafeAreaInsetsContext.Consumer>
+          {(insets) => (
+            <KeyboardAwareScrollView
+              enableOnAndroid={true}
+              extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
+            >
 
-          <View style={{
-              flexDirection: "row",
-              paddingLeft: 20,
-              paddingRight: 20,
-              marginTop: 30
-            }}>
-              <Text style={{ fontSize: 14, fontWeight: "normal", color: "#656565" }}>{ this.state.service_data.description }</Text>
-          </View>            
+              <View style={{
+                  flexDirection: "row",
+                  paddingLeft: 20,
+                  paddingRight: 20,
+                  marginTop: 30
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: "normal", color: "#656565" }}>{ this.state.service_data.description }</Text>
+              </View>            
           <Text style={{ marginTop: 10, paddingLeft: 20, paddingRight: 20, paddingTop: 20, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Контактное лицо *:</Text>
 
           <View style={{
@@ -941,8 +944,9 @@ class OurServicesClass extends React.Component<OurServicesProps, OurServicesStat
             )
           }
 
-        </ScrollView>
-        </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+          )}
+        </SafeAreaInsetsContext.Consumer>
 
 
 

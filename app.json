@@ -31,6 +31,7 @@
     },
     "android": {
       "package": "com.transappru",
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

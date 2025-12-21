@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ScrollView, ActivityIndicator, Platform, Linking, Keyboard, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ActivityIndicator, Platform, Linking, Keyboard, StatusBar } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -316,12 +317,19 @@ class InnClass extends React.Component<InnProps, InnState> {
           <Text style={styles.header}>Введите ИНН</Text>
         )}
         
-        <ScrollView>
-          {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
-            <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, fontSize: 14, color: "#656565", textAlign: "justify" }}>
-              для более точной идентификации Вас как клиента
-            </Text>
-          )}
+        <SafeAreaInsetsContext.Consumer>
+          {(insets) => (
+            <KeyboardAwareScrollView
+              enableOnAndroid={true}
+              extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
+            >
+              {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
+                <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, fontSize: 14, color: "#656565", textAlign: "justify" }}>
+                  для более точной идентификации Вас как клиента
+                </Text>
+              )}
           {!this.state.check_rnis ? (
             /* Добавление организации по ИНН */
             <>
@@ -504,7 +512,9 @@ class InnClass extends React.Component<InnProps, InnState> {
               )}
             </View>
           ) : null}
-        </ScrollView>
+            </KeyboardAwareScrollView>
+          )}
+        </SafeAreaInsetsContext.Consumer>
       </SafeAreaView>
     );
   }

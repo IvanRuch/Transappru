@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableHighlight, TouchableOpacity, Image, Modal, ActivityIndicator, Linking, Platform, StatusBar, 
   FlatList, Pressable, TextInput, ImageBackground
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1445,7 +1446,12 @@ class Auto extends React.Component<AutoProps, AutoState> {
             this.setState({modalEditFileVisible: false})
           }}
         >
-          <ScrollView>
+          <KeyboardAwareScrollView
+            enableOnAndroid={true}
+            extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 150 }}
+          >
             <View style={{
               flex: 1,
               alignItems: 'stretch',
@@ -1560,7 +1566,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
 
               </View>
             </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
         </Modal>
         {/* */}
 
