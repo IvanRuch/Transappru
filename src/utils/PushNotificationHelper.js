@@ -158,7 +158,15 @@ export const getFCMToken = async () => {
   }
 }
 
+let listenersInitialized = false;
+
 export const NotificationListener = () => {
+  if (listenersInitialized) {
+    console.log('⚠️ NotificationListener already initialized, skipping...');
+    return;
+  }
+
+  listenersInitialized = true;
 
   console.log('========================================')
   console.log('🔔 NotificationListener - Registering...')

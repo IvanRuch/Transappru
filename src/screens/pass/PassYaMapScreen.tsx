@@ -139,6 +139,7 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
   }
 
   componentDidMount() {
+    console.log('[PassYaMap] componentDidMount, location_type=', this.state.location_type);
     // Запрашиваем разрешение на геолокацию для Android
     this.requestLocationPermission();
 
@@ -155,6 +156,9 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
     });
   }
 
+  componentWillUnmount() {
+      console.log('[PassYaMap] componentWillUnmount');
+  }
 
   render() {
     return (

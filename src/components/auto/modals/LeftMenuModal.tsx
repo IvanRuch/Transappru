@@ -239,13 +239,10 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     activeOpacity={1}
                     underlayColor='#F0F0F0'
                     onPress={() => {
-                      if (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) {
-                        onSwitchOrganization(item.inn, () => {
-                          onClose();
-                        });
-                      } else {
-                        console.log('Organization not confirmed:', item.inn);
-                      }
+                      console.log('Switching to organization:', item.inn, 'user_confirmed:', item.user_confirmed, 'phone_inn_confirmed:', item.phone_inn_confirmed);
+                      onSwitchOrganization(item.inn, () => {
+                        onClose();
+                      });
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>

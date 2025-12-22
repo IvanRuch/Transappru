@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableHighlight, ActivityIndicator, Image, Pressable, StyleSheet, Platform, StatusBar } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, FlatList, TouchableHighlight, ActivityIndicator, Image, Pressable, StyleSheet, Platform, StatusBar, ViewToken } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,11 @@ interface NotificationItem {
   viewed: string | number;
 }
 
+const viewabilityConfig = {
+  waitForInteraction: true,
+  itemVisiblePercentThreshold: 75
+};
+
 export default function NotificationListScreen() {
   const router = useRouter();
   
@@ -27,27 +32,44 @@ export default function NotificationListScreen() {
 
   const loadNotifications = async () => {
     const token = await AsyncStorage.getItem('token');
+    console.log('[NotificationList] Token:', token ? 'EXISTS (length: ' + token.length + ')' : 'NOT FOUND');
+    
     if (!token) {
-      console.log('No token');
+      console.log('[NotificationList] No token, redirecting to auth');
       router.replace('/');
       return;
     }
 
     setIndicator(true);
+    console.log('[NotificationList] Sending request to /get-notification-list');
 
     try {
       const res = await Api.post('/get-notification-list', { token });
       const data = res.data;
-      console.log('Notifications:', data);
+      
+      console.log('[NotificationList] Response received:');
+      console.log('  - auth_required:', data.auth_required);
+      console.log('  - notification_list type:', typeof data.notification_list);
+      console.log('  - notification_list:', data.notification_list);
+      console.log('  - notification_list length:', data.notification_list ? data.notification_list.length : 'N/A');
+      console.log('  - Full response:', JSON.stringify(data));
 
       if (data.auth_required == 1) {
+        console.log('[NotificationList] Auth required, redirecting');
         router.replace('/');
       } else {
-        setNotificationList(data.notification_list || []);
+        const list = data.notification_list || [];
+        console.log('[NotificationList] Setting notification list, count:', list.length);
+        setNotificationList(list);
         setIndicator(false);
       }
     } catch (error: any) {
-      console.log('Error loading notifications:', error);
+      console.log('[NotificationList] ERROR:');
+      console.log('  - Message:', error.message);
+      console.log('  - Status:', error.response?.status);
+      console.log('  - Data:', error.response?.data);
+      console.log('  - Full error:', error);
+      
       if (error.response?.status === 401) {
         router.replace('/');
       }
@@ -77,6 +99,37 @@ export default function NotificationListScreen() {
       }
     }
   };
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    console.log('[NotificationList] onViewableItemsChanged - Visible items:', viewableItems.length);
+
+    const notificationIds: string[] = [];
+
+    setNotificationList(prevList => {
+      const updatedList = [...prevList];
+
+      for (let i = 0; i < viewableItems.length; i++) {
+        if (viewableItems[i].isViewable && viewableItems[i].index !== null && viewableItems[i].index !== undefined) {
+          const index = viewableItems[i].index as number;
+          const item = viewableItems[i].item as NotificationItem;
+          
+          console.log('  - Viewable item index:', index, 'id:', item.id, 'viewed:', updatedList[index].viewed);
+
+          if (updatedList[index].viewed === '0' || updatedList[index].viewed === 0) {
+            updatedList[index].viewed = 1;
+            notificationIds.push(item.id);
+          }
+        }
+      }
+
+      return updatedList;
+    });
+
+    if (notificationIds.length > 0) {
+      console.log('[NotificationList] Marking as viewed:', notificationIds);
+      setNotificationAsViewed(notificationIds);
+    }
+  }).current;
 
   const onPressItem = (item: NotificationItem) => {
     console.log('onPressItem', item.id);
@@ -171,6 +224,8 @@ export default function NotificationListScreen() {
         initialNumToRender={10}
         renderItem={renderItem}
         keyExtractor={item => item.id}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
       />
     </SafeAreaView>
   );

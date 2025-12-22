@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, View, Text, TouchableHighlight, Image, StyleSheet, Linking } from 'react-native';
+import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import type { ManagerData } from '../../../types/auto';
 
 interface ContactsModalProps {
@@ -43,148 +44,152 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
         onPress={onClose}
       >
         <View style={styles.container}>
-          <TouchableHighlight
-            activeOpacity={1}
-            underlayColor="#FFFFFF"
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.content}>
-          <View style={{ flex: 1, flexDirection: 'column' }}>
-            {/* Заголовок и кнопка закрытия */}
-            <View style={styles.header}>
-              <View style={styles.titleContainer}>
-                <Text style={styles.title}>Контакты</Text>
-              </View>
-              <View style={styles.closeButtonContainer}>
-                <TouchableHighlight
-                  style={styles.closeButton}
-                  activeOpacity={1}
-                  underlayColor='#FFFFFF'
-                  onPress={onClose}
-                >
-                  <Image source={require('../../../../assets/images/xclose_2.png')} />
-                </TouchableHighlight>
-              </View>
-            </View>
+          <SafeAreaInsetsContext.Consumer>
+            {(insets) => (
+              <TouchableHighlight
+                activeOpacity={1}
+                underlayColor="#FFFFFF"
+                onPress={(e) => e.stopPropagation()}
+              >
+                <View style={styles.content}>
+                  <View style={{ flex: 1, flexDirection: 'column', paddingBottom: Math.max(insets?.bottom || 0, 20) }}>
+                    {/* Заголовок и кнопка закрытия */}
+                    <View style={styles.header}>
+                      <View style={styles.titleContainer}>
+                        <Text style={styles.title}>Контакты</Text>
+                      </View>
+                      <View style={styles.closeButtonContainer}>
+                        <TouchableHighlight
+                          style={styles.closeButton}
+                          activeOpacity={1}
+                          underlayColor='#FFFFFF'
+                          onPress={onClose}
+                        >
+                          <Image source={require('../../../../assets/images/xclose_2.png')} />
+                        </TouchableHighlight>
+                      </View>
+                    </View>
 
-            {/* Менеджер */}
-            <View style={styles.card}>
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>Менеджер</Text>
-                <Text style={styles.cardName}>{managerData.name}</Text>
+                    {/* Менеджер */}
+                    <View style={styles.card}>
+                      <View style={styles.cardContent}>
+                        <Text style={styles.cardTitle}>Менеджер</Text>
+                        <Text style={styles.cardName}>{managerData.name}</Text>
 
-                <View style={styles.actionsRow}>
-                  <View style={styles.actionItem}>
-                    <TouchableHighlight
-                      activeOpacity={1}
-                      underlayColor='#F7F7F7'
-                      onPress={() => onContactEmail(
-                        managerData.email || '',
-                        managerData.email_subject || '',
-                        managerData.email_body || ''
-                      )}
-                    >
-                      <View style={styles.actionButton}>
-                        <Image source={require('../../../../assets/images/contact_mail_2.png')} />
+                        <View style={styles.actionsRow}>
+                          <View style={styles.actionItem}>
+                            <TouchableHighlight
+                              activeOpacity={1}
+                              underlayColor='#F7F7F7'
+                              onPress={() => onContactEmail(
+                                managerData.email || '',
+                                managerData.email_subject || '',
+                                managerData.email_body || ''
+                              )}
+                            >
+                              <View style={styles.actionButton}>
+                                <Image source={require('../../../../assets/images/contact_mail_2.png')} />
+                              </View>
+                            </TouchableHighlight>
+                          </View>
+                          <View style={styles.separator}>
+                            <Image source={require('../../../../assets/images/contact_separator.png')} />
+                          </View>
+                          <View style={styles.actionItemCenter}>
+                            <TouchableHighlight
+                              activeOpacity={1}
+                              underlayColor='#F7F7F7'
+                              onPress={() => onContactPhone(managerData.mobile_phone || '')}
+                            >
+                              <View style={styles.actionButton}>
+                                <Image source={require('../../../../assets/images/contact_phone_2.png')} />
+                              </View>
+                            </TouchableHighlight>
+                          </View>
+                          <View style={styles.separator}>
+                            <Image source={require('../../../../assets/images/contact_separator.png')} />
+                          </View>
+                          <View style={styles.actionItem}>
+                            <TouchableHighlight
+                              activeOpacity={1}
+                              underlayColor='#F7F7F7'
+                              onPress={() => contactWhatsapp(
+                                managerData.mobile_phone || '',
+                                managerData.whatapp_greetings || ''
+                              )}
+                            >
+                              <View style={styles.actionButton}>
+                                <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
+                              </View>
+                            </TouchableHighlight>
+                          </View>
+                        </View>
                       </View>
-                    </TouchableHighlight>
-                  </View>
-                  <View style={styles.separator}>
-                    <Image source={require('../../../../assets/images/contact_separator.png')} />
-                  </View>
-                  <View style={styles.actionItemCenter}>
-                    <TouchableHighlight
-                      activeOpacity={1}
-                      underlayColor='#F7F7F7'
-                      onPress={() => onContactPhone(managerData.mobile_phone || '')}
-                    >
-                      <View style={styles.actionButton}>
-                        <Image source={require('../../../../assets/images/contact_phone_2.png')} />
+                    </View>
+
+                    {/* Техподдержка */}
+                    {techSupportName && techSupportData && (
+                      <View style={styles.card}>
+                        <View style={styles.cardContent}>
+                          <Text style={styles.cardTitle}>Техническая поддержка</Text>
+                          <Text style={styles.cardName}>{techSupportName}</Text>
+
+                          <View style={styles.actionsRow}>
+                            <View style={styles.actionItem}>
+                              <TouchableHighlight
+                                activeOpacity={1}
+                                underlayColor='#F7F7F7'
+                                onPress={() => onContactEmail(
+                                  techSupportData.email || '',
+                                  techSupportData.email_subject || '',
+                                  techSupportData.email_body || ''
+                                )}
+                              >
+                                <View style={styles.actionButton}>
+                                  <Image source={require('../../../../assets/images/contact_mail_2.png')} />
+                                </View>
+                              </TouchableHighlight>
+                            </View>
+                            <View style={styles.separator}>
+                              <Image source={require('../../../../assets/images/contact_separator.png')} />
+                            </View>
+                            <View style={styles.actionItemCenter}>
+                              <TouchableHighlight
+                                activeOpacity={1}
+                                underlayColor='#F7F7F7'
+                                onPress={() => onContactPhone(techSupportData.mobile_phone || '')}
+                              >
+                                <View style={styles.actionButton}>
+                                  <Image source={require('../../../../assets/images/contact_phone_2.png')} />
+                                </View>
+                              </TouchableHighlight>
+                            </View>
+                            <View style={styles.separator}>
+                              <Image source={require('../../../../assets/images/contact_separator.png')} />
+                            </View>
+                            <View style={styles.actionItem}>
+                              <TouchableHighlight
+                                activeOpacity={1}
+                                underlayColor='#F7F7F7'
+                                onPress={() => contactWhatsapp(
+                                  techSupportData.mobile_phone || '',
+                                  techSupportData.whatapp_greetings || ''
+                                )}
+                              >
+                                <View style={styles.actionButton}>
+                                  <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
+                                </View>
+                              </TouchableHighlight>
+                            </View>
+                          </View>
+                        </View>
                       </View>
-                    </TouchableHighlight>
-                  </View>
-                  <View style={styles.separator}>
-                    <Image source={require('../../../../assets/images/contact_separator.png')} />
-                  </View>
-                  <View style={styles.actionItem}>
-                    <TouchableHighlight
-                      activeOpacity={1}
-                      underlayColor='#F7F7F7'
-                      onPress={() => contactWhatsapp(
-                        managerData.mobile_phone || '',
-                        managerData.whatapp_greetings || ''
-                      )}
-                    >
-                      <View style={styles.actionButton}>
-                        <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
-                      </View>
-                    </TouchableHighlight>
+                    )}
                   </View>
                 </View>
-              </View>
-            </View>
-
-            {/* Техподдержка */}
-            {techSupportName && techSupportData && (
-              <View style={styles.card}>
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardTitle}>Техническая поддержка</Text>
-                  <Text style={styles.cardName}>{techSupportName}</Text>
-
-                  <View style={styles.actionsRow}>
-                    <View style={styles.actionItem}>
-                      <TouchableHighlight
-                        activeOpacity={1}
-                        underlayColor='#F7F7F7'
-                        onPress={() => onContactEmail(
-                          techSupportData.email || '',
-                          techSupportData.email_subject || '',
-                          techSupportData.email_body || ''
-                        )}
-                      >
-                        <View style={styles.actionButton}>
-                          <Image source={require('../../../../assets/images/contact_mail_2.png')} />
-                        </View>
-                      </TouchableHighlight>
-                    </View>
-                    <View style={styles.separator}>
-                      <Image source={require('../../../../assets/images/contact_separator.png')} />
-                    </View>
-                    <View style={styles.actionItemCenter}>
-                      <TouchableHighlight
-                        activeOpacity={1}
-                        underlayColor='#F7F7F7'
-                        onPress={() => onContactPhone(techSupportData.mobile_phone || '')}
-                      >
-                        <View style={styles.actionButton}>
-                          <Image source={require('../../../../assets/images/contact_phone_2.png')} />
-                        </View>
-                      </TouchableHighlight>
-                    </View>
-                    <View style={styles.separator}>
-                      <Image source={require('../../../../assets/images/contact_separator.png')} />
-                    </View>
-                    <View style={styles.actionItem}>
-                      <TouchableHighlight
-                        activeOpacity={1}
-                        underlayColor='#F7F7F7'
-                        onPress={() => contactWhatsapp(
-                          techSupportData.mobile_phone || '',
-                          techSupportData.whatapp_greetings || ''
-                        )}
-                      >
-                        <View style={styles.actionButton}>
-                          <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
-                        </View>
-                      </TouchableHighlight>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              </TouchableHighlight>
             )}
-          </View>
-        </View>
-          </TouchableHighlight>
+          </SafeAreaInsetsContext.Consumer>
         </View>
       </TouchableHighlight>
     </Modal>
