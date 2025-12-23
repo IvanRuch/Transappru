@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Pressable, Modal } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Pressable, Modal, Image, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
@@ -14,10 +14,23 @@ export default function PinScreen() {
   const [disabled, setDisabled] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [msg, setMsg] = useState('');
+  const [canGoBack, setCanGoBack] = useState(false);
 
-  // Проверку токена убрали - она теперь в app/index.tsx
+  // Проверяем, есть ли старый токен (пользователь пришёл через "Выйти")
   useEffect(() => {
     console.log('PinScreen mounted');
+    
+    const checkCanGoBack = async () => {
+      // Проверяем, есть ли сохранённый токен от предыдущей сессии
+      // Если пользователь пришёл через "Выйти", токен будет сохранён
+      const savedToken = await AsyncStorage.getItem('saved_token_for_return');
+      if (savedToken) {
+        console.log('🔑 Saved token exists, user can go back to old session');
+        setCanGoBack(true);
+      }
+    };
+    
+    checkCanGoBack();
   }, []);
 
   // Handlers
@@ -126,6 +139,32 @@ export default function PinScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Кнопка "Назад" если пользователь пришёл через "Выйти" */}
+      {canGoBack && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 60 : 20,
+            left: 20,
+            padding: 10,
+            zIndex: 10
+          }}
+          onPress={async () => {
+            console.log('🔙 Going back to auth screen');
+            // Восстанавливаем сохранённый токен
+            const savedToken = await AsyncStorage.getItem('saved_token_for_return');
+            if (savedToken) {
+              await AsyncStorage.setItem('token', savedToken);
+              await AsyncStorage.removeItem('saved_token_for_return');
+              console.log('✅ Token restored, going back');
+            }
+            router.back();
+          }}
+        >
+          <Image source={require('../../../assets/images/back_2.png')} />
+        </TouchableOpacity>
+      )}
 
       <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите подтверждающий код</Text>
       <Text style={{ color: '#4C4C4C' }}>ожидайте sms-сообщение с кодом</Text>

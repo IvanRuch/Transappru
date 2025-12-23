@@ -15,8 +15,9 @@ export interface UserData {
   firm: string;
   inn: string;
   phone: string;
-  phone_inn_confirmed?: number;
-  user_confirmed?: number;
+  phone_inn_confirmed?: number | string;
+  user_confirmed?: number | string;
+  user_auto_count?: number | string;
   manager_data?: ManagerData;
   notification_unviewed_count?: number;
   other_user_notification_unviewed_count?: number;

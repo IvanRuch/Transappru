@@ -1828,7 +1828,9 @@ class Auto extends React.Component<AutoProps, AutoState> {
                               {this.state.auto_fine_data.unpaid_list.map((item: any) => this.renderAutoFineUnpaidItem(item))}
                             </View>
 
-                            { this.state.auto_fine_data.unpaid_list.length ? (
+                            {/* Кнопки оплаты штрафов - только в dev режиме */}
+                            { __DEV__ && (
+                              this.state.auto_fine_data.unpaid_list.length ? (
                                 <>
                                   <View style={{ 
                                     flexDirection: "row", 
@@ -1936,7 +1938,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
                                   </TouchableHighlight>
                                 </View>
                               )
-                            }
+                            )}
 
                           </>
                         ) : null

@@ -56,8 +56,19 @@ export default function UserScreen() {
   }, [loadUserData]);
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('token');
-    router.replace('/' as any);
+    // Не удаляем токен, просто переходим на экран авторизации
+    // Это позволяет вернуться назад или войти под другим аккаунтом
+    console.log('🚪 Logout: navigating to auth screen (token preserved)');
+    
+    // Сохраняем текущий токен для возможности возврата
+    const currentToken = await AsyncStorage.getItem('token');
+    if (currentToken) {
+      await AsyncStorage.setItem('saved_token_for_return', currentToken);
+    }
+    
+    // Используем специальный флаг в AsyncStorage чтобы index.tsx знал что нужно показать AuthScreen
+    await AsyncStorage.setItem('show_auth_screen', 'true');
+    router.push('/' as any);
   };
 
   const openModalEditContact = (mode: 'add' | 'edit', contact?: ContactData) => {
@@ -249,6 +260,30 @@ export default function UserScreen() {
             </TouchableHighlight>
           ))}
         </View>
+
+        {/* Кнопка очистки данных (только в dev режиме) */}
+        {__DEV__ && (
+          <View style={styles.devButtonSection}>
+            <TouchableHighlight
+              style={styles.devButton}
+              activeOpacity={1}
+              underlayColor='#F57C00'
+              onPress={async () => {
+                try {
+                  await AsyncStorage.clear();
+                  console.log('✅ App data cleared!');
+                  alert('Данные приложения очищены. Приложение будет перезапущено.');
+                  router.replace('/' as any);
+                } catch (e) {
+                  console.log('❌ Error clearing app data:', e);
+                  alert('Ошибка при очистке данных');
+                }
+              }}
+            >
+              <Text style={styles.devButtonText}>🗑️ Очистить данные (DEV)</Text>
+            </TouchableHighlight>
+          </View>
+        )}
 
         {/* Кнопка выйти */}
         <View style={styles.logoutSection}>
@@ -684,5 +719,20 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  devButtonSection: {
+    padding: 30,
+    marginTop: 20,
+  },
+  devButton: {
+    backgroundColor: '#FF9800',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  devButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
 });

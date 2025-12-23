@@ -87,8 +87,9 @@ export default function OnBoardingScreen() {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           // Вызываем API для пометки онбординга как просмотренного
-          await Api.post('/get-onboarding', { token });
-          console.log('✅ Onboarding marked as viewed');
+          console.log('📤 Sending /get-onboarding request with token:', token.substring(0, 20) + '...');
+          const response = await Api.post('/get-onboarding', { token });
+          console.log('✅ Onboarding marked as viewed. Server response:', response.data);
         }
         
         // Переходим к списку авто

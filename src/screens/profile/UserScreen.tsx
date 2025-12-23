@@ -831,7 +831,7 @@ class User extends React.Component<UserProps, UserState> {
               }}>     
               <Image source={require('../../../assets/images/add_button_2.png')} />
               <Text style = {{ fontSize: 22, color: '#3A3A3A' }}>Добавить</Text>
-            </View>  
+            </View>
           </TouchableHighlight>
 
           <View>

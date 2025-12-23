@@ -32,7 +32,11 @@ export default function NotificationListScreen() {
 
   const loadNotifications = async () => {
     const token = await AsyncStorage.getItem('token');
+    console.log('========================================');
+    console.log('[NotificationList] Platform:', Platform.OS);
     console.log('[NotificationList] Token:', token ? 'EXISTS (length: ' + token.length + ')' : 'NOT FOUND');
+    console.log('[NotificationList] Token value (first 20 chars):', token ? token.substring(0, 20) + '...' : 'N/A');
+    console.log('========================================');
     
     if (!token) {
       console.log('[NotificationList] No token, redirecting to auth');
@@ -47,12 +51,16 @@ export default function NotificationListScreen() {
       const res = await Api.post('/get-notification-list', { token });
       const data = res.data;
       
+      console.log('========================================');
       console.log('[NotificationList] Response received:');
+      console.log('  - Platform:', Platform.OS);
       console.log('  - auth_required:', data.auth_required);
       console.log('  - notification_list type:', typeof data.notification_list);
-      console.log('  - notification_list:', data.notification_list);
+      console.log('  - notification_list is Array:', Array.isArray(data.notification_list));
       console.log('  - notification_list length:', data.notification_list ? data.notification_list.length : 'N/A');
+      console.log('  - notification_list content:', JSON.stringify(data.notification_list));
       console.log('  - Full response:', JSON.stringify(data));
+      console.log('========================================');
 
       if (data.auth_required == 1) {
         console.log('[NotificationList] Auth required, redirecting');

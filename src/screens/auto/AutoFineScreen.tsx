@@ -109,8 +109,8 @@ export default function AutoFineScreen() {
             <Text style={styles.infoText}>{fineData.vendor}</Text>
           </View>
 
-          {/* Кнопка оплаты (только для неоплаченных штрафов) */}
-          {(fineData.is_paid === 0 || fineData.is_paid === '0') && (
+          {/* Кнопка оплаты (только для неоплаченных штрафов и только в dev режиме) */}
+          {__DEV__ && (fineData.is_paid === 0 || fineData.is_paid === '0') && (
             <View style={styles.paymentButtonContainer}>
               <TouchableHighlight
                 style={styles.paymentButton}

@@ -93,6 +93,9 @@ export function useAutoActions(
       console.log('Switch organization response:', data);
 
       if (data.auth_required === 1) {
+        console.log('⚠️ Organization switch failed: auth_required.');
+        // Удаляем токен и делаем редирект на авторизацию
+        await AsyncStorage.removeItem('token');
         router.replace('/' as any);
         return;
       }
@@ -104,7 +107,12 @@ export function useAutoActions(
     } catch (error: any) {
       console.log('Error switching organization:', error);
       if (error.response?.status === 401) {
+        // Только при 401 делаем редирект на авторизацию
+        await AsyncStorage.removeItem('token');
         router.replace('/' as any);
+      } else {
+        // Для других ошибок показываем сообщение
+        alert('Ошибка при переключении организации. Попробуйте позже.');
       }
     }
   }, [router]);

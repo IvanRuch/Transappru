@@ -161,10 +161,12 @@ export function useAutoList() {
       }
 
       // Проверяем нужно ли показать OnBoarding
+      console.log('🔍 Checking onboarding_viewed:', data.onboarding_viewed, 'type:', typeof data.onboarding_viewed);
       if (data.onboarding_viewed === 0 || data.onboarding_viewed === '0') {
         console.log('✅ Showing onboarding (first time user)');
         setOnboardingViewed(0);
         router.push('/onboarding');
+        return; // ← ВАЖНО: прерываем выполнение, чтобы не показывать "Our Services" одновременно
       } else {
         console.log('⏭️ Onboarding already viewed, value:', data.onboarding_viewed);
         setOnboardingViewed(1);
@@ -176,6 +178,15 @@ export function useAutoList() {
         setUserStr(data.user_str || '');
         setUserList(data.user_list || []);
         setUserListEmptyStr(data.user_list_empty_str || '');
+        
+        console.log('========================================');
+        console.log('[AutoList] Other user list:', data.other_user_list);
+        console.log('[AutoList] Other user list length:', data.other_user_list?.length || 0);
+        if (data.other_user_list && data.other_user_list.length > 0) {
+          console.log('[AutoList] First other user:', JSON.stringify(data.other_user_list[0]));
+        }
+        console.log('========================================');
+        
         setOtherUserList(data.other_user_list || []);
         setOurServicesList(data.our_services_list || []);
       }
@@ -199,11 +210,17 @@ export function useAutoList() {
       setOnboardingExpired(onboardingExpiredValue);
       
       // Проверяем нужно ли показать модальное окно "Наши услуги"
-      if (data.announce_our_services_viewed === 0 || data.announce_our_services_viewed === '0') {
-        console.log('✅ Showing "Our Services" modal');
+      // ВАЖНО: показываем только если онбординг УЖЕ был просмотрен (не в этой сессии)
+      // и "Наши услуги" ещё не просмотрены
+      const shouldShowOurServices = 
+        (data.onboarding_viewed === 1 || data.onboarding_viewed === '1') &&
+        (data.announce_our_services_viewed === 0 || data.announce_our_services_viewed === '0');
+      
+      if (shouldShowOurServices) {
+        console.log('✅ Showing "Our Services" modal (onboarding already viewed)');
         setAnnounceOurServicesVisible(true);
       } else {
-        console.log('⏭️ "Our Services" already viewed, value:', data.announce_our_services_viewed);
+        console.log('⏭️ "Our Services" skipped. onboarding_viewed:', data.onboarding_viewed, 'announce_our_services_viewed:', data.announce_our_services_viewed);
       }
 
       // Список авто на верхнем уровне
@@ -495,7 +512,9 @@ export function useAutoList() {
     }
 
     try {
-      await api.post('/get-announce-our-services', { token });
+      console.log('📤 Sending /get-announce-our-services request with token:', token.substring(0, 20) + '...');
+      const response = await api.post('/get-announce-our-services', { token });
+      console.log('✅ "Our Services" marked as viewed. Server response:', response.data);
       setAnnounceOurServicesVisible(false);
     } catch (error: any) {
       console.log('Error in closeAnnounceOurServices:', error);

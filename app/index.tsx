@@ -19,6 +19,15 @@ export default function IndexScreen() {
       console.log('===========================================');
       
       try {
+        // Проверяем флаг "показать экран авторизации" (установлен при "Выйти")
+        const showAuthScreen = await AsyncStorage.getItem('show_auth_screen');
+        if (showAuthScreen === 'true') {
+          console.log('🚪 User requested logout, showing AuthScreen');
+          await AsyncStorage.removeItem('show_auth_screen');
+          setIsChecking(false);
+          return;
+        }
+
         const token = await AsyncStorage.getItem('token');
         console.log('Token from storage:', token ? 'EXISTS' : 'NULL');
         
@@ -106,25 +115,6 @@ export default function IndexScreen() {
             <View style={{ marginTop: 20, padding: 20 }}>
               <Text style={{ color: 'red', fontSize: 14 }}>Error: {error}</Text>
             </View>
-          )}
-          
-          {/* Кнопка очистки данных (только в dev режиме) */}
-          {__DEV__ && (
-            <TouchableOpacity
-              onPress={clearAppData}
-              style={{
-                position: 'absolute',
-                bottom: 50,
-                backgroundColor: '#EE505A',
-                paddingHorizontal: 20,
-                paddingVertical: 12,
-                borderRadius: 8,
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>
-                🗑️ Очистить данные (DEV)
-              </Text>
-            </TouchableOpacity>
           )}
         </View>
       </SafeAreaView>

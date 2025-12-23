@@ -240,9 +240,14 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     underlayColor='#F0F0F0'
                     onPress={() => {
                       console.log('Switching to organization:', item.inn, 'user_confirmed:', item.user_confirmed, 'phone_inn_confirmed:', item.phone_inn_confirmed);
-                      onSwitchOrganization(item.inn, () => {
-                        onClose();
-                      });
+                      // Проверяем подтверждение перед переключением (как в старом проекте)
+                      if (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) {
+                        onSwitchOrganization(item.inn, () => {
+                          onClose();
+                        });
+                      } else {
+                        console.log('Organization not confirmed, click ignored');
+                      }
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -273,23 +278,43 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                         )}
                       </View>
                       <View style={{ flex: 1, alignItems: 'flex-start', paddingLeft: 10, paddingRight: 16 }}>
+                        {/* Название компании */}
                         <Text 
                           style={{ 
                             fontSize: 14, 
-                            fontWeight: 'bold', 
-                            color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#999'
+                            fontWeight: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? 'bold' : 'normal',
+                            color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#656565'
                           }}
                           numberOfLines={2}
                           ellipsizeMode="tail"
                         >
                           {item.firm}
                         </Text>
-                        <Text style={{ fontSize: 12, color: '#666' }}>
+                        
+                        {/* ИНН */}
+                        <Text style={{ 
+                          fontSize: 12, 
+                          fontWeight: 'normal',
+                          color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#656565'
+                        }}>
                           инн: {item.inn}
                         </Text>
-                        {(item.user_confirmed === 0 || item.phone_inn_confirmed === 0) && (
-                          <Text style={{ fontSize: 11, color: '#FF9800', fontStyle: 'italic', marginTop: 2 }}>
-                            Ожидает подтверждения
+                        
+                        {/* Количество авто (как в старом проекте) */}
+                        <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#3A3A3A' }}>
+                          количество авто: {item.user_auto_count || 0}
+                        </Text>
+                        
+                        {/* Статусы подтверждения (как в старом проекте) */}
+                        {(item.user_confirmed === 0 || item.user_confirmed === '0') && (
+                          <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#656565' }}>
+                            инн ожидает подтверждения
+                          </Text>
+                        )}
+                        
+                        {(item.phone_inn_confirmed === 0 || item.phone_inn_confirmed === '0') && (
+                          <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#656565' }}>
+                            телефон ожидает подтверждения
                           </Text>
                         )}
                       </View>

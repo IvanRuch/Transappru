@@ -23,6 +23,7 @@ export default function AuthScreen() {
   const [modalPrivacyPolicy, setModalPrivacyPolicy] = useState(false);
   const [modalWaitConfirmation, setModalWaitConfirmation] = useState(false);
   const [sessionData, setSessionData] = useState<any>({});
+  const [canGoBack, setCanGoBack] = useState(false);
 
   // Handlers
   const focusPhone = () => {
@@ -175,6 +176,13 @@ export default function AuthScreen() {
     console.log('Auth DidMount');
 
     const init = async () => {
+      // Проверяем, есть ли токен (пользователь пришёл через "Выйти")
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        console.log('🔑 Token exists, user can go back');
+        setCanGoBack(true);
+      }
+
       // Получаем пользовательское соглашение и политику конфиденциальности
       try {
         const res = await Api.post('/get-user-agreement-and-privacy-policy');
@@ -319,6 +327,25 @@ export default function AuthScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Кнопка "Назад" если пользователь пришёл через "Выйти" */}
+      {canGoBack && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            top: Platform.OS === 'ios' ? 60 : 20,
+            left: 20,
+            padding: 10,
+            zIndex: 10
+          }}
+          onPress={() => {
+            console.log('🔙 Going back to previous screen');
+            router.back();
+          }}
+        >
+          <Image source={require('../../../assets/images/back_2.png')} />
+        </TouchableOpacity>
+      )}
 
       <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите номер телефона</Text>
       <Text style={{ color: '#4C4C4C' }}>чтобы войти или зарегистрироваться</Text>
