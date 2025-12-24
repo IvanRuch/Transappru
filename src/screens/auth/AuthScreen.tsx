@@ -24,6 +24,9 @@ export default function AuthScreen() {
   const [modalWaitConfirmation, setModalWaitConfirmation] = useState(false);
   const [sessionData, setSessionData] = useState<any>({});
   const [canGoBack, setCanGoBack] = useState(false);
+  
+  // Ref для отслеживания активного интервала
+  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Handlers
   const focusPhone = () => {
@@ -101,8 +104,15 @@ export default function AuthScreen() {
           setSessionData(data.session_data);
           setModalWaitConfirmation(true);
 
+          // Очищаем предыдущий интервал если он существует
+          if (intervalRef.current) {
+            console.log('⚠️ Clearing existing interval before creating new one');
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+
           let t = 0;
-          let get_session = setInterval(async () => {
+          const get_session = setInterval(async () => {
             console.log('t = ' + t);
 
             try {
@@ -114,13 +124,15 @@ export default function AuthScreen() {
             } catch (error: any) {
               console.log('error.response.status = ' + error.response?.status);
               if (error.response?.status === 401) { 
-                clearInterval(get_session); 
+                clearInterval(get_session);
+                intervalRef.current = null;
               }
             }
 
             if (t >= maxStep * intervalTime) {
               console.log('clearInterval by maxStep');
               clearInterval(get_session);
+              intervalRef.current = null;
               router.push('/(authenticated)/auto-list');
             }
 
@@ -131,12 +143,16 @@ export default function AuthScreen() {
                 (userConfirmedInterval === 1 || userConfirmedInterval === "1")) {
               console.log('clearInterval by confirmed');
               clearInterval(get_session);
+              intervalRef.current = null;
               console.log('-> move to AutoList');
               router.push('/(authenticated)/auto-list');
             }
 
             t += intervalTime;
           }, intervalTime);
+          
+          // Сохраняем ссылку на интервал
+          intervalRef.current = get_session;
         }
       }
     } catch (error) {
@@ -176,11 +192,15 @@ export default function AuthScreen() {
     console.log('Auth DidMount');
 
     const init = async () => {
-      // Проверяем, есть ли токен (пользователь пришёл через "Выйти")
+      // Проверяем, есть ли токен (пользователь пришёл через "Выйти" или не подтверждён)
       const token = await AsyncStorage.getItem('token');
       if (token) {
         console.log('🔑 Token exists, user can go back');
         setCanGoBack(true);
+        
+        // Проверяем статус подтверждения пользователя
+        console.log('🔍 Checking user confirmation status...');
+        await getSessionData(token);
       }
 
       // Получаем пользовательское соглашение и политику конфиденциальности
@@ -196,8 +216,6 @@ export default function AuthScreen() {
     };
 
     init();
-    
-    // Проверку токена убрали - она теперь в app/index.tsx
   }, []);
 
   return (
@@ -329,7 +347,7 @@ export default function AuthScreen() {
       </Modal>
 
       {/* Кнопка "Назад" если пользователь пришёл через "Выйти" */}
-      {canGoBack && (
+      {canGoBack && router.canGoBack() && (
         <TouchableOpacity
           style={{
             position: 'absolute',
@@ -452,8 +470,17 @@ export default function AuthScreen() {
               onPress={async () => {
                 // Удаляем токен и закрываем модалку для перелогина
                 await AsyncStorage.removeItem('token');
+                
+                // Очищаем интервал проверки статуса
+                if (intervalRef.current) {
+                  clearInterval(intervalRef.current);
+                  intervalRef.current = null;
+                }
+                
+                // Сбрасываем состояние
                 setSessionData({});
                 setPhone('');
+                setCanGoBack(false);
                 setModalWaitConfirmation(false);
               }}
             >

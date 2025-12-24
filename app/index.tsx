@@ -66,8 +66,7 @@ export default function IndexScreen() {
           // Показываем AuthScreen с модалкой ожидания подтверждения
           console.log('⚠️ User confirmation revoked/pending, showing AuthScreen with wait modal');
           console.log('Reason: user_confirmed =', userConfirmed, typeof userConfirmed);
-          // Удаляем токен чтобы AuthScreen показал модалку ожидания при следующем входе
-          await AsyncStorage.removeItem('token');
+          // НЕ удаляем токен - он нужен AuthScreen для показа модалки ожидания
           setIsChecking(false);
         } else {
           // Другие случаи (phone_inn_confirmed === 0) - нужен PIN

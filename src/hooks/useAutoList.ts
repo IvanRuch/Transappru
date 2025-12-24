@@ -149,12 +149,16 @@ export function useAutoList() {
       console.log('========================================');
 
       // Проверяем статус подтверждения пользователя
-      // Если менеджер отозвал подтверждение - редиректим на авторизацию
       const userConfirmed = data.user_data?.user_confirmed;
-      if (userConfirmed === 0 || userConfirmed === "0") {
-        console.log('⚠️ User confirmation revoked! Redirecting to auth...');
-        // Удаляем токен и редиректим на авторизацию
-        await AsyncStorage.removeItem('token');
+      const phoneInnConfirmed = data.user_data?.phone_inn_confirmed;
+      
+      // Если пользователь не подтверждён (новая регистрация или отозвано подтверждение)
+      // редиректим на AuthScreen, где показывается модалка ожидания
+      if (userConfirmed === 0 || userConfirmed === "0" || userConfirmed === undefined || userConfirmed === null ||
+          phoneInnConfirmed === 0 || phoneInnConfirmed === "0" || phoneInnConfirmed === undefined || phoneInnConfirmed === null) {
+        console.log('⚠️ User not confirmed! user_confirmed:', userConfirmed, 'phone_inn_confirmed:', phoneInnConfirmed);
+        console.log('Redirecting to auth to show wait confirmation modal...');
+        // НЕ удаляем токен - он нужен для AuthScreen чтобы показать модалку ожидания
         router.replace('/');
         setIndicator(false);
         return;
