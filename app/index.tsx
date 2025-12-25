@@ -61,18 +61,18 @@ export default function IndexScreen() {
           getFCMToken();
           console.log('✅ Navigating to AutoList');
           router.replace('/(authenticated)/auto-list' as any);
-        } else if (userConfirmed === 0 || userConfirmed === "0") {
-          // Подтверждение менеджера отозвано или ещё не получено
+        } else if ((phoneInnConfirmed === 0 || phoneInnConfirmed === "0") ||
+                   (userConfirmed === 0 || userConfirmed === "0")) {
+          // Подтверждение телефона/ИНН или менеджера отозвано или ещё не получено
           // Показываем AuthScreen с модалкой ожидания подтверждения
-          console.log('⚠️ User confirmation revoked/pending, showing AuthScreen with wait modal');
-          console.log('Reason: user_confirmed =', userConfirmed, typeof userConfirmed);
+          console.log('⚠️ User/Phone confirmation revoked/pending, showing AuthScreen with wait modal');
+          console.log('Reason: phone_inn_confirmed =', phoneInnConfirmed, 'user_confirmed =', userConfirmed);
           // НЕ удаляем токен - он нужен AuthScreen для показа модалки ожидания
           setIsChecking(false);
         } else {
-          // Другие случаи (phone_inn_confirmed === 0) - нужен PIN
-          console.log('⚠️ Phone/INN not confirmed, navigating to PIN');
-          console.log('Reason: phone_inn_confirmed =', phoneInnConfirmed, typeof phoneInnConfirmed);
-          router.replace('/pin' as any);
+          // Другие случаи - редирект на AutoList
+          console.log('✅ Navigating to AutoList (fallback)');
+          router.replace('/(authenticated)/auto-list' as any);
         }
       } catch (error: any) {
         console.log('❌ Error checking auth state:', error);
@@ -84,7 +84,7 @@ export default function IndexScreen() {
     };
 
     checkInitialAuth();
-  }, [router]);
+  }, []);
 
   // Функция очистки данных (только для разработки)
   const clearAppData = async () => {

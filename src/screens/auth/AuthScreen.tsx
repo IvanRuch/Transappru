@@ -24,6 +24,7 @@ export default function AuthScreen() {
   const [modalWaitConfirmation, setModalWaitConfirmation] = useState(false);
   const [sessionData, setSessionData] = useState<any>({});
   const [canGoBack, setCanGoBack] = useState(false);
+  const [isCheckingToken, setIsCheckingToken] = useState(true);
   
   // Ref для отслеживания активного интервала
   const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
@@ -103,6 +104,7 @@ export default function AuthScreen() {
           // Пользователь не подтвержден - показываем модалку ожидания
           setSessionData(data.session_data);
           setModalWaitConfirmation(true);
+          setIsCheckingToken(false);
 
           // Очищаем предыдущий интервал если он существует
           if (intervalRef.current) {
@@ -153,11 +155,16 @@ export default function AuthScreen() {
           
           // Сохраняем ссылку на интервал
           intervalRef.current = get_session;
+        } else {
+          // Пользователь подтвержден - показываем форму ввода телефона
+          console.log('✅ User is confirmed, showing auth form');
+          setIsCheckingToken(false);
         }
       }
     } catch (error) {
       console.log('error');
       console.log(error);
+      setIsCheckingToken(false);
     }
   };
 
@@ -201,6 +208,9 @@ export default function AuthScreen() {
         // Проверяем статус подтверждения пользователя
         console.log('🔍 Checking user confirmation status...');
         await getSessionData(token);
+      } else {
+        // Нет токена - показываем экран ввода телефона
+        setIsCheckingToken(false);
       }
 
       // Получаем пользовательское соглашение и политику конфиденциальности
@@ -217,6 +227,15 @@ export default function AuthScreen() {
 
     init();
   }, []);
+
+  // Показываем пустой экран пока проверяем токен
+  if (isCheckingToken) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        {/* Можно добавить ActivityIndicator если нужно */}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
