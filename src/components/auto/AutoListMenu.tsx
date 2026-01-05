@@ -125,3 +125,15 @@ export const SelMenuUndoSelect: React.FC = () => {
     </View>
   );
 };
+
+export const MenuCharges: React.FC = () => {
+  return (
+    <View style={{ alignItems: 'center', padding: 5, paddingTop: 0 }}>
+      <Image 
+        source={require('../../../assets/images/menu_charges_2.png')} 
+        style={{ width: 24, height: 24, marginTop: -5 }}
+      />
+      <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>начисления</Text>
+    </View>
+  );
+};

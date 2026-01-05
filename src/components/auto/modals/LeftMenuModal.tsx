@@ -241,7 +241,11 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                     onPress={() => {
                       console.log('Switching to organization:', item.inn, 'user_confirmed:', item.user_confirmed, 'phone_inn_confirmed:', item.phone_inn_confirmed);
                       // Проверяем подтверждение перед переключением (как в старом проекте)
-                      if (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) {
+                      // Значения могут быть как числом, так и строкой
+                      const isUserConfirmed = item.user_confirmed === 1 || item.user_confirmed === '1';
+                      const isPhoneConfirmed = item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1';
+                      
+                      if (isUserConfirmed && isPhoneConfirmed) {
                         onSwitchOrganization(item.inn, () => {
                           onClose();
                         });
@@ -282,8 +286,8 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                         <Text 
                           style={{ 
                             fontSize: 14, 
-                            fontWeight: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? 'bold' : 'normal',
-                            color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#656565'
+                            fontWeight: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? 'bold' : 'normal',
+                            color: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? '#3A3A3A' : '#656565'
                           }}
                           numberOfLines={2}
                           ellipsizeMode="tail"
@@ -295,7 +299,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                         <Text style={{ 
                           fontSize: 12, 
                           fontWeight: 'normal',
-                          color: (item.user_confirmed === 1 && item.phone_inn_confirmed === 1) ? '#3A3A3A' : '#656565'
+                          color: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? '#3A3A3A' : '#656565'
                         }}>
                           инн: {item.inn}
                         </Text>
@@ -353,7 +357,36 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
               </View>
             </TouchableHighlight>
 
-            {/* 6. Как работать в приложении */}
+            {/* 6. Профиль */}
+            <TouchableHighlight 
+              style={{ paddingTop: 20 }}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
+              onPress={() => {
+                onClose();
+                router.push('/user' as any);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>              
+                <View style={{ flex: 1, alignItems: 'center', height: 29, padding: 5 }}>
+                  <Image source={require('../../../../assets/images/menu_user_2.png')} />
+                </View>
+                <View style={{
+                  flex: 7,
+                  alignItems: 'flex-start',
+                  height: 29,
+                  paddingTop: 5,
+                  paddingBottom: 5,
+                  paddingLeft: 10,
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}>
+                    Профиль
+                  </Text>
+                </View>            
+              </View>
+            </TouchableHighlight>
+
+            {/* 7. Как работать в приложении */}
             {onboardingExpired === 0 && (
               <TouchableHighlight 
                 style={{ paddingTop: 20, paddingBottom: 40 }}

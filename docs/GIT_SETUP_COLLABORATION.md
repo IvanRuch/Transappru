@@ -1,80 +1,42 @@
 # 🔄 Настройка Git для совместной работы
 
-## Ситуация
-Коллега создал ветку `functional-ts` в оригинальном репозитории:
-- **Репозиторий:** https://github.com/IvanRuch/Transappru
-- **Ветка:** `functional-ts`
+## ✅ Текущая конфигурация (обновлено 2025-12-29)
 
-Нужно отправлять изменения из текущего проекта в эту ветку.
+**Репозитории:**
+- **origin:** `git@github.com:grizodubov/TransApp_upd.git` (ваш репозиторий)
+- **upstream:** `git@github.com:IvanRuch/Transappru.git` (репозиторий коллеги)
+
+**Ветки:**
+- Локальная ветка: `master`
+- Ветка коллеги: `functional-ts` в upstream
+
+**Статус синхронизации:** ✅ Репозитории синхронизированы (версия 2.0.7)
 
 ---
 
-## ✅ Решение: Настройка remote и push
-
-### Шаг 1: Проверить текущие remotes
+## 🔄 Текущая конфигурация remotes
 
 ```bash
 cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd
 git remote -v
 ```
 
-Вы увидите что-то вроде:
+Результат:
 ```
-origin  https://github.com/grizodubov/Transappru_update.git (fetch)
-origin  https://github.com/grizodubov/Transappru_update.git (push)
-```
-
-### Шаг 2: Добавить remote коллеги
-
-```bash
-# Добавить remote коллеги (назовём его 'ivan')
-git remote add ivan https://github.com/IvanRuch/Transappru.git
-
-# Проверить
-git remote -v
+origin    git@github.com:grizodubov/TransApp_upd.git (fetch)
+origin    git@github.com:grizodubov/TransApp_upd.git (push)
+upstream  git@github.com:IvanRuch/Transappru.git (fetch)
+upstream  git@github.com:IvanRuch/Transappru.git (push)
 ```
 
-Теперь должно быть:
-```
-origin  https://github.com/grizodubov/Transappru_update.git (fetch)
-origin  https://github.com/grizodubov/Transappru_update.git (push)
-ivan    https://github.com/IvanRuch/Transappru.git (fetch)
-ivan    https://github.com/IvanRuch/Transappru.git (push)
-```
+---
 
-### Шаг 3: Получить ветку коллеги
+## 📊 История синхронизации
 
-```bash
-# Получить информацию о ветках из репозитория коллеги
-git fetch ivan
-
-# Проверить что ветка functional-ts доступна
-git branch -r | grep ivan
-```
-
-Должно показать:
-```
-ivan/functional-ts
-```
-
-### Шаг 4: Отправить изменения в ветку коллеги
-
-```bash
-# Убедиться что все изменения закоммичены
-git status
-
-# Если есть незакоммиченные изменения:
-git add .
-git commit -m "Добавлена функциональность оплаты штрафов и настройка для Mac M2"
-
-# Отправить в ветку functional-ts репозитория коллеги
-git push ivan main:functional-ts
-```
-
-**Объяснение команды:**
-- `ivan` - remote репозитория коллеги
-- `main` - ваша локальная ветка (или как она у вас называется)
-- `functional-ts` - ветка в репозитории коллеги
+**2025-12-29:** Успешно отправлены коммиты версий 2.0.3-2.0.7 в upstream/functional-ts
+- Отправлено: 135 объектов (63.52 KiB)
+- Диапазон коммитов: `0c9b0bc..28f6d08`
+- Команда: `git push upstream master:functional-ts`
 
 ---
 
@@ -84,9 +46,9 @@ git push ivan main:functional-ts
 
 ```bash
 # 1. Получить последние изменения от коллеги
-git fetch ivan
-git merge ivan/functional-ts
-# Или: git pull ivan functional-ts
+git fetch upstream
+git merge upstream/functional-ts
+# Или: git pull upstream functional-ts
 
 # 2. Внести свои изменения
 # ... работа над кодом ...
@@ -96,10 +58,10 @@ git add .
 git commit -m "Описание изменений"
 
 # 4. Отправить в свой репозиторий (бэкап)
-git push origin main
+git push origin master
 
 # 5. Отправить коллеге
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 ```
 
 ---
@@ -110,7 +72,7 @@ git push ivan main:functional-ts
 
 ```bash
 # Создать и переключиться на локальную ветку functional-ts
-git checkout -b functional-ts ivan/functional-ts
+git checkout -b functional-ts upstream/functional-ts
 
 # Теперь можно просто:
 git pull  # получить изменения от коллеги
@@ -120,12 +82,12 @@ git push  # отправить изменения коллеге
 ### Вариант B: Переключить текущую ветку на отслеживание ветки коллеги
 
 ```bash
-# Если вы на ветке main
-git branch --set-upstream-to=ivan/functional-ts main
+# Если вы на ветке master
+git branch --set-upstream-to=upstream/functional-ts master
 
 # Теперь:
-git pull  # получает из ivan/functional-ts
-git push ivan main:functional-ts  # отправляет в ivan/functional-ts
+git pull  # получает из upstream/functional-ts
+git push upstream master:functional-ts  # отправляет в upstream/functional-ts
 ```
 
 ---
@@ -143,7 +105,7 @@ git diff
 git log --oneline -10
 
 # Посмотреть что будет отправлено
-git log ivan/functional-ts..main --oneline
+git log upstream/functional-ts..master --oneline
 ```
 
 ---
@@ -158,21 +120,21 @@ git remote -v
 git branch -a
 
 # Удалить remote (если ошиблись)
-git remote remove ivan
+git remote remove upstream
 
 # Переименовать remote
-git remote rename ivan colleague
+git remote rename upstream colleague
 
 # Изменить URL remote
-git remote set-url ivan https://github.com/IvanRuch/Transappru.git
+git remote set-url upstream git@github.com:IvanRuch/Transappru.git
 
 # Синхронизировать с веткой коллеги
-git fetch ivan
-git merge ivan/functional-ts
+git fetch upstream
+git merge upstream/functional-ts
 
 # Отправить конкретный коммит
 git cherry-pick <commit-hash>
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 ```
 
 ---
@@ -182,12 +144,12 @@ git push ivan main:functional-ts
 ### 1. Конфликты при merge
 Если возникают конфликты:
 ```bash
-git fetch ivan
-git merge ivan/functional-ts
+git fetch upstream
+git merge upstream/functional-ts
 # Разрешить конфликты в файлах
 git add .
 git commit -m "Merge: разрешены конфликты"
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 ```
 
 ### 2. История коммитов
@@ -202,23 +164,24 @@ git push ivan main:functional-ts
 
 ---
 
-## 🚀 Быстрый старт (рекомендуемый способ)
+## 🚀 Быстрый старт для новых фич
 
 ```bash
 cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd
 
-# 1. Добавить remote коллеги
-git remote add ivan https://github.com/IvanRuch/Transappru.git
+# 1. Получить последние изменения
+git fetch upstream
+git merge upstream/functional-ts
 
-# 2. Получить ветки
-git fetch ivan
-
-# 3. Закоммитить текущие изменения (если есть)
+# 2. Внести изменения и закоммитить
 git add .
-git commit -m "Добавлена оплата штрафов, настройка Mac M2, исправления навигации"
+git commit -m "feat: описание новой фичи"
+
+# 3. Отправить в свой репозиторий
+git push origin master
 
 # 4. Отправить коллеге
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 
 # Готово! ✅
 ```
@@ -235,16 +198,16 @@ git push ivan main:functional-ts
 ### Ошибка: "Updates were rejected"
 **Решение:** Сначала получите изменения коллеги:
 ```bash
-git fetch ivan
-git merge ivan/functional-ts
+git fetch upstream
+git merge upstream/functional-ts
 # Разрешить конфликты если есть
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 ```
 
 ### Ошибка: "fatal: refusing to merge unrelated histories"
 **Решение:**
 ```bash
-git merge ivan/functional-ts --allow-unrelated-histories
+git merge upstream/functional-ts --allow-unrelated-histories
 ```
 
 ---
@@ -263,7 +226,7 @@ git merge ivan/functional-ts --allow-unrelated-histories
 
 ```bash
 # Одной командой (после коммита):
-git push ivan main:functional-ts
+git push upstream master:functional-ts
 ```
 
-**Готово!** Теперь вы можете отправлять изменения коллеге! 🚀
+**Готово!** Репозитории синхронизированы, можно продолжать разработку новых фич! 🚀

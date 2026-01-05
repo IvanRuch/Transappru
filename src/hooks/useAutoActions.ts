@@ -173,6 +173,11 @@ export function useAutoActions(
     });
   }, [router]);
 
+  const navigateToCharges = useCallback(() => {
+    console.log('-> move to Charges');
+    router.push('/(authenticated)/charges' as any);
+  }, [router]);
+
   // Delete auto
   const deleteAuto = useCallback(async (token: string | null, autoListToDelete: string[]) => {
     if (!token) {
@@ -339,6 +344,7 @@ export function useAutoActions(
     navigateToOnBoarding,
     navigateToDriverList,
     navigateToInn,
+    navigateToCharges,
     deleteAuto,
     changeAutoNumberBase,
     changeAutoNumberRegionCode,

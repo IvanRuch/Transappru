@@ -12,6 +12,7 @@ import {
   SelMenuAdd,
   MenuUser,
   MenuContacts,
+  MenuCharges,
   SelMenuDelItem,
   SelMenuPass,
   SelMenuUndoSelect,
@@ -35,8 +36,7 @@ export default function AutoListScreen() {
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
 
-  // При фокусе на экран - НЕ обновляем список автоматически
-  // Данные уже загружены в useEffect или будут загружены при pull-to-refresh
+  // При фокусе на экран - только запускаем анимацию
   useFocusEffect(
     useCallback(() => {
       console.log('AutoListScreen focused');
@@ -320,9 +320,9 @@ export default function AutoListScreen() {
                 <TouchableHighlight
                   activeOpacity={1}
                   underlayColor='#EEEEEE'
-                  onPress={autoActions.navigateToProfile}
+                  onPress={autoActions.navigateToCharges}
                 >
-                  <MenuUser />
+                  <MenuCharges />
                 </TouchableHighlight>
               </View>
 

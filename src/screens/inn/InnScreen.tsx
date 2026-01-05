@@ -89,12 +89,35 @@ class InnClass extends React.Component<InnProps, InnState> {
     Api.post('/bind-inn', { token: value, inn: this.state.inn })
       .then(res => {
         const data = res.data;
+        console.log('bindInn response:', data);
+
+        // Проверка auth_required
+        if (data.auth_required === 1) {
+          console.log('⚠️ Auth required after bind-inn, redirecting to auth');
+          this.props.navigation?.navigate('Auth');
+          return;
+        }
 
         if (data.error == 1) {
           this.setState({ msg: data.msg, modalErrorVisible: true });
         } else {
           if (Object.keys(this.state.user_data).length != 0) {
-            this.setState({ modalWaitInnConfirmation: true });
+            // Для существующего пользователя: показываем модалку и возвращаем к исходной организации
+            // Сервер мог автоматически переключить на новую организацию, поэтому возвращаем обратно
+            const originalInn = this.state.user_data.inn;
+            console.log('Returning to original organization:', originalInn);
+            
+            // Переключаемся обратно на исходную организацию
+            Api.post('/set-current-inn', { token: value, current_inn: originalInn })
+              .then(() => {
+                console.log('Successfully returned to original organization');
+                this.setState({ modalWaitInnConfirmation: true });
+              })
+              .catch(error => {
+                console.log('Error returning to original organization:', error);
+                // Даже если не удалось переключиться, показываем модалку
+                this.setState({ modalWaitInnConfirmation: true });
+              });
           } else {
             this.props.navigation?.navigate('AutoList');
           }
@@ -102,6 +125,10 @@ class InnClass extends React.Component<InnProps, InnState> {
       })
       .catch(error => {
         console.log('Error binding INN:', error);
+        // При ошибке 401 также редиректим на авторизацию
+        if (error.response?.status === 401) {
+          this.props.navigation?.navigate('Auth');
+        }
       });
   }
 
@@ -536,7 +563,9 @@ const Inn = () => {
       navigation={{
         navigate: (screen: string) => {
           if (screen === 'AutoList') {
-            router.push('/(authenticated)/auto-list' as any);
+            // Просто возвращаемся назад
+            // Список организаций обновится через pull-to-refresh или при следующем открытии левого меню
+            router.back();
           } else if (screen === 'Auth') {
             router.replace('/');
           }
