@@ -181,9 +181,12 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
     for (const auto of autosWithPotentialFines) {
       try {
         const res = await Api.post('/get-auto-fines', { token, id: auto.id });
-        const unpaidList = res.data.auto_fine_data?.unpaid_list || [];
+        const allFines = res.data.auto_fine_data?.unpaid_list || [];
         
-        console.log(`loadFinesInBackground: Auto ${auto.auto_number} - ${unpaidList.length} fines`);
+        // Фильтруем только реально неоплаченные штрафы
+        const unpaidList = allFines.filter((fine: any) => fine.is_paid === '0' || fine.is_paid === 0);
+        
+        console.log(`loadFinesInBackground: Auto ${auto.auto_number} - ${unpaidList.length} unpaid (${allFines.length} total)`);
         
         // Сохраняем только если есть реальные штрафы
         if (unpaidList.length > 0) {
@@ -261,9 +264,12 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
       console.log(`loadAutoFines: Loading fines for auto ${autoId}...`);
       
       const res = await Api.post('/get-auto-fines', { token, id: autoId });
-      const unpaidList = res.data.auto_fine_data?.unpaid_list || [];
+      const allFines = res.data.auto_fine_data?.unpaid_list || [];
       
-      console.log(`loadAutoFines: Loaded ${unpaidList.length} fines for auto ${autoId}`);
+      // Фильтруем только реально неоплаченные штрафы
+      const unpaidList = allFines.filter((fine: any) => fine.is_paid === '0' || fine.is_paid === 0);
+      
+      console.log(`loadAutoFines: Loaded ${unpaidList.length} unpaid fines (${allFines.length} total) for auto ${autoId}`);
       
       // Находим авто в списке
       const auto = autoList.find(a => a.id === autoId);
@@ -362,10 +368,39 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
   // Получить только авто с реально загруженными штрафами
   const getAutosWithFines = useCallback(() => {
     return autoList.filter(auto => {
-      const loadedCharges = autoCharges[auto.auto_number];
-      return loadedCharges && loadedCharges.charges.length > 0;
+      const charges = autoCharges[auto.auto_number];
+      return charges && charges.charges.length > 0;
     });
   }, [autoList, autoCharges]);
+
+  // Получить статистику по типам штрафов для конкретного авто
+  const getFineTypeStats = useCallback((autoNumber: string) => {
+    const charges = autoCharges[autoNumber];
+    if (!charges || charges.charges.length === 0) {
+      return null;
+    }
+
+    const stats = {
+      platon: { count: 0, sum: 0 },
+      gibdd: { count: 0, sum: 0 },
+      total: { count: charges.charges.length, sum: 0 }
+    };
+
+    charges.charges.forEach(charge => {
+      const sum = parseFloat(charge.sum) || 0;
+      stats.total.sum += sum;
+
+      if (charge.is_platon === '1' || charge.is_platon === 1) {
+        stats.platon.count++;
+        stats.platon.sum += sum;
+      } else {
+        stats.gibdd.count++;
+        stats.gibdd.sum += sum;
+      }
+    });
+
+    return stats;
+  }, [autoCharges]);
 
   // Загрузка при монтировании и cleanup при размонтировании
   useEffect(() => {
@@ -431,6 +466,7 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
     getTotalCount,
     getAllCharges,
     getAutosWithFines,
+    getFineTypeStats,
     loadAutoFines,
     loadingAutoFines,
     backgroundLoading,

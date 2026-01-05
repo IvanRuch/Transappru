@@ -22,6 +22,7 @@ export default function ChargesScreen() {
     getTotalAmount,
     getTotalCount,
     getAutosWithFines,
+    getFineTypeStats,
     loadAutoFines,
     loadingAutoFines,
     backgroundLoading,
@@ -92,7 +93,7 @@ export default function ChargesScreen() {
       <ScreenHeader 
         title="Начисления" 
         onBack={() => router.back()}
-        rightButton={
+        rightComponent={
           <TouchableOpacity 
             onPress={handleRefresh} 
             style={styles.refreshButton}
@@ -163,6 +164,7 @@ export default function ChargesScreen() {
                   
                   const finesCount = loadedCharges.length;
                   const finesSum = loadedCharges.reduce((sum, charge) => sum + parseFloat(charge.sum || '0'), 0);
+                  const fineTypeStats = getFineTypeStats(auto.auto_number);
                   
                   return (
                     <View key={auto.id} style={styles.autoGroup}>
@@ -175,7 +177,23 @@ export default function ChargesScreen() {
                           <Text style={styles.autoGrz}>ГРЗ: {auto.auto_number}</Text>
                           <Text style={styles.autoSummary}>
                             {finesCount} шт. • {finesSum.toFixed(2)} ₽
+                            {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count === 0 && (
+                              <Text style={styles.fineTypeBadge}> (ГИБДД)</Text>
+                            )}
+                            {fineTypeStats && fineTypeStats.platon.count > 0 && fineTypeStats.gibdd.count === 0 && (
+                              <Text style={styles.fineTypePlatonBadge}> (ПЛАТОН)</Text>
+                            )}
                           </Text>
+                          {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count > 0 && (
+                            <View style={styles.fineTypesContainer}>
+                              <Text style={styles.fineTypeText}>
+                                ГИБДД: {fineTypeStats.gibdd.count} шт. • {fineTypeStats.gibdd.sum.toFixed(2)} ₽
+                              </Text>
+                              <Text style={styles.fineTypePlatonText}>
+                                ПЛАТОН: {fineTypeStats.platon.count} шт. • {fineTypeStats.platon.sum.toFixed(2)} ₽
+                              </Text>
+                            </View>
+                          )}
                         </View>
                         <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
                       </TouchableOpacity>
@@ -373,8 +391,28 @@ const styles = StyleSheet.create({
   },
   autoSummary: {
     fontSize: 13,
-    color: '#909090',
+    color: '#C9A86B',
+    marginTop: 2,
+  },
+  fineTypeBadge: {
+    fontSize: 11,
+    color: '#B0B0B0',
+  },
+  fineTypePlatonBadge: {
+    fontSize: 11,
+    color: '#EE505A',
+  },
+  fineTypesContainer: {
     marginTop: 4,
+    gap: 2,
+  },
+  fineTypeText: {
+    fontSize: 11,
+    color: '#B0B0B0',
+  },
+  fineTypePlatonText: {
+    fontSize: 11,
+    color: '#EE505A',
   },
   expandIcon: {
     fontSize: 16,

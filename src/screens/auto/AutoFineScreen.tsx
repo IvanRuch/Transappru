@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, Image, TouchableHighlight, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenHeader } from '../../components/common';
 
 interface FineData {
   is_paid: string | number;
@@ -32,35 +34,24 @@ export default function AutoFineScreen() {
 
   if (!fineData) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Штраф</Text>
-        <TouchableHighlight
-          style={styles.headerBack}
-          activeOpacity={1}
-          underlayColor='#FFFFFF'
-          onPress={() => router.back()}
-        >
-          <Image source={require('../../../assets/images/back_2.png')} />
-        </TouchableHighlight>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScreenHeader 
+          title="Штраф" 
+          onBack={() => router.back()}
+        />
         <View style={styles.content}>
-          <Text>Данные о штрафе не найдены</Text>
+          <Text style={styles.errorText}>Данные о штрафе не найдены</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Штраф</Text>
-
-      <TouchableHighlight
-        style={styles.headerBack}
-        activeOpacity={1}
-        underlayColor='#FFFFFF'
-        onPress={() => router.back()}
-      >
-        <Image source={require('../../../assets/images/back_2.png')} />
-      </TouchableHighlight>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScreenHeader 
+        title="Штраф" 
+        onBack={() => router.back()}
+      />
 
       <ScrollView>
         <View style={styles.content}>
@@ -137,7 +128,7 @@ export default function AutoFineScreen() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -146,31 +137,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 90,
-    paddingTop: 50,
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#313131',
-    backgroundColor: '#FFFFFF',
-    zIndex: 1,
-  },
-  headerBack: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 2,
-  },
   content: {
     flex: 1,
-    paddingTop: 110,
+    paddingTop: 20,
     alignItems: 'stretch',
     justifyContent: 'flex-start',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#313131',
+    textAlign: 'center',
+    marginTop: 20,
   },
   statusCard: {
     flexDirection: 'row',
