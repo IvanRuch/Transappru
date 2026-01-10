@@ -320,15 +320,14 @@ export default function AutoListScreen() {
                 <TouchableHighlight
                   activeOpacity={1}
                   underlayColor='#EEEEEE'
-                  onPress={autoActions.navigateToCharges}
+                  onPress={autoActions.navigateToProfile}
                 >
-                  <MenuCharges />
+                  <MenuUser />
                 </TouchableHighlight>
               </View>
 
               <View style={styles.menuItem}>
                 <TouchableHighlight
-                  style={styles.menuItem}
                   activeOpacity={1}
                   underlayColor='#EEEEEE'
                   onPress={() => {
@@ -355,18 +354,18 @@ export default function AutoListScreen() {
                 </TouchableHighlight>
               </View>
             </View>
-          ) : (
-            // Меню с выделенными элементами
-            <View style={styles.menuContainerSelected}>
-              <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#D9D9D9'
-                  onPress={() => autoActions.setModalDelAutoVisible(true)}
-                >
-                  <SelMenuDelItem />
-                </TouchableHighlight>
-              </View>
+            ) : (
+              // Меню с выделенными элементами
+              <View style={styles.menuContainerSelected}>
+                <View style={styles.menuItem}>
+                  <TouchableHighlight
+                    activeOpacity={1}
+                    underlayColor='#D9D9D9'
+                    onPress={() => autoActions.setModalDelAutoVisible(true)}
+                  >
+                    <SelMenuDelItem />
+                  </TouchableHighlight>
+                </View>
 
               <View style={styles.menuItem}>
                 <TouchableHighlight

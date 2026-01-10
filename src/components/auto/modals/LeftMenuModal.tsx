@@ -357,7 +357,36 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
               </View>
             </TouchableHighlight>
 
-            {/* 6. Профиль */}
+            {/* 6. Начисления */}
+            <TouchableHighlight 
+              style={{ paddingTop: 20 }}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
+              onPress={() => {
+                onClose();
+                router.push('/charges' as any);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>              
+                <View style={{ flex: 1, alignItems: 'center', height: 29, padding: 5 }}>
+                  <Image source={require('../../../../assets/images/menu_charges_2.png')} />
+                </View>
+                <View style={{
+                  flex: 7,
+                  alignItems: 'flex-start',
+                  height: 29,
+                  paddingTop: 5,
+                  paddingBottom: 5,
+                  paddingLeft: 10,
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}>
+                    Начисления
+                  </Text>
+                </View>            
+              </View>
+            </TouchableHighlight>
+
+            {/* 7. Профиль */}
             <TouchableHighlight 
               style={{ paddingTop: 20 }}
               activeOpacity={1}
@@ -386,7 +415,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
               </View>
             </TouchableHighlight>
 
-            {/* 7. Как работать в приложении */}
+            {/* 8. Как работать в приложении */}
             {onboardingExpired === 0 && (
               <TouchableHighlight 
                 style={{ paddingTop: 20, paddingBottom: 40 }}

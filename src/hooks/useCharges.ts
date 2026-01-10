@@ -12,6 +12,7 @@ let cachedAutoList: AutoItem[] = [];
 let cacheTimestamp: number = 0;
 let lastRefreshTimestamp: number = 0;
 let isBackgroundLoadingInProgress: boolean = false; // Флаг для предотвращения множественных запусков
+let cachedCompanyInn: string = ''; // ИНН компании для которой закэшированы данные
 const MIN_REFRESH_INTERVAL = 10 * 1000; // Минимум 10 секунд между обновлениями (защита от спама)
 
 export const useCharges = (autoListFromParent?: AutoItem[]) => {
@@ -32,6 +33,34 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
   const loadCharges = useCallback(async (forceRefresh: boolean = false) => {
     try {
       console.log('loadCharges: Starting to load charges...');
+      
+      // Получаем текущий ИНН компании
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.replace('/');
+        return;
+      }
+      
+      const sessionRes = await Api.post('/get-session-data', { token });
+      const userData = sessionRes.data.session_data?.user_data;
+      const currentInn = userData?.inn || '';
+      
+      console.log(`loadCharges: Current company INN: ${currentInn}, Cached INN: ${cachedCompanyInn}`);
+      
+      // Если компания изменилась - инвалидируем кэш
+      if (cachedCompanyInn && currentInn !== cachedCompanyInn) {
+        console.log('loadCharges: ⚠️ Company changed! Invalidating cache...');
+        cachedAutoCharges = {};
+        cachedOtherCharges = [];
+        cachedAutoList = [];
+        cacheTimestamp = 0;
+        lastRefreshTimestamp = 0;
+        isBackgroundLoadingInProgress = false;
+        forceRefresh = true;
+      }
+      
+      // Сохраняем текущий ИНН
+      cachedCompanyInn = currentInn;
       
       // Проверяем кэш ПЕРЕД setLoading
       const now = Date.now();
@@ -66,20 +95,8 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
       console.log('loadCharges: ❌ Cache miss or expired, fetching fresh data...');
       setLoading(true);
       
-      const token = await AsyncStorage.getItem('token');
-      console.log('loadCharges: token =', token ? 'exists' : 'null');
-      
-      if (!token) {
-        router.replace('/');
-        return;
-      }
-
-      // 1. Получаем session data для user_id
-      console.log('loadCharges: Fetching session data...');
-      const sessionRes = await Api.post('/get-session-data', { token });
-      const userData = sessionRes.data.session_data?.user_data;
+      // Используем уже полученные данные сессии
       const currentUserId = userData?.id;
-      
       console.log('loadCharges: userId from session =', currentUserId);
       
       if (currentUserId) {
@@ -402,6 +419,21 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
     return stats;
   }, [autoCharges]);
 
+  // Функция для инвалидации кэша (например, при смене организации)
+  const invalidateCache = useCallback(() => {
+    console.log('useCharges: Invalidating cache...');
+    cachedAutoCharges = {};
+    cachedOtherCharges = [];
+    cachedAutoList = [];
+    cacheTimestamp = 0;
+    lastRefreshTimestamp = 0;
+    isBackgroundLoadingInProgress = false;
+    cachedCompanyInn = ''; // Очищаем ИНН чтобы форсировать проверку
+    
+    // Перезагружаем данные
+    loadCharges(true);
+  }, [loadCharges]);
+
   // Загрузка при монтировании и cleanup при размонтировании
   useEffect(() => {
     isMountedRef.current = true;
@@ -462,6 +494,7 @@ export const useCharges = (autoListFromParent?: AutoItem[]) => {
     autoList,
     userId,
     refresh,
+    invalidateCache,
     getTotalAmount,
     getTotalCount,
     getAllCharges,

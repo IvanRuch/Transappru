@@ -184,6 +184,9 @@ export function useAutoList() {
         setUserListEmptyStr(data.user_list_empty_str || '');
         
         console.log('========================================');
+        console.log('[AutoList] userData:', JSON.stringify(data.user_data));
+        console.log('[AutoList] userData.notification_unviewed_count:', data.user_data.notification_unviewed_count);
+        console.log('[AutoList] userData.other_user_notification_unviewed_count:', data.user_data.other_user_notification_unviewed_count);
         console.log('[AutoList] Other user list:', data.other_user_list);
         console.log('[AutoList] Other user list length:', data.other_user_list?.length || 0);
         if (data.other_user_list && data.other_user_list.length > 0) {
@@ -897,6 +900,10 @@ export function useAutoList() {
     setAutoList([]);
     setAutoListCount(0);
     setAutoListFrom(0);
+    
+    // ВАЖНО: Сбрасываем autoListFrom в ref, чтобы избежать использования старого значения
+    filtersRef.current.autoListFrom = 0;
+    paginationRef.current.autoListFrom = 0;
     
     // Загружаем данные заново
     const token = await AsyncStorage.getItem('token');

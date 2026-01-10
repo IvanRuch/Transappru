@@ -5,7 +5,9 @@ import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FirebaseService } from '@/src/services/firebase';
 import { NotificationProvider, useNotification } from '@/src/contexts/NotificationContext';
+import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
+import '../global.css';
 
 // Предотвращаем автоматическое скрытие splash screen
 SplashScreen.preventAutoHideAsync();
@@ -79,20 +81,22 @@ export default function RootLayout() {
   }
 
   return (
-    <NotificationProvider>
-      <NotificationOverlay />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
-        <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
-        <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
-        <Stack.Screen name="user" options={{ title: 'Профиль' }} />
-        <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
-      </Stack>
-    </NotificationProvider>
+    <ThemeProvider>
+      <NotificationProvider>
+        <NotificationOverlay />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
+          <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
+          <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
+          <Stack.Screen name="user" options={{ title: 'Профиль' }} />
+          <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
+        </Stack>
+      </NotificationProvider>
+    </ThemeProvider>
   );
 }
 

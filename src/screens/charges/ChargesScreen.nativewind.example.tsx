@@ -9,7 +9,19 @@ import { ChargeItem } from '../../types/charges';
 
 const COLLAPSED_LIMIT = 5;
 
-export default function ChargesScreen() {
+/**
+ * ПРИМЕР МИГРАЦИИ ChargesScreen на NativeWind
+ * 
+ * Этот файл демонстрирует, как мигрировать существующий экран на NativeWind.
+ * Сравните с оригинальным ChargesScreen.tsx чтобы увидеть разницу.
+ * 
+ * ОСНОВНЫЕ ИЗМЕНЕНИЯ:
+ * 1. Заменили StyleSheet.create() на className
+ * 2. Использовали кастомные цвета из tailwind.config.js
+ * 3. Удалили весь блок styles внизу файла (экономия ~230 строк)
+ * 4. Улучшили читаемость - стили прямо в JSX
+ */
+export default function ChargesScreenNativeWind() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
@@ -58,7 +70,6 @@ export default function ChargesScreen() {
       [autoId]: isExpanding
     }));
     
-    // Если раскрываем и детали еще не загружены - загружаем
     if (isExpanding && !autoCharges[autoId]) {
       await loadAutoFines(autoId);
     }
@@ -66,22 +77,21 @@ export default function ChargesScreen() {
 
   const totalAmount = getTotalAmount();
   const totalCount = getTotalCount();
-  // Не показываем пустое состояние если идет фоновая загрузка или есть хотя бы одно начисление
   const hasCharges = totalCount > 0 || backgroundLoading;
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-dark-bg" edges={['top']}>
         <ScreenHeader title="Начисления" onBack={() => router.back()} />
         <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#3A3A3A" />
+          <ActivityIndicator size="large" color="#C9A86B" />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-dark-bg" edges={['top']}>
       <ScreenHeader 
         title="Начисления" 
         onBack={() => router.back()}
@@ -100,8 +110,8 @@ export default function ChargesScreen() {
       
       {/* Время последней актуализации */}
       {lastUpdateTime > 0 && (
-        <View className="px-5 py-2 bg-light-surface dark:bg-[#2A2A2A] border-b border-border-secondary dark:border-dark-border">
-          <Text className="text-xs text-center text-light-textSecondary dark:text-dark-textSecondary">
+        <View className="px-5 py-2 bg-[#2A2A2A] border-b border-dark-border">
+          <Text className="text-xs text-text-secondary text-center">
             {refreshBlockedMessage || `Обновлено: ${new Date(lastUpdateTime).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} • Потяните вниз для обновления`}
           </Text>
         </View>
@@ -114,17 +124,17 @@ export default function ChargesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#3A3A3A"
-            colors={['#3A3A3A']}
+            tintColor="#C9A86B"
+            colors={['#C9A86B']}
           />
         }
       >
         {!hasCharges ? (
           <View className="flex-1 justify-center items-center px-10 pt-24">
-            <Text className="text-xl font-bold text-center mb-2.5 text-light-text dark:text-dark-text">
+            <Text className="text-xl font-bold text-text-primary text-center mb-2.5">
               Нет неоплаченных начислений
             </Text>
-            <Text className="text-sm text-center text-light-textSecondary dark:text-dark-textSecondary">
+            <Text className="text-sm text-text-secondary text-center">
               Все ваши штрафы и начисления оплачены
             </Text>
           </View>
@@ -132,18 +142,18 @@ export default function ChargesScreen() {
           <>
             {/* Индикатор фоновой загрузки */}
             {backgroundLoading && (
-              <View className="flex-row items-center justify-center p-3 bg-[#F0F0F0] rounded-lg mx-5 mb-4 gap-2.5 border border-[#B8B8B8]">
-                <ActivityIndicator size="small" color="#3A3A3A" />
-                <Text className="text-sm text-[#3A3A3A]">Загрузка штрафов...</Text>
+              <View className="flex-row items-center justify-center p-3 bg-accent-primary/10 rounded-lg mx-5 mb-4 gap-2.5">
+                <ActivityIndicator size="small" color="#C9A86B" />
+                <Text className="text-sm text-accent-primary">Загрузка штрафов...</Text>
               </View>
             )}
 
             {/* Секция: Начисления по авто */}
             {autosWithFines.length > 0 && (
               <View className="mb-5">
-                <View className="flex-row justify-between items-center px-5 py-2.5 bg-light-surface dark:bg-dark-surface">
-                  <Text className="text-lg font-bold text-light-text dark:text-dark-text">По автомобилям</Text>
-                  <Text className="text-sm text-[#656565] dark:text-accent-primary font-semibold">
+                <View className="flex-row justify-between items-center px-5 py-2.5 bg-dark-surface">
+                  <Text className="text-lg font-bold text-text-primary">По автомобилям</Text>
+                  <Text className="text-sm text-accent-primary font-semibold">
                     {autosWithFines.length} авто • {Object.values(autoCharges).reduce((sum, group) => sum + group.charges.length, 0)} шт.
                   </Text>
                 </View>
@@ -160,14 +170,14 @@ export default function ChargesScreen() {
                   return (
                     <View key={auto.id} className="mb-2.5">
                       <TouchableOpacity
-                        className="flex-row justify-between items-center px-5 py-2 active:opacity-70 bg-light-elevated dark:bg-dark-elevated"
+                        className="flex-row justify-between items-center px-5 py-2 bg-dark-elevated active:opacity-70"
                         onPress={() => toggleGroup(auto.id)}
                       >
                         <View className="flex-1">
-                          <Text className="text-base font-semibold text-light-text dark:text-dark-text">
+                          <Text className="text-base font-semibold text-text-primary">
                             ГРЗ: {auto.auto_number}
                           </Text>
-                          <Text className="text-[13px] text-[#656565] dark:text-accent-primary mt-0.5">
+                          <Text className="text-[13px] text-accent-primary mt-0.5">
                             {finesCount} шт. • {finesSum.toFixed(2)} ₽
                             {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count === 0 && (
                               <Text className="text-[11px] text-[#B0B0B0]"> (ГИБДД)</Text>
@@ -187,7 +197,7 @@ export default function ChargesScreen() {
                             </View>
                           )}
                         </View>
-                        <Text className="text-base text-[#3A3A3A] dark:text-accent-primary ml-2.5">
+                        <Text className="text-base text-accent-primary ml-2.5">
                           {isExpanded ? '▼' : '▶'}
                         </Text>
                       </TouchableOpacity>
@@ -196,8 +206,8 @@ export default function ChargesScreen() {
                         <>
                           {isLoading ? (
                             <View className="flex-row items-center justify-center p-5 gap-2.5">
-                              <ActivityIndicator size="small" color="#3A3A3A" />
-                              <Text className="text-sm text-light-textSecondary dark:text-dark-textSecondary">Загрузка...</Text>
+                              <ActivityIndicator size="small" color="#C9A86B" />
+                              <Text className="text-sm text-text-secondary">Загрузка...</Text>
                             </View>
                           ) : loadedCharges.length > 0 ? (
                             <>
@@ -212,7 +222,7 @@ export default function ChargesScreen() {
                             </>
                           ) : (
                             <View className="p-5 items-center">
-                              <Text className="text-sm italic text-light-textSecondary dark:text-dark-textSecondary">Нет данных</Text>
+                              <Text className="text-sm text-text-secondary italic">Нет данных</Text>
                             </View>
                           )}
                         </>
@@ -226,14 +236,14 @@ export default function ChargesScreen() {
             {/* Секция: Другие начисления */}
             {otherCharges.length > 0 && (
               <View className="mb-5">
-                <View className="flex-row justify-between items-center px-5 py-2.5 bg-light-surface dark:bg-dark-surface">
-                  <Text className="text-lg font-bold text-light-text dark:text-dark-text">Другие начисления</Text>
-                  <Text className="text-sm text-[#656565] dark:text-accent-primary font-semibold">
+                <View className="flex-row justify-between items-center px-5 py-2.5 bg-dark-surface">
+                  <Text className="text-lg font-bold text-text-primary">Другие начисления</Text>
+                  <Text className="text-sm text-accent-primary font-semibold">
                     {otherCharges.length} шт.
                   </Text>
                 </View>
 
-                <Text className="text-[13px] px-5 pt-2.5 pb-1.5 italic text-light-textSecondary dark:text-dark-textSecondary">
+                <Text className="text-[13px] text-text-secondary px-5 pt-2.5 pb-1.5 italic">
                   Начисления, не привязанные к конкретному автомобилю
                 </Text>
 
@@ -257,10 +267,10 @@ export default function ChargesScreen() {
 
                       {hasMore && (
                         <TouchableOpacity
-                          className="py-3 px-5 mx-5 mt-2.5 mb-1.5 rounded-lg items-center bg-light-elevated dark:bg-dark-elevated"
+                          className="bg-dark-elevated py-3 px-5 mx-5 mt-2.5 mb-1.5 rounded-lg items-center"
                           onPress={() => toggleGroup('other')}
                         >
-                          <Text className="text-sm font-semibold text-[#3A3A3A] dark:text-accent-primary">
+                          <Text className="text-sm font-semibold text-accent-primary">
                             {isExpanded 
                               ? 'Скрыть' 
                               : `Показать еще ${otherCharges.length - COLLAPSED_LIMIT}`
@@ -280,14 +290,14 @@ export default function ChargesScreen() {
       {/* Нижняя панель с итоговой суммой */}
       {hasCharges && (
         <View 
-          className="absolute bottom-0 left-0 right-0 border-t border-[#B8B8B8] px-5 pt-4 bg-light-surface dark:bg-dark-surface"
+          className="absolute bottom-0 left-0 right-0 bg-dark-surface border-t border-accent-primary px-5 pt-4"
           style={{ paddingBottom: insets.bottom + 10 }}
         >
           <View className="flex-row justify-between items-center mb-1.5">
-            <Text className="text-base font-semibold text-light-text dark:text-dark-text">Итого к оплате:</Text>
-            <Text className="text-xl font-bold text-[#EE505A]">{totalAmount.toFixed(2)} ₽</Text>
+            <Text className="text-base font-semibold text-text-primary">Итого к оплате:</Text>
+            <Text className="text-xl font-bold text-accent-primary">{totalAmount.toFixed(2)} ₽</Text>
           </View>
-          <Text className="text-[13px] text-center text-light-textSecondary dark:text-dark-textSecondary">
+          <Text className="text-[13px] text-text-secondary text-center">
             Всего начислений: {totalCount}
           </Text>
         </View>

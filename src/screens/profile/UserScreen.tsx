@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
 import { ScreenHeader } from '../../components/common';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface UserProps {
   navigation: any;
@@ -33,9 +34,17 @@ interface UserState {
   modalEditContactVisible: boolean;
 }
 
-class User extends React.Component<UserProps, UserState> {
+// HOC для передачи theme в class component
+function withTheme(Component: any) {
+  return function ThemedComponent(props: any) {
+    const themeContext = useTheme();
+    return <Component {...props} themeContext={themeContext} />;
+  };
+}
 
-  constructor(props: UserProps) {
+class User extends React.Component<UserProps & { themeContext?: any }, UserState> {
+
+  constructor(props: UserProps & { themeContext?: any }) {
     super(props);
     this.state = {
       indicator: false,
@@ -809,6 +818,47 @@ class User extends React.Component<UserProps, UserState> {
             />
           </View>
 
+          <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Тема приложения:</Text>
+
+          <View style={{
+            alignItems: 'stretch',
+            paddingTop: 20,
+            paddingLeft: 30,
+            paddingRight: 30,
+          }}>
+            <TouchableOpacity
+              style={{
+                height: 55,
+                paddingLeft: 20,
+                paddingRight: 20,
+                borderColor: '#656565',
+                borderWidth: 1,
+                borderRadius: 8,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: '#FFFFFF'
+              }}
+              onPress={() => {
+                const { theme, setTheme } = this.props.themeContext;
+                const themes: Array<'light' | 'dark' | 'auto'> = ['auto', 'light', 'dark'];
+                const currentIndex = themes.indexOf(theme);
+                const nextIndex = (currentIndex + 1) % themes.length;
+                setTheme(themes[nextIndex]);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>
+                  {this.props.themeContext?.theme === 'dark' ? '🌙' : this.props.themeContext?.theme === 'light' ? '☀️' : '🔄'}
+                </Text>
+                <Text style={{ fontSize: 18, color: '#313131' }}>
+                  {this.props.themeContext?.theme === 'light' ? 'Светлая' : this.props.themeContext?.theme === 'dark' ? 'Темная' : 'Авто'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 14, color: '#656565' }}>Нажмите для смены</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 30, fontSize: 14, fontWeight: "normal", color: "#656565" }}>Контакты:</Text>
 
           {/*
@@ -861,4 +911,4 @@ class User extends React.Component<UserProps, UserState> {
   }
 }
 
-export default User;
+export default withTheme(User);

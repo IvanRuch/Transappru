@@ -52,9 +52,12 @@ export const SelMenuContacts: React.FC = () => {
 
 export const MenuUser: React.FC = () => {
   return (
-    <View style={{ alignItems: 'center', padding: 5 }}>
-      <Image source={require('../../../assets/images/menu_user_2.png')} />
-      <Text style={{ fontSize: 11, color: "#909090", marginTop: 5 }}>профиль</Text>
+    <View style={{ alignItems: 'center', padding: 5, paddingTop: 0 }}>
+      <Image 
+        source={require('../../../assets/images/menu_user_2.png')} 
+        style={{ marginTop: -4 }}
+      />
+      <Text style={{ fontSize: 11, color: "#909090", marginTop: 6 }}>профиль</Text>
     </View>
   );
 };

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableHighlight, Image, ScrollView, Activity
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../src/utils/Api';
+import { useTheme } from '../src/contexts/ThemeContext';
 
 interface ContactData {
   id: string;
@@ -14,6 +15,7 @@ interface ContactData {
 
 export default function UserScreen() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const [userData, setUserData] = useState<any>(null);
   const [contactList, setContactList] = useState<ContactData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,38 @@ export default function UserScreen() {
         <View style={styles.inputContainer}>
           <Text style={styles.inputText}>{userData?.inn || ''}</Text>
         </View>
+
+        {/* Тема приложения (только для DEV) */}
+        {__DEV__ && (
+          <>
+            <Text style={styles.fieldLabel}>Тема приложения:</Text>
+            <View style={styles.inputContainer}>
+              <TouchableHighlight
+                style={styles.themeToggle}
+                activeOpacity={1}
+                underlayColor='#F0F0F0'
+                onPress={() => {
+                  const themes: Array<'light' | 'dark' | 'auto'> = ['auto', 'light', 'dark'];
+                  const currentIndex = themes.indexOf(theme);
+                  const nextIndex = (currentIndex + 1) % themes.length;
+                  setTheme(themes[nextIndex]);
+                }}
+              >
+                <View style={styles.themeToggleContent}>
+                  <View style={styles.themeToggleLeft}>
+                    <Text style={styles.themeIcon}>
+                      {theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '🔄'}
+                    </Text>
+                    <Text style={styles.themeText}>
+                      {theme === 'light' ? 'Светлая' : theme === 'dark' ? 'Темная' : 'Авто'}
+                    </Text>
+                  </View>
+                  <Text style={styles.themeHint}>Нажмите для смены</Text>
+                </View>
+              </TouchableHighlight>
+            </View>
+          </>
+        )}
 
         {/* Контакты */}
         <Text style={styles.fieldLabel}>Контакты:</Text>
@@ -734,5 +768,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  themeToggle: {
+    height: 55,
+    paddingLeft: 20,
+    paddingRight: 20,
+    borderColor: '#656565',
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+  },
+  themeToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  themeToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  themeIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  themeText: {
+    fontSize: 18,
+    color: '#313131',
+  },
+  themeHint: {
+    fontSize: 14,
+    color: '#656565',
   },
 });
