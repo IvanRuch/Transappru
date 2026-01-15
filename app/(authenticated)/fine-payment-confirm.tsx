@@ -1,3 +1,3 @@
-import { FinePaymentConfirmScreen } from '../../src/screens/fine-payment';
+import PaymentConfirmScreen from '../../src/screens/fine-payment/PaymentConfirmScreen';
 
-export default FinePaymentConfirmScreen;
+export default PaymentConfirmScreen;

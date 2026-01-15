@@ -1,52 +1,71 @@
 import axios, { AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-const BASE_URL = 'https://transapp.ru/api/';
+// Основной API (старый бэкенд)
+const MAIN_API_URL = 'https://transapp.ru/api/';
+
+// API микросервиса оплаты (новый бэкенд)
+// Android Emulator: 10.0.2.2
+// iOS Simulator: localhost
+// Real Device: Ваш локальный IP
+const DEV_PAYMENT_API_URL = Platform.select({
+  android: 'http://10.0.2.2:8001/api', 
+  ios: 'http://localhost:8001/api',
+  default: 'http://localhost:8001/api',
+});
+
+const PROD_PAYMENT_API_URL = 'https://payment.transapp.ru/api'; // Пример URL для продакшена
+
+const PAYMENT_API_URL = __DEV__ ? DEV_PAYMENT_API_URL : PROD_PAYMENT_API_URL;
+
+console.log('Main API URL:', MAIN_API_URL);
+console.log('Payment API URL:', PAYMENT_API_URL);
 
 class ApiService {
   private api: AxiosInstance;
+  private paymentApi: AxiosInstance;
 
   constructor() {
+    // Клиент для основного API
     this.api = axios.create({
-      baseURL: BASE_URL,
+      baseURL: MAIN_API_URL,
       responseType: 'json',
       timeout: 30000,
     });
 
-    // Request interceptor (токен передается в body, не в headers)
-    this.api.interceptors.request.use(
+    // Клиент для микросервиса оплаты
+    this.paymentApi = axios.create({
+      baseURL: PAYMENT_API_URL,
+      responseType: 'json',
+      timeout: 30000,
+    });
+
+    this.setupInterceptors(this.api);
+    this.setupInterceptors(this.paymentApi);
+  }
+
+  private setupInterceptors(instance: AxiosInstance) {
+    // Request interceptor
+    instance.interceptors.request.use(
       async config => {
-        // Токен передается в body запроса, не добавляем в headers
         return config;
       },
       error => Promise.reject(error)
     );
 
-    // Response interceptor для обработки ошибок
-    this.api.interceptors.response.use(
+    // Response interceptor
+    instance.interceptors.response.use(
       response => response,
       async error => {
         if (error.response) {
           const { status, data } = error.response;
           
-          // 401 Unauthorized - удаляем токен и редиректим на авторизацию
           if (status === 401) {
             console.log('API: 401 Unauthorized - clearing token');
             await AsyncStorage.removeItem('token');
-            // Редирект на авторизацию будет обработан в компонентах через router
           }
           
-          // 404 Not Found
-          if (status === 404) {
-            console.log('API: 404 Not Found -', error.config?.url);
-          }
-          
-          // 500 Server Error
-          if (status >= 500) {
-            console.log('API: Server Error', status);
-          }
-          
-          // Логируем детали ошибки
           console.log('API Error:', {
             url: error.config?.url,
             method: error.config?.method,
@@ -54,10 +73,8 @@ class ApiService {
             data
           });
         } else if (error.request) {
-          // Запрос был отправлен, но ответа не получено (сетевая ошибка)
-          console.log('API: Network Error - no response received');
+          console.log('API: Network Error - no response received', error.message);
         } else {
-          // Ошибка при настройке запроса
           console.log('API: Request Setup Error -', error.message);
         }
         
@@ -66,7 +83,7 @@ class ApiService {
     );
   }
 
-  // Методы для прямого доступа к axios методам (совместимость со старым кодом)
+  // Методы для основного API (совместимость)
   get(url: string, config?: any) {
     return this.api.get(url, config);
   }
@@ -82,6 +99,12 @@ class ApiService {
   delete(url: string, config?: any) {
     return this.api.delete(url, config);
   }
+
+  // Методы для платежного API
+  payment = {
+    get: (url: string, config?: any) => this.paymentApi.get(url, config),
+    post: (url: string, data?: any, config?: any) => this.paymentApi.post(url, data, config),
+  };
 }
 
 export default new ApiService();

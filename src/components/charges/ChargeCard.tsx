@@ -1,28 +1,49 @@
 import React from 'react';
-import { View, Text, TouchableHighlight, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableHighlight, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { ChargeItem } from '../../types/charges';
 
 interface ChargeCardProps {
   item: ChargeItem;
   showAutoInfo?: boolean;
   onPress?: (item: ChargeItem) => void;
+  selected?: boolean;
+  onSelect?: (item: ChargeItem) => void;
 }
 
-export const ChargeCard: React.FC<ChargeCardProps> = ({ item, showAutoInfo = false, onPress }) => {
+export const ChargeCard: React.FC<ChargeCardProps> = ({ 
+  item, 
+  showAutoInfo = false, 
+  onPress,
+  selected = false,
+  onSelect
+}) => {
   const isPaid = item.is_paid === '1' || item.is_paid === 1;
   const isPlaton = item.is_platon === '1' || item.is_platon === 1;
   const isFssp = item.is_to_fssp === '1' || item.is_to_fssp === 1;
 
   return (
     <View style={styles.card}>
+      {/* Чекбокс или иконка статуса */}
       <View style={styles.iconContainer}>
-        <Image 
-          source={
-            isPaid 
-              ? require('../../../assets/images/uil_check_2.png')
-              : require('../../../assets/images/uil_exclamation-triangle_2.png')
-          }
-        />
+        {onSelect && !isPaid ? (
+          <TouchableOpacity 
+            onPress={() => onSelect(item)}
+            style={styles.checkboxContainer}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
+              {selected && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <Image 
+            source={
+              isPaid 
+                ? require('../../../assets/images/uil_check_2.png')
+                : require('../../../assets/images/uil_exclamation-triangle_2.png')
+            }
+          />
+        )}
       </View>
 
       <View style={styles.contentContainer}>
@@ -96,7 +117,8 @@ export const ChargeCard: React.FC<ChargeCardProps> = ({ item, showAutoInfo = fal
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    margin: 20,
+    marginHorizontal: 20,
+    marginVertical: 5,
     padding: 10,
     backgroundColor: '#EEEEEE',
     borderRadius: 8,
@@ -104,10 +126,31 @@ const styles = StyleSheet.create({
     borderColor: '#B8B8B8',
   },
   iconContainer: {
-    flex: 2,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
+  },
+  checkboxContainer: {
+    padding: 5,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#3A3A3A',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  checkboxSelected: {
+    backgroundColor: '#3A3A3A',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   contentContainer: {
     flex: 5,
@@ -116,15 +159,18 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    marginBottom: 2,
   },
   text: {
     color: '#313131',
+    fontSize: 14,
   },
   errorText: {
     color: '#EE505A',
+    fontSize: 14,
   },
   smallText: {
-    color: '#313131',
+    color: '#656565',
     fontSize: 12,
   },
   noAutoInfo: {
@@ -141,12 +187,9 @@ const styles = StyleSheet.create({
   arrowContainer: {
     flex: 1,
     alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   arrowButton: {
-    paddingTop: 20,
-    paddingLeft: 20,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    padding: 10,
   },
 });

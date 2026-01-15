@@ -1,0 +1,32 @@
+services:
+  payment-service:
+    build: .
+    ports:
+      - "8001:8000"
+    volumes:
+      - .:/app # Пробрасываем код внутрь контейнера
+    environment:
+      - DB_URL=postgres://postgres:postgres@payment-db:5432/payment_db
+      - KAZNA_API_URL=https://demopay.oplatagosuslug.ru/api/kazna/2.2
+      - KAZNA_SECRET_KEY=SA9QXHKV
+      - KAZNA_TOKEN=testservice
+    # Переопределяем команду запуска, добавляя --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - payment-db
+    restart: always
+
+  payment-db:
+    image: postgres:15-alpine
+    volumes:
+      - payment_postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=payment_db
+    ports:
+      - "5433:5432"
+    restart: always
+
+volumes:
+  payment_postgres_data:

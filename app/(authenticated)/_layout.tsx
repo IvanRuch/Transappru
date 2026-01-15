@@ -4,7 +4,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../../src/utils/Api';
 
-const AUTH_CHECK_INTERVAL = 30000; // Проверка каждые 30 секунд
+const AUTH_CHECK_INTERVAL = 30000;
 
 export default function AuthenticatedLayout() {
   const router = useRouter();
@@ -13,17 +13,10 @@ export default function AuthenticatedLayout() {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    // Проверяем авторизацию при загрузке
     checkAuth();
-    
-    // Запускаем периодическую проверку user_confirmed
     startPeriodicCheck();
-    
-    // Слушаем изменения состояния приложения (foreground/background)
     const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
     return () => {
-      // Очищаем интервал при размонтировании
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
@@ -32,7 +25,6 @@ export default function AuthenticatedLayout() {
   }, []);
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    // Когда приложение возвращается из фона - проверяем статус
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
       console.log('App returned to foreground, checking user_confirmed...');
       checkUserConfirmed();
@@ -41,7 +33,6 @@ export default function AuthenticatedLayout() {
   };
 
   const startPeriodicCheck = () => {
-    // Периодическая проверка user_confirmed
     intervalRef.current = setInterval(() => {
       checkUserConfirmed();
     }, AUTH_CHECK_INTERVAL);
@@ -50,8 +41,6 @@ export default function AuthenticatedLayout() {
   const checkAuth = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      
-      // Если токена нет и мы в защищенной зоне - редирект на авторизацию
       if (!token) {
         router.replace('/');
       }
@@ -76,17 +65,14 @@ export default function AuthenticatedLayout() {
       
       if (userConfirmed === 0 || userConfirmed === "0") {
         console.log('⚠️ User confirmation revoked! Redirecting to auth...');
-        // Останавливаем интервал
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
         }
-        // Удаляем токен и редиректим
         await AsyncStorage.removeItem('token');
         router.replace('/');
       }
     } catch (error: any) {
       console.log('checkUserConfirmed error:', error.message);
-      // При 401 ошибке - редирект на авторизацию
       if (error.response?.status === 401) {
         await AsyncStorage.removeItem('token');
         router.replace('/');
@@ -106,6 +92,12 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="profile" options={{ title: 'Профиль' }} />
       <Stack.Screen name="services" options={{ title: 'Услуги' }} />
       <Stack.Screen name="auto/[id]" options={{ title: 'Автомобиль' }} />
+      
+      {/* Экраны оплаты */}
+      <Stack.Screen name="fine-payment-confirm" options={{ title: 'Оплата штрафа' }} />
+      <Stack.Screen name="fine-payment-multi-confirm" options={{ title: 'Оплата штрафов' }} />
+      <Stack.Screen name="fine-payment-webview" options={{ title: 'Оплата' }} />
+      <Stack.Screen name="fine-payment-success" options={{ title: 'Успех' }} />
     </Stack>
   );
 }
