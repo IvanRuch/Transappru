@@ -6,11 +6,16 @@ import { useRouter } from 'expo-router';
 
 import { getFCMToken } from '../../utils/PushNotificationHelper';
 import Api from '../../utils/Api';
+import { ApiResponse, SessionData } from '../../types/api';
 
 const maxStep = 60;
 const intervalTime = 10000;
 
-export default function AuthScreen() {
+interface AuthScreenProps {
+  initialSessionData?: SessionData;
+}
+
+export default function AuthScreen(props: AuthScreenProps) {
   const router = useRouter();
   
   // State
@@ -22,9 +27,10 @@ export default function AuthScreen() {
   const [privacyPolicy, setPrivacyPolicy] = useState('');
   const [modalPrivacyPolicy, setModalPrivacyPolicy] = useState(false);
   const [modalWaitConfirmation, setModalWaitConfirmation] = useState(false);
-  const [sessionData, setSessionData] = useState<any>({});
+  const [sessionData, setSessionData] = useState<SessionData>(props.initialSessionData || {});
   const [canGoBack, setCanGoBack] = useState(false);
   const [isCheckingToken, setIsCheckingToken] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Ref для отслеживания активного интервала
   const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
@@ -40,30 +46,47 @@ export default function AuthScreen() {
   const changePhone = (value: string) => {
     console.log('changePhone. value = ' + value);
 
-    if (value === '+7') {
-      value = '';
-    }
-    if (value === '7') {
-      value = '+7';
-    }
-    if (value === '+' || value === '8') {
-      value = '+7';
-    }
-    if (value.match(/^\d$/)) {
-      value = '+7' + value;
+    // Удаляем все нецифровые символы
+    let cleaned = value.replace(/\D/g, '');
+
+    // Если поле очищено (например, удалили все), сбрасываем
+    if (cleaned.length === 0) {
+      // Если пользователь ввел только "+", считаем это попыткой начать ввод
+      if (value === '+') {
+         setPhone('+7');
+      } else {
+         setPhone('');
+      }
+      return;
     }
 
-    setPhone(value);
+    // Если первая цифра 7 или 8, считаем это кодом страны и отбрасываем,
+    // так как +7 мы добавляем принудительно.
+    if (cleaned.startsWith('7') || cleaned.startsWith('8')) {
+      cleaned = cleaned.substring(1);
+    }
 
-    if (value.match(/\+7(\d{10})/)) {
+    // Ограничиваем длину 10 цифрами (после +7)
+    if (cleaned.length > 10) {
+      cleaned = cleaned.substring(0, 10);
+    }
+
+    // Формируем итоговый номер
+    setPhone('+7' + cleaned);
+  };
+
+  // Validate phone number whenever it changes
+  useEffect(() => {
+    // Check if phone matches format +7XXXXXXXXXX (exactly 12 chars)
+    if (phone.length === 12 && phone.startsWith('+7') && /^\+7\d{10}$/.test(phone)) {
       setDisabled(false);
     } else {
       setDisabled(true);
     }
-  };
+  }, [phone]);
 
   const getButtonStyle = () => {
-    let backgroundColor = disabled || !checked ? "#c0c0c0" : "#3A3A3A";
+    let backgroundColor = disabled || !checked || isSubmitting ? "#c0c0c0" : "#3A3A3A";
     return { 
       height: 50, 
       width: 275, 
@@ -79,6 +102,95 @@ export default function AuthScreen() {
     return { fontSize: 20, color };
   };
 
+  // Функция анализа данных сессии (общая для initialData и API ответа)
+  const processSessionData = (data: SessionData, token: string) => {
+    console.log('Processing session data:', data);
+
+    if (typeof data.user_data !== 'undefined') {
+      console.log('data.user_data.phone_inn_confirmed = ' + data.user_data.phone_inn_confirmed);
+      console.log('data.user_data.user_confirmed = ' + data.user_data.user_confirmed);
+
+      const phoneInnConfirmed = data.user_data.phone_inn_confirmed;
+      const userConfirmed = data.user_data.user_confirmed;
+      
+      if ((phoneInnConfirmed === 0 || phoneInnConfirmed === "0") ||
+          (userConfirmed === 0 || userConfirmed === "0")) {
+        // Пользователь не подтвержден - показываем модалку ожидания
+        setSessionData(data);
+        setModalWaitConfirmation(true);
+        setIsCheckingToken(false);
+        
+        // Запускаем периодическую проверку
+        startPolling(token);
+      } else {
+        // Пользователь подтвержден - показываем форму ввода телефона (или редиректим, если нужно)
+        // В данном контексте, если мы в AuthScreen, значит мы либо входим, либо ждем подтверждения.
+        // Если уже подтверждены - то по идее нас тут быть не должно (IndexScreen должен был отправить в AutoList)
+        // Но если мы тут, значит что-то пошло не так, или мы пришли через "Выход".
+        console.log('✅ User is confirmed, showing auth form');
+        setIsCheckingToken(false);
+      }
+    } else {
+        // Нет данных пользователя (новый пользователь)
+        setIsCheckingToken(false);
+    }
+  };
+
+  const startPolling = (token: string) => {
+    // Очищаем предыдущий интервал если он существует
+    if (intervalRef.current) {
+      console.log('⚠️ Clearing existing interval before creating new one');
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    let t = 0;
+    console.log('Starting polling interval...');
+    const get_session = setInterval(async () => {
+      console.log('Polling check (t=' + t + ')...');
+
+      try {
+        const res = await Api.post<ApiResponse>('/get-session-data', { token });
+        const data = res.data;
+        
+        // Обновляем данные, если они пришли
+        if (data.session_data) {
+           setSessionData(data.session_data);
+           
+           const phoneInnConfirmedInterval = data.session_data.user_data?.phone_inn_confirmed;
+           const userConfirmedInterval = data.session_data.user_data?.user_confirmed;
+           
+           if ((phoneInnConfirmedInterval === 1 || phoneInnConfirmedInterval === "1") &&
+               (userConfirmedInterval === 1 || userConfirmedInterval === "1")) {
+             console.log('clearInterval by confirmed');
+             clearInterval(get_session);
+             intervalRef.current = null;
+             console.log('-> move to AutoList');
+             router.push('/(authenticated)/auto-list');
+           }
+        }
+      } catch (error: any) {
+        console.log('Polling error status:', error.response?.status);
+        if (error.response?.status === 401) { 
+          clearInterval(get_session);
+          intervalRef.current = null;
+        }
+      }
+
+      if (t >= maxStep * intervalTime) {
+        console.log('clearInterval by maxStep');
+        clearInterval(get_session);
+        intervalRef.current = null;
+        router.push('/(authenticated)/auto-list'); // Почему редирект? Видимо таймаут ожидания
+      }
+
+      t += intervalTime;
+    }, intervalTime);
+    
+    // Сохраняем ссылку на интервал
+    intervalRef.current = get_session;
+  };
+
   const getSessionData = async (value: string | null) => {
     console.log('getSessionData. value = ' + value);
 
@@ -88,78 +200,10 @@ export default function AuthScreen() {
     }
 
     try {
-      const res = await Api.post('/get-session-data', { token: value });
+      const res = await Api.post<ApiResponse>('/get-session-data', { token: value });
       const data = res.data;
-      console.log(data);
-
-      if (typeof data.session_data.user_data !== 'undefined') {
-        console.log('data.session_data.user_data.phone_inn_confirmed = ' + data.session_data.user_data.phone_inn_confirmed);
-        console.log('data.session_data.user_data.user_confirmed = ' + data.session_data.user_data.user_confirmed);
-
-        const phoneInnConfirmed = data.session_data.user_data.phone_inn_confirmed;
-        const userConfirmed = data.session_data.user_data.user_confirmed;
-        
-        if ((phoneInnConfirmed === 0 || phoneInnConfirmed === "0") ||
-            (userConfirmed === 0 || userConfirmed === "0")) {
-          // Пользователь не подтвержден - показываем модалку ожидания
-          setSessionData(data.session_data);
-          setModalWaitConfirmation(true);
-          setIsCheckingToken(false);
-
-          // Очищаем предыдущий интервал если он существует
-          if (intervalRef.current) {
-            console.log('⚠️ Clearing existing interval before creating new one');
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-
-          let t = 0;
-          const get_session = setInterval(async () => {
-            console.log('t = ' + t);
-
-            try {
-              const res = await Api.post('/get-session-data', { token: value });
-              const data = res.data;
-              console.log('data');
-              console.log(data);
-              setSessionData(data.session_data);
-            } catch (error: any) {
-              console.log('error.response.status = ' + error.response?.status);
-              if (error.response?.status === 401) { 
-                clearInterval(get_session);
-                intervalRef.current = null;
-              }
-            }
-
-            if (t >= maxStep * intervalTime) {
-              console.log('clearInterval by maxStep');
-              clearInterval(get_session);
-              intervalRef.current = null;
-              router.push('/(authenticated)/auto-list');
-            }
-
-            const phoneInnConfirmedInterval = sessionData.user_data?.phone_inn_confirmed;
-            const userConfirmedInterval = sessionData.user_data?.user_confirmed;
-            
-            if ((phoneInnConfirmedInterval === 1 || phoneInnConfirmedInterval === "1") &&
-                (userConfirmedInterval === 1 || userConfirmedInterval === "1")) {
-              console.log('clearInterval by confirmed');
-              clearInterval(get_session);
-              intervalRef.current = null;
-              console.log('-> move to AutoList');
-              router.push('/(authenticated)/auto-list');
-            }
-
-            t += intervalTime;
-          }, intervalTime);
-          
-          // Сохраняем ссылку на интервал
-          intervalRef.current = get_session;
-        } else {
-          // Пользователь подтвержден - показываем форму ввода телефона
-          console.log('✅ User is confirmed, showing auth form');
-          setIsCheckingToken(false);
-        }
+      if (data.session_data) {
+        processSessionData(data.session_data, value);
       }
     } catch (error) {
       console.log('error');
@@ -175,6 +219,12 @@ export default function AuthScreen() {
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) {
+      console.log('⚠️ Already submitting, ignoring duplicate click');
+      return;
+    }
+
+    setIsSubmitting(true);
     console.log('call auth-by-phone');
     let cleanPhone = phone.replace(/\+/, '');
     console.log('phone = ' + cleanPhone);
@@ -191,6 +241,7 @@ export default function AuthScreen() {
     } catch (error) {
       console.log('error');
       console.log(error);
+      setIsSubmitting(false);
     }
   };
 
@@ -201,13 +252,21 @@ export default function AuthScreen() {
     const init = async () => {
       // Проверяем, есть ли токен (пользователь пришёл через "Выйти" или не подтверждён)
       const token = await AsyncStorage.getItem('token');
+      
       if (token) {
         console.log('🔑 Token exists, user can go back');
         setCanGoBack(true);
         
-        // Проверяем статус подтверждения пользователя
-        console.log('🔍 Checking user confirmation status...');
-        await getSessionData(token);
+        console.log('📦 AuthScreen props.initialSessionData:', JSON.stringify(props.initialSessionData));
+        
+        if (props.initialSessionData && Object.keys(props.initialSessionData).length > 0) {
+           console.log('📦 Using initialSessionData from props');
+           processSessionData(props.initialSessionData, token);
+        } else {
+           // Проверяем статус подтверждения пользователя через API
+           console.log('🔍 Checking user confirmation status via API...');
+           await getSessionData(token);
+        }
       } else {
         // Нет токена - показываем экран ввода телефона
         setIsCheckingToken(false);
@@ -393,15 +452,16 @@ export default function AuthScreen() {
         maxLength={12}
         placeholder='+70000000000'
         placeholderTextColor='#c0c0c0'
+        onFocus={focusPhone}
         onChangeText={changePhone}
         value={phone}
       />
       <TouchableOpacity
-        disabled={disabled || !checked}
+        disabled={disabled || !checked || isSubmitting}
         style={getButtonStyle()}
         onPress={handleSubmit}
       >
-        <Text style={getButtonTextStyle()}>Отправить</Text>
+        <Text style={getButtonTextStyle()}>{isSubmitting ? 'Отправка...' : 'Отправить'}</Text>
       </TouchableOpacity>
 
       <View style={{ marginTop: 30, width: 300, flexDirection: "row" }}>
@@ -465,7 +525,7 @@ export default function AuthScreen() {
             
             {sessionData?.user_data?.manager_data?.mobile_phone && (
               <TouchableHighlight
-                onPress={() => contactPhone(sessionData.user_data.manager_data.mobile_phone)}
+                onPress={() => contactPhone(sessionData.user_data?.manager_data?.mobile_phone || '')}
               >
                 <View style={{ alignItems: 'center', padding: 5 }}>
                   <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Вы можете связаться с менеджером</Text>

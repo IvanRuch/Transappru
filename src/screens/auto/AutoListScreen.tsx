@@ -36,11 +36,13 @@ export default function AutoListScreen() {
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
 
-  // При фокусе на экран - только запускаем анимацию
+  // При фокусе на экран - обновляем данные пользователя и запускаем анимацию
   useFocusEffect(
     useCallback(() => {
       console.log('AutoListScreen focused');
-      // Только запускаем анимацию, данные используем из кеша
+      // Обновляем счетчики уведомлений
+      autoListHook.updateUserData();
+      // Запускаем анимацию
       autoListHook.startPulseAnimation();
       
       return () => {

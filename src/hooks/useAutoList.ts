@@ -245,8 +245,22 @@ export function useAutoList() {
               setAutoList(prev => prev.map(auto => 
                 auto.id === autoId ? {
                   ...auto,
+                  // Обновляем ВСЕ поля пропуска
                   check_passes_string: passData.check_passes_string,
+                  check_passes_year_propusktype: passData.check_passes_year_propusktype,
+                  check_passes_year_type_of_pass_string: passData.check_passes_year_type_of_pass_string,
+                  check_passes_year_cancelled: passData.check_passes_year_cancelled,
                   check_passes_year_period_color: passData.check_passes_year_period_color,
+                  check_passes_pass_end_left: passData.check_passes_pass_end_left,
+                  check_passes_pass_end_str: passData.check_passes_pass_end_str,
+                  check_passes_dat_cancel_year_str: passData.check_passes_dat_cancel_year_str,
+                  
+                  // Второй пропуск
+                  check_passes_another_year_propusktype: passData.check_passes_another_year_propusktype,
+                  check_passes_another_year_type_of_pass_string: passData.check_passes_another_year_type_of_pass_string,
+                  check_passes_another_pass_end_left: passData.check_passes_another_pass_end_left,
+                  check_passes_another_pass_end_str: passData.check_passes_another_pass_end_str,
+
                   check_passes_expared: 0
                 } : auto
               ));
@@ -382,6 +396,30 @@ export function useAutoList() {
       paginationRef.current.isFilterChanging = false;
     }
   }, [router]);  // Убираем зависимости от фильтров - используем filtersRef
+
+  // Обновление данных пользователя (счетчики и т.д.)
+  const updateUserData = useCallback(async () => {
+    const token = await AsyncStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      console.log('Updating user data (light request)...');
+      // Используем get-auto-list с лимитом 0, чтобы получить только user_data
+      const res = await api.post('/get-auto-list', { token, auto_list_limit: 0 });
+      const data = res.data;
+      
+      if (data.user_data) {
+        console.log('User data updated. New notification count:', data.user_data.notification_unviewed_count);
+        setUserData(data.user_data);
+        
+        if (data.other_user_list) {
+             setOtherUserList(data.other_user_list);
+        }
+      }
+    } catch (error) {
+      console.log('Error updating user data:', error);
+    }
+  }, []);
 
   // Обновление списка (сброс)
   const refreshAutoList = useCallback(async () => {
@@ -968,5 +1006,6 @@ export function useAutoList() {
     toggleAutoPassEnds,
     changeAutoPassEndsUntilDate,
     showHideTab,
+    updateUserData,
   };
 }

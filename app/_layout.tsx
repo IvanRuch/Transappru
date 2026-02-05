@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useEffect, useState, useRef } from 'react';
+import { Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseService } from '@/src/services/firebase';
 import { NotificationProvider, useNotification } from '@/src/contexts/NotificationContext';
 import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
+import NetworkStatusBanner from '@/src/components/NetworkStatusBanner';
+import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import '../global.css';
 
 // Предотвращаем автоматическое скрытие splash screen
@@ -28,6 +31,20 @@ if (__DEV__) {
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const segments = useSegments();
+
+  // Следим за изменением навигации, чтобы обновить токен (простая реактивность)
+  useEffect(() => {
+    const updateToken = async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (token !== authToken) {
+        console.log('🔑 Auth token updated in RootLayout');
+        setAuthToken(token);
+      }
+    };
+    updateToken();
+  }, [segments]);
 
   useEffect(() => {
     async function prepare() {
@@ -37,17 +54,14 @@ export default function RootLayout() {
         // Быстро помечаем приложение готовым, чтобы не задерживать UI
         setAppIsReady(true);
         
-        // Firebase инициализируем асинхронно в фоне
-        console.log('Setting up Firebase in background...');
-        setTimeout(() => {
-          try {
-            FirebaseService.initialize();
-            FirebaseService.requestPermission();
-            FirebaseService.setupNotificationListeners();
-          } catch (e) {
-            console.warn('Error during Firebase initialization:', e);
-          }
-        }, 100);
+        // Firebase инициализируем синхронно (это легковесная операция в JS)
+        // Но основную работу сделает хук usePushNotifications
+        try {
+          // Инициализация базового приложения Firebase (если нужно)
+          FirebaseService.initialize();
+        } catch (e) {
+          console.warn('Error during Firebase initialization:', e);
+        }
       } catch (e) {
         console.warn('Error during app initialization:', e);
         setAppIsReady(true);
@@ -83,20 +97,33 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <NotificationProvider>
-        <NotificationOverlay />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
-          <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
-          <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
-          <Stack.Screen name="user" options={{ title: 'Профиль' }} />
-          <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
-        </Stack>
+        <AppContent token={authToken} />
       </NotificationProvider>
     </ThemeProvider>
+  );
+}
+
+// Вынесли контент в отдельный компонент, чтобы использовать хук внутри провайдера
+function AppContent({ token }: { token: string | null }) {
+  // Подключаем пуш-уведомления с реактивным токеном
+  usePushNotifications(token);
+
+  return (
+    <>
+      <NetworkStatusBanner />
+      <NotificationOverlay />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="index" options={{ title: 'Авторизация' }} />
+        <Stack.Screen name="pin" options={{ title: 'Ввод PIN' }} />
+        <Stack.Screen name="onboarding" options={{ title: 'Обучение' }} />
+        <Stack.Screen name="user" options={{ title: 'Профиль' }} />
+        <Stack.Screen name="(authenticated)" options={{ headerShown: false }} />
+      </Stack>
+    </>
   );
 }
 

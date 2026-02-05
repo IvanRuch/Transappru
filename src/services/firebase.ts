@@ -43,14 +43,10 @@ export class FirebaseService {
     await getFCMToken();
   }
 
-  // Настройка слушателей - аналогично старому проекту
-  static setupNotificationListeners() {
-    try {
-      // Настраиваем foreground слушатели
-      // Background handler временно отключен из-за проблем с инициализацией в Expo
-      NotificationListener();
-    } catch (error) {
-      console.log('Error setting up notification listeners:', error);
-    }
+  // Настройка слушателей - DEPRECATED
+  // Логика перенесена в хук usePushNotifications
+  static async setupNotificationListeners() {
+    console.log('⚠️ FirebaseService.setupNotificationListeners is deprecated. Use usePushNotifications hook.');
+    return () => {};
   }
 }

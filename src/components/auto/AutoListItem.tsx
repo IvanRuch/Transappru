@@ -45,6 +45,13 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
     return bgMap[color] || '#F7F7F7';
   };
 
+  // Рендер "пустых" ячеек, если нет данных
+  const renderEmptyPass = () => (
+    <View style={[styles.passCell, { flex: 7, backgroundColor: getBgColor('white') }]}>
+      <Text style={styles.passCellText}>{item.check_passes_string || 'нет данных о пропуске'}</Text>
+    </View>
+  );
+
   return (
     <Pressable onPress={() => onMark(item, index)}>
       <View style={itemStyle}>
@@ -99,8 +106,10 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
                   )}
                 </>
               ) : (
+                // Если нет детальных данных, но есть строка - показываем ее в одном блоке
+                // Если и строки нет - показываем "нет данных"
                 <View style={[styles.passCell, { flex: 7, backgroundColor: getBgColor('white') }]}>
-                  <Text style={styles.passCellText}>{item.check_passes_string}</Text>
+                  <Text style={styles.passCellText}>{item.check_passes_string || 'нет данных'}</Text>
                 </View>
               )}
             </View>
@@ -160,8 +169,8 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
             </View>
             <View style={[styles.passCell, { flex: 6, backgroundColor: getBgColor('white') }]}>
               <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <ActivityIndicator size="small" color="#313131" animating={false} />
-                <Text style={[styles.passCellText, { paddingLeft: 10 }]}>нет данных о пропуске</Text>
+                <ActivityIndicator size="small" color="#313131" animating={true} />
+                <Text style={[styles.passCellText, { paddingLeft: 10 }]}>обновление...</Text>
               </View>
             </View>
           </View>

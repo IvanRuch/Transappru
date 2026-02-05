@@ -46,3 +46,7 @@ app-example
 google-services.json
 GoogleService-Info.plist
 old-project
+
+# Symlinks to external repos
+backend_reference
+/Transappru/

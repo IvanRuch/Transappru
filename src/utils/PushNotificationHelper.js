@@ -72,9 +72,17 @@ export const requestUserPermission = async () => {
 
 export const setFCMToken = async (fcmtoken) => {
 
-  console.log('📤 setFCMToken - Sending token to server...')
+  console.log('📤 setFCMToken - Checking if token needs to be sent...')
 
   let token = await AsyncStorage.getItem("token");
+  let lastSentToken = await AsyncStorage.getItem("last_sent_fcm_token");
+  
+  // Если токен уже был отправлен и не изменился - не спамим сервер
+  if (lastSentToken === fcmtoken) {
+    console.log('✅ FCM token already sent and matches current token. Skipping server request.');
+    return;
+  }
+
   console.log('🔑 Auth token:', token ? 'EXISTS' : 'NOT FOUND')
 
   if(token)
@@ -82,14 +90,17 @@ export const setFCMToken = async (fcmtoken) => {
     let device_info = getDeviceInfo();
 
     console.log('📱 Device info:', device_info)
-    console.log('🔔 FCM token to send:', fcmtoken)
+    console.log('🔔 Sending NEW FCM token to server:', fcmtoken)
 
     Api.post('/set-fcmtoken', { token: token, fcmtoken: fcmtoken, device_info: device_info })
-       .then(res => {
+       .then(async res => {
 
           const data = res.data;
           console.log('✅ FCM token sent successfully to server')
           console.log('Server response:', data);
+          
+          // Запоминаем, что мы отправили этот токен
+          await AsyncStorage.setItem("last_sent_fcm_token", fcmtoken);
 
         })
         .catch(error => {
@@ -158,21 +169,38 @@ export const getFCMToken = async () => {
   }
 }
 
-let listenersInitialized = false;
+// Храним unsubscribe функции для очистки
+let unsubscribeFunctions = [];
+let isListenersRegistered = false;
 
-export const NotificationListener = () => {
-  if (listenersInitialized) {
-    console.log('⚠️ NotificationListener already initialized, skipping...');
-    return;
+export const NotificationListener = async () => {
+  // Проверяем, инициализированы ли уже слушатели (в памяти текущей сессии)
+  if (isListenersRegistered) {
+    console.log('⚠️ NotificationListener already initialized in this session, skipping...');
+    // Возвращаем функцию очистки, даже если пропустили инициализацию
+    return () => {
+      unsubscribeFunctions.forEach(u => u && u());
+      isListenersRegistered = false;
+    };
   }
-
-  listenersInitialized = true;
 
   console.log('========================================')
   console.log('🔔 NotificationListener - Registering...')
   console.log('========================================')
 
   try {
+    // Гарантированная очистка перед новой подпиской (на случай ре-рендеров)
+    if (unsubscribeFunctions.length > 0) {
+      unsubscribeFunctions.forEach(unsubscribe => {
+        try {
+           if (unsubscribe) unsubscribe();
+        } catch (e) {
+          console.log('Error unsubscribing:', e);
+        }
+      });
+      unsubscribeFunctions = [];
+    }
+
     // Когда приложение в фоне и пользователь нажимает на уведомление
     const unsubscribeOnNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
       console.log('========================================')
@@ -214,14 +242,30 @@ export const NotificationListener = () => {
       }
     });
     
+    // Сохраняем unsubscribe функции
+    unsubscribeFunctions.push(unsubscribeOnNotificationOpenedApp);
+    unsubscribeFunctions.push(unsubscribeOnMessage);
+    
+    // Помечаем флаг в памяти
+    isListenersRegistered = true;
+    
     console.log('✅ Notification listeners registered successfully');
     
-    // Возвращаем функцию для отписки (опционально)
+    // Возвращаем функцию для отписки
     return () => {
-      unsubscribeOnNotificationOpenedApp();
-      unsubscribeOnMessage();
+      console.log('🧹 Running NotificationListener cleanup...');
+      unsubscribeFunctions.forEach(unsubscribe => {
+        try {
+          if (unsubscribe) unsubscribe();
+        } catch (e) {
+          console.log('Error unsubscribing:', e);
+        }
+      });
+      unsubscribeFunctions = [];
+      isListenersRegistered = false;
     };
   } catch (error) {
     console.log('❌ Error registering notification listeners:', error);
+    return () => {}; // Возвращаем пустую функцию, чтобы не ломать вызывающий код
   }
 }
