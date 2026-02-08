@@ -1,4 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 // Create Axios instance
 const Api: AxiosInstance = axios.create({
@@ -31,7 +33,21 @@ Api.interceptors.response.use(
     }
     return response;
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
+    // Обработка 401 Unauthorized (Сессия прервана менеджером или токен истек)
+    if (error.response?.status === 401) {
+      console.warn('🔒 [API] 401 Unauthorized detected. Clearing session...');
+      
+      try {
+        await AsyncStorage.removeItem('token');
+        await AsyncStorage.removeItem('last_sent_fcm_token');
+        // Редирект на корневой экран (Auth)
+        router.replace('/');
+      } catch (e) {
+        console.error('Error clearing session data:', e);
+      }
+    }
+
     // Log the error response
     if (error.response) {
       // The request was made and the server responded with a status code

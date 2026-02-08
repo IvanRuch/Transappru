@@ -106,8 +106,6 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
                   )}
                 </>
               ) : (
-                // Если нет детальных данных, но есть строка - показываем ее в одном блоке
-                // Если и строки нет - показываем "нет данных"
                 <View style={[styles.passCell, { flex: 7, backgroundColor: getBgColor('white') }]}>
                   <Text style={styles.passCellText}>{item.check_passes_string || 'нет данных'}</Text>
                 </View>

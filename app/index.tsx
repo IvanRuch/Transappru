@@ -6,7 +6,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../src/utils/Api';
 import { ApiResponse } from '../src/types/api';
 import AuthScreen from '../src/screens/auth/AuthScreen';
-import { getFCMToken } from '../src/utils/PushNotificationHelper';
 
 export default function IndexScreen() {
   const router = useRouter();
@@ -63,10 +62,8 @@ export default function IndexScreen() {
       
       if ((phoneInnConfirmed === 1 || phoneInnConfirmed === "1") &&
           (userConfirmed === 1 || userConfirmed === "1")) {
-        // Пользователь полностью подтвержден - получаем FCM токен и переходим на главный экран
-        console.log('✅ User confirmed, getting FCM token...');
-        getFCMToken();
-        console.log('✅ Navigating to AutoList');
+        // Пользователь полностью подтвержден - переходим на главный экран
+        console.log('✅ User confirmed, navigating to AutoList');
         router.replace('/(authenticated)/auto-list' as any);
       } else if ((phoneInnConfirmed === 0 || phoneInnConfirmed === "0") ||
                    (userConfirmed === 0 || userConfirmed === "0")) {

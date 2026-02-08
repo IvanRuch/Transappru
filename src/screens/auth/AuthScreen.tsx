@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-import { getFCMToken } from '../../utils/PushNotificationHelper';
 import Api from '../../utils/Api';
 import { ApiResponse, SessionData } from '../../types/api';
 
@@ -235,7 +234,6 @@ export default function AuthScreen(props: AuthScreenProps) {
       console.log(data);
 
       await AsyncStorage.setItem('token', data.token);
-      getFCMToken();
 
       router.push('/pin');
     } catch (error) {

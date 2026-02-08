@@ -233,6 +233,25 @@ export function useAutoList() {
       // Список авто на верхнем уровне
       const newAutoList = data.auto_list || [];
       
+      // Логируем первый авто для проверки полей
+      if (newAutoList.length > 0) {
+        console.log('📋 First auto from /get-auto-list:', JSON.stringify({
+          id: newAutoList[0].id,
+          check_passes_expared: newAutoList[0].check_passes_expared,
+          check_passes_string: newAutoList[0].check_passes_string,
+          check_passes_year_propusktype: newAutoList[0].check_passes_year_propusktype,
+          check_passes_year_type_of_pass_string: newAutoList[0].check_passes_year_type_of_pass_string,
+          check_passes_year_cancelled: newAutoList[0].check_passes_year_cancelled,
+          check_passes_pass_end_left: newAutoList[0].check_passes_pass_end_left,
+          check_passes_pass_end_str: newAutoList[0].check_passes_pass_end_str,
+          check_passes_year_period_color: newAutoList[0].check_passes_year_period_color
+        }));
+        
+        // Проверяем сколько авто с expared флагами
+        const exparedCount = newAutoList.filter((auto: any) => auto.check_passes_expared == 1).length;
+        console.log('📊 Autos with check_passes_expared=1:', exparedCount, 'out of', newAutoList.length);
+      }
+      
       // Загружаем данные для авто с флагами expared == 1
       for (let i = 0; i < newAutoList.length; i++) {
         const autoId = newAutoList[i].id;
@@ -242,31 +261,25 @@ export function useAutoList() {
           api.post('/get-auto-check-passes', { token, id: autoId })
             .then(res => {
               const passData = res.data;
+              console.log('📋 Pass data for auto', autoId, ':', JSON.stringify(passData));
+              
+              // Как в старом проекте: /get-auto-check-passes возвращает только 2 поля
+              // Все остальные поля (propusktype, pass_end_left и т.д.) уже есть в объекте из /get-auto-list
               setAutoList(prev => prev.map(auto => 
                 auto.id === autoId ? {
                   ...auto,
-                  // Обновляем ВСЕ поля пропуска
                   check_passes_string: passData.check_passes_string,
-                  check_passes_year_propusktype: passData.check_passes_year_propusktype,
-                  check_passes_year_type_of_pass_string: passData.check_passes_year_type_of_pass_string,
-                  check_passes_year_cancelled: passData.check_passes_year_cancelled,
                   check_passes_year_period_color: passData.check_passes_year_period_color,
-                  check_passes_pass_end_left: passData.check_passes_pass_end_left,
-                  check_passes_pass_end_str: passData.check_passes_pass_end_str,
-                  check_passes_dat_cancel_year_str: passData.check_passes_dat_cancel_year_str,
-                  
-                  // Второй пропуск
-                  check_passes_another_year_propusktype: passData.check_passes_another_year_propusktype,
-                  check_passes_another_year_type_of_pass_string: passData.check_passes_another_year_type_of_pass_string,
-                  check_passes_another_pass_end_left: passData.check_passes_another_pass_end_left,
-                  check_passes_another_pass_end_str: passData.check_passes_another_pass_end_str,
-
                   check_passes_expared: 0
                 } : auto
               ));
             })
             .catch(err => {
               console.log('Error loading passes for auto:', autoId, err);
+              // При ошибке сбрасываем флаг, чтобы не крутился индикатор вечно
+              setAutoList(prev => prev.map(auto => 
+                auto.id === autoId ? { ...auto, check_passes_expared: 0 } : auto
+              ));
             });
         }
         

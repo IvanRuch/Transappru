@@ -37,7 +37,8 @@
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
       ],
       "googleServicesFile": "./google-services.json"
     },
@@ -50,6 +51,7 @@
       "./plugins/withAndroidSdkVersions.js",
       "expo-router",
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "./plugins/withPodfileModifications.js",
       "./plugins/withAPSEnvironment.js",
       "./plugins/withYandexMaps.js",

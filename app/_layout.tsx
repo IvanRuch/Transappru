@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
+import { LogBox, View, Text, StyleSheet, Platform, StatusBar, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseService } from '@/src/services/firebase';
+import Api from '@/src/utils/Api';
 import { NotificationProvider, useNotification } from '@/src/contexts/NotificationContext';
 import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
@@ -15,16 +16,16 @@ import '../global.css';
 // Предотвращаем автоматическое скрытие splash screen
 SplashScreen.preventAutoHideAsync();
 
-// Скрываем предупреждения в dev режиме (опционально)
+// Скрываем предупреждения в dev режиме
 if (__DEV__) {
   LogBox.ignoreLogs([
-    'This method is deprecated',
+    'This method is deprecated (as well as all React Native Firebase namespaced API)',
     'React Native Firebase namespaced API',
+    'SafeAreaView has been deprecated',
     'Firebase already initialized',
     'Failed to open file',
     'Ime callback not found',
     'Looks like you have configured linking in multiple places',
-    'SafeAreaView has been deprecated',
     'Tried to access onWindowFocusChange while context is not ready'
   ]);
 }
@@ -33,6 +34,32 @@ export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const segments = useSegments();
+
+  // Ленивая проверка сессии при возвращении в приложение (AppState)
+  useEffect(() => {
+    const validateSession = async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        console.log('📱 [AppState] App active. Validating session...');
+        // Делаем легкий запрос. Если токен отозван, Interceptor в Api.ts сделает router.replace('/')
+        await Api.post('/get-session-data', { token });
+      } catch (e) {
+        console.log('📱 [AppState] Session validation skipped (network or auth error)');
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        validateSession();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Следим за изменением навигации, чтобы обновить токен (простая реактивность)
   useEffect(() => {
@@ -51,17 +78,10 @@ export default function RootLayout() {
       try {
         console.log('RootLayout mounted');
         
-        // Быстро помечаем приложение готовым, чтобы не задерживать UI
-        setAppIsReady(true);
+        // Firebase инициализируем один раз
+        FirebaseService.initialize();
         
-        // Firebase инициализируем синхронно (это легковесная операция в JS)
-        // Но основную работу сделает хук usePushNotifications
-        try {
-          // Инициализация базового приложения Firebase (если нужно)
-          FirebaseService.initialize();
-        } catch (e) {
-          console.warn('Error during Firebase initialization:', e);
-        }
+        setAppIsReady(true);
       } catch (e) {
         console.warn('Error during app initialization:', e);
         setAppIsReady(true);

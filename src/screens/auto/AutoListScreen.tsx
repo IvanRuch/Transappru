@@ -281,7 +281,7 @@ export default function AutoListScreen() {
       <FlatList
         data={autoListHook.autoList}
         renderItem={renderItem}
-        keyExtractor={(item, index) => item.id || index.toString()}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
         ListEmptyComponent={() => (
           !autoListHook.indicator ? (
             <View style={styles.emptyContainer}>

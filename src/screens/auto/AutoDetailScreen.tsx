@@ -1863,11 +1863,11 @@ class Auto extends React.Component<AutoProps, AutoState> {
                                       activeOpacity={0.8}
                                       underlayColor='#2E2E2E'
                                       onPress={() => {
-                                        console.log('-> move to FinePaymentSelect');
+                                        console.log('-> move to FinePaymentConfirm');
                                         router.push({
-                                          pathname: '/(authenticated)/fine-payment-select' as any,
+                                          pathname: '/(authenticated)/fine-payment-confirm' as any,
                                           params: { 
-                                            fines: JSON.stringify(this.state.auto_fine_data.unpaid_list),
+                                            charges: JSON.stringify(this.state.auto_fine_data.unpaid_list),
                                             auto_data: JSON.stringify(this.state.auto_data)
                                           }
                                         });
@@ -1924,9 +1924,9 @@ class Auto extends React.Component<AutoProps, AutoState> {
                                       };
                                       
                                       router.push({
-                                        pathname: '/(authenticated)/fine-payment-select' as any,
+                                        pathname: '/(authenticated)/fine-payment-confirm' as any,
                                         params: { 
-                                          fines: JSON.stringify([testFine]),
+                                          charges: JSON.stringify([testFine]),
                                           auto_data: JSON.stringify(this.state.auto_data)
                                         }
                                       });
