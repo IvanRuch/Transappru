@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
+import { SHOW_PAYMENT_UI } from '../../config/features';
 
 interface AutoProps {
   route: {
@@ -1828,8 +1829,8 @@ class Auto extends React.Component<AutoProps, AutoState> {
                               {this.state.auto_fine_data.unpaid_list.map((item: any) => this.renderAutoFineUnpaidItem(item))}
                             </View>
 
-                            {/* Кнопки оплаты штрафов - только в dev режиме */}
-                            { __DEV__ && (
+                            {/* Кнопки оплаты штрафов - только если включена оплата */}
+                            { SHOW_PAYMENT_UI && (
                               this.state.auto_fine_data.unpaid_list.length ? (
                                 <>
                                   <View style={{ 

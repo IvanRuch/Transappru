@@ -6,6 +6,7 @@ import { ScreenHeader } from '../../components/common';
 import { ChargeCard, ChargesFilterPanel, ChargeFilterType } from '../../components/charges';
 import { useCharges } from '../../hooks/useCharges';
 import { ChargeItem } from '../../types/charges';
+import { SHOW_PAYMENT_UI } from '../../config/features';
 
 const COLLAPSED_LIMIT = 5;
 
@@ -342,15 +343,18 @@ export default function ChargesScreen() {
                   return (
                     <View key={auto.id} className="mb-2.5">
                       <View className="flex-row items-center px-5 py-2 bg-light-elevated dark:bg-dark-elevated">
-                        <TouchableOpacity 
-                            onPress={() => toggleGroupSelection(loadedCharges)}
-                            style={styles.groupCheckboxContainer}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                            <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
-                                {isAllSelected && <Text style={styles.checkmark}>✓</Text>}
-                            </View>
-                        </TouchableOpacity>
+                        {/* Чекбокс группы (только если включена оплата) */}
+                        {SHOW_PAYMENT_UI && (
+                            <TouchableOpacity 
+                                onPress={() => toggleGroupSelection(loadedCharges)}
+                                style={styles.groupCheckboxContainer}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                                <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
+                                    {isAllSelected && <Text style={styles.checkmark}>✓</Text>}
+                                </View>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
                             className="flex-1 flex-row justify-between items-center ml-3"
@@ -381,7 +385,7 @@ export default function ChargesScreen() {
                                 </View>
                               )}
 
-                              {selectedInGroupCount > 0 && !isAllSelected && (
+                              {selectedInGroupCount > 0 && !isAllSelected && SHOW_PAYMENT_UI && (
                                 <Text className="text-[12px] text-[#EE505A] mt-0.5 font-medium">
                                   Выбрано: {selectedInGroupCount} шт. • {selectedInGroupSum.toFixed(2)} ₽
                                 </Text>
@@ -409,7 +413,7 @@ export default function ChargesScreen() {
                                   showAutoInfo={false}
                                   onPress={handleChargePress}
                                   selected={selectedCharges.has(charge.id)}
-                                  onSelect={toggleSelection}
+                                  onSelect={SHOW_PAYMENT_UI ? toggleSelection : undefined}
                                 />
                               ))}
                             </>
@@ -449,7 +453,7 @@ export default function ChargesScreen() {
                           showAutoInfo={true}
                           onPress={handleChargePress}
                           selected={selectedCharges.has(charge.id)}
-                          onSelect={toggleSelection}
+                          onSelect={SHOW_PAYMENT_UI ? toggleSelection : undefined}
                         />
                       ))}
 
@@ -475,7 +479,8 @@ export default function ChargesScreen() {
         )}
       </ScrollView>
 
-      {hasCharges && (
+      {/* Футер с оплатой (только если включена оплата) */}
+      {hasCharges && SHOW_PAYMENT_UI && (
         <View 
           className="absolute bottom-0 left-0 right-0 border-t border-[#B8B8B8] px-5 pt-4 bg-light-surface dark:bg-dark-surface"
           style={{ paddingBottom: insets.bottom + 10 }}

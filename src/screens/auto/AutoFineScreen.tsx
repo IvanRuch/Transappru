@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableHighlight, ScrollView, StyleSheet } from 'r
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
+import { SHOW_PAYMENT_UI } from '../../config/features';
 
 interface FineData {
   is_paid: string | number;
@@ -100,8 +101,8 @@ export default function AutoFineScreen() {
             <Text style={styles.infoText}>{fineData.vendor}</Text>
           </View>
 
-          {/* Кнопка оплаты (только для неоплаченных штрафов и только в dev режиме) */}
-          {__DEV__ && (fineData.is_paid === 0 || fineData.is_paid === '0') && (
+          {/* Кнопка оплаты (только для неоплаченных штрафов и если включена оплата) */}
+          {SHOW_PAYMENT_UI && (fineData.is_paid === 0 || fineData.is_paid === '0') && (
             <View style={styles.paymentButtonContainer}>
               <TouchableHighlight
                 style={styles.paymentButton}

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform, Keyboard, Pressable } from 'react-native';
 import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface FindAutoPanelProps {
   visible: boolean;
@@ -70,6 +71,7 @@ export function FindAutoPanel({
   
   // Открытие date picker
   const openDatePicker = () => {
+    Keyboard.dismiss(); // Убираем клавиатуру перед открытием date picker
     if (autoPassEndsUntilDate) {
       setSelectedDate(parseDate(autoPassEndsUntilDate));
     }
@@ -84,6 +86,7 @@ export function FindAutoPanel({
       onBackButtonPress={onClose}
       onBackdropPress={onClose}
       style={styles.modal}
+      avoidKeyboard={true} // This prop is from react-native-modal and helps
     >
       <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {/* Заголовок с кнопкой закрытия */}
@@ -99,173 +102,162 @@ export function FindAutoPanel({
           </TouchableHighlight>
         </View>
 
-        <ScrollView style={styles.scrollContent}>
-          <View style={styles.container}>
-      {/* Поле поиска */}
-      <View style={styles.searchRow}>
-        <View style={styles.searchInputWrapper}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder='введите номер авто (мин. 3 символа)'
-            placeholderTextColor='#313131'
-            onChangeText={onChangeAutoStr}
-            value={autoStr}
-          />
-        </View>
-        {autoStr.length > 0 && (
-          <View style={styles.clearButtonWrapper}>
-            <TouchableHighlight
-              activeOpacity={1}
-              underlayColor="#ffffff"
-              onPress={onClearAutoStr}
-            >
-              <Image source={require('../../../assets/images/clear_2.png')} />
-            </TouchableHighlight>
-          </View>
-        )}
-      </View>
-      
-      {/* Подсказка о минимальной длине */}
-      {autoStr.length > 0 && autoStr.length < 3 && (
-        <Text style={{ 
-          fontSize: 11, 
-          color: '#FF9800', 
-          marginTop: 5,
-          marginBottom: 10,
-          fontStyle: 'italic'
-        }}>
-          Введите минимум 3 символа для поиска
-        </Text>
-      )}
-
-      <Text style={styles.sectionTitle}>Пропуск:</Text>
-
-      {/* Аннулирован */}
-      <TouchableHighlight
-        style={styles.checkboxRow}
-        activeOpacity={1}
-        underlayColor="#ffffff"
-        onPress={onToggleCancelled}
-      >
-        <View style={styles.checkboxContent}>
-          <Image 
-            source={
-              autoCancelled
-                ? require('../../../assets/images/checkbox_checked_2.png')
-                : require('../../../assets/images/checkbox_unchecked_2.png')
-            }
-          />
-          <Text style={styles.checkboxText}>аннулирован</Text>
-        </View>
-      </TouchableHighlight>
-
-      {/* Закончился */}
-      <TouchableHighlight
-        style={styles.checkboxRow}
-        activeOpacity={1}
-        underlayColor="#ffffff"
-        onPress={onTogglePassEnded}
-      >
-        <View style={styles.checkboxContent}>
-          <Image 
-            source={
-              autoPassEnded
-                ? require('../../../assets/images/checkbox_checked_2.png')
-                : require('../../../assets/images/checkbox_unchecked_2.png')
-            }
-          />
-          <Text style={styles.checkboxText}>закончился</Text>
-        </View>
-      </TouchableHighlight>
-
-      {/* Заканчивается до */}
-      <View style={styles.dateFilterRow}>
-        <TouchableOpacity
-          onPress={openDatePicker}
-          style={styles.dateInputCompact}
+        <KeyboardAwareScrollView
+          style={styles.scrollContent}
+          contentContainerStyle={styles.scrollContentContainer}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
         >
-          <Text style={{ 
-            fontSize: 16, 
-            color: autoPassEndsUntilDate ? '#313131' : '#8C8C8C' 
-          }}>
-            {autoPassEndsUntilDate || '00.00.0000'}
-          </Text>
-        </TouchableOpacity>
-        
-        <Text style={styles.dateFilterLabel}>
-          заканчивается до
-        </Text>
-        
-        {autoPassEndsUntilDate && (
-          <TouchableOpacity
-            onPress={() => onChangePassEndsDate('')}
-            style={styles.clearDateButtonCompact}
-          >
-            <Image 
-              source={require('../../../assets/images/xclose_2.png')} 
-              style={styles.clearDateIcon}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-      
-      {/* Date Picker */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-          locale="ru-RU"
-        />
-      )}
-      
-      {/* Кнопка "Готово" для iOS */}
-      {showDatePicker && Platform.OS === 'ios' && (
-        <TouchableOpacity
-          onPress={() => setShowDatePicker(false)}
-          style={{
-            marginTop: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            backgroundColor: '#3A9BDC',
-            borderRadius: 8,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 16, color: '#FFFFFF', fontWeight: 'bold' }}>
-            Готово
-          </Text>
-        </TouchableOpacity>
-      )}
+          <Pressable onPress={Keyboard.dismiss}>
+            <View style={styles.container}>
+              {/* Поле поиска */}
+              <View style={styles.searchRow}>
+                <View style={styles.searchInputWrapper}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder='введите номер авто (мин. 3 символа)'
+                    placeholderTextColor='#313131'
+                    onChangeText={onChangeAutoStr}
+                    value={autoStr}
+                    autoFocus={false}
+                    onBlur={() => Keyboard.dismiss()} // Dismiss keyboard on blur
+                  />
+                </View>
+                {autoStr.length > 0 && (
+                  <View style={styles.clearButtonWrapper}>
+                    <TouchableHighlight
+                      activeOpacity={1}
+                      underlayColor="#ffffff"
+                      onPress={onClearAutoStr}
+                    >
+                      <Image source={require('../../../assets/images/clear_2.png')} />
+                    </TouchableHighlight>
+                  </View>
+                )}
+              </View>
+              
+              {/* Подсказка о минимальной длине */}
+              {autoStr.length > 0 && autoStr.length < 3 && (
+                <Text style={styles.hintText}>
+                  Введите минимум 3 символа для поиска
+                </Text>
+              )}
 
-          {/* Кнопка сброса всех фильтров */}
-          {onClearAllFilters && (autoStr || autoCancelled || autoPassEnded || autoPassEnds) && (
-            <TouchableOpacity
-              onPress={() => {
-                onClearAllFilters();
-                onClose();
-              }}
-              style={{
-                marginTop: 20,
-                marginBottom: 10,
-                paddingVertical: 12,
-                paddingHorizontal: 20,
-                backgroundColor: '#FFF5F5',
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: '#EE505A',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 14, color: '#EE505A', fontWeight: 'bold' }}>
-                Сбросить все фильтры
-              </Text>
-            </TouchableOpacity>
-          )}
-          </View>
-        </ScrollView>
+              <Text style={styles.sectionTitle}>Пропуск:</Text>
+
+              {/* Аннулирован */}
+              <TouchableHighlight
+                style={styles.checkboxRow}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPressIn={() => Keyboard.dismiss()}
+                onPress={onToggleCancelled}
+              >
+                <View style={styles.checkboxContent}>
+                  <Image 
+                    source={
+                      autoCancelled
+                        ? require('../../../assets/images/checkbox_checked_2.png')
+                        : require('../../../assets/images/checkbox_unchecked_2.png')
+                    }
+                  />
+                  <Text style={styles.checkboxText}>аннулирован</Text>
+                </View>
+              </TouchableHighlight>
+
+              {/* Закончился */}
+              <TouchableHighlight
+                style={styles.checkboxRow}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPressIn={() => Keyboard.dismiss()}
+                onPress={onTogglePassEnded}
+              >
+                <View style={styles.checkboxContent}>
+                  <Image 
+                    source={
+                      autoPassEnded
+                        ? require('../../../assets/images/checkbox_checked_2.png')
+                        : require('../../../assets/images/checkbox_unchecked_2.png')
+                    }
+                  />
+                  <Text style={styles.checkboxText}>закончился</Text>
+                </View>
+              </TouchableHighlight>
+
+              {/* Заканчивается до */}
+              <View style={styles.dateFilterRow}>
+                <TouchableOpacity
+                  onPress={openDatePicker}
+                  style={styles.dateInputCompact}
+                >
+                  <Text style={{ 
+                    fontSize: 16, 
+                    color: autoPassEndsUntilDate ? '#313131' : '#8C8C8C' 
+                  }}>
+                    {autoPassEndsUntilDate || '00.00.0000'}
+                  </Text>
+                </TouchableOpacity>
+                
+                <Text style={styles.dateFilterLabel}>
+                  заканчивается до
+                </Text>
+                
+                {autoPassEndsUntilDate && (
+                  <TouchableOpacity
+                    onPress={() => onChangePassEndsDate('')}
+                    style={styles.clearDateButtonCompact}
+                  >
+                    <Image 
+                      source={require('../../../assets/images/xclose_2.png')} 
+                      style={styles.clearDateIcon}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {/* Date Picker */}
+              {showDatePicker && (
+                <View>
+                  <DateTimePicker
+                    value={selectedDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={handleDateChange}
+                    minimumDate={new Date()}
+                    locale="ru-RU"
+                  />
+                  {Platform.OS === 'ios' && (
+                    <TouchableOpacity
+                      onPress={() => setShowDatePicker(false)}
+                      style={styles.datePickerDoneButton}
+                    >
+                      <Text style={styles.datePickerDoneButtonText}>
+                        Готово
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {/* Кнопка сброса всех фильтров */}
+              {onClearAllFilters && (autoStr || autoCancelled || autoPassEnded || autoPassEnds) && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClearAllFilters();
+                    onClose();
+                  }}
+                  style={styles.resetButton}
+                >
+                  <Text style={styles.resetButtonText}>
+                    Сбросить все фильтры
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Pressable>
+        </KeyboardAwareScrollView>
       </View>
     </Modal>
   );
@@ -280,7 +272,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    maxHeight: '80%', // Ограничиваем высоту, чтобы не занимать весь экран
+  },
+  scrollContent: {
+    paddingBottom: 10,
+  },
+  scrollContentContainer: {
+    paddingBottom: 20, // Дополнительный отступ снизу
   },
   header: {
     flexDirection: 'row',
@@ -300,11 +298,7 @@ const styles = StyleSheet.create({
     padding: 5,
     borderRadius: 15,
   },
-  scrollContent: {
-    paddingBottom: 10,
-  },
   container: {
-    flexDirection: 'column',
     paddingHorizontal: 20,
     paddingTop: 10,
   },
@@ -330,6 +324,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  hintText: {
+    fontSize: 11, 
+    color: '#FF9800', 
+    marginTop: -10,
+    marginBottom: 10,
+    fontStyle: 'italic'
   },
   sectionTitle: {
     marginBottom: 15,
@@ -365,8 +366,7 @@ const styles = StyleSheet.create({
   dateInputCompact: {
     width: 120,
     height: 45,
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingHorizontal: 10,
     borderColor: '#656565',
     borderWidth: 1,
     borderRadius: 8,
@@ -389,5 +389,34 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     tintColor: '#EE505A',
+  },
+  datePickerDoneButton: {
+    marginTop: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#3A9BDC',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  datePickerDoneButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  resetButton: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EE505A',
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    fontSize: 14,
+    color: '#EE505A',
+    fontWeight: 'bold',
   },
 });
