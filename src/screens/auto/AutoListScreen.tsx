@@ -30,51 +30,37 @@ import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceO
 import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
 
 export default function AutoListScreen() {
-  // Хуки
   const router = useRouter();
   const { bottom: bottomInset } = useSafeAreaInsets();
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
 
-  // При фокусе на экран - обновляем данные пользователя и запускаем анимацию
   useFocusEffect(
     useCallback(() => {
       console.log('AutoListScreen focused');
-      // Обновляем счетчики уведомлений
       autoListHook.updateUserData();
-      // Запускаем анимацию
       autoListHook.startPulseAnimation();
-      
-      return () => {
-        autoListHook.stopPulseAnimation();
-      };
+      return () => autoListHook.stopPulseAnimation();
     }, [])
   );
 
-  // При первом рендере
   useEffect(() => {
     console.log('AutoListScreen mounted');
-    AsyncStorage.getItem('token').then(token => {
-      autoListHook.getAutoList(token);
-    });
+    autoListHook.loadData(); // Используем loadData вместо getAutoList
   }, []);
 
-  // Обработчик нажатия на элемент списка (переход к деталям)
   const handleItemPress = useCallback((item: any) => {
     autoActions.navigateToAuto(item);
   }, [autoActions]);
 
-  // Обработчик отметки элемента
   const handleItemMark = useCallback((item: any, index: number) => {
     autoListHook.markItem(item, index);
   }, [autoListHook]);
 
-  // Обработчик пагинации
   const handleEndReached = useCallback(() => {
-    autoListHook.onEndReached();
+    autoListHook.loadMore(); // Используем loadMore
   }, [autoListHook]);
 
-  // Рендер элемента списка
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
     return (
       <AutoListItem
@@ -87,26 +73,22 @@ export default function AutoListScreen() {
     );
   }, [handleItemPress, handleItemMark, autoListHook.showHideTab]);
 
+  // Определяем состояние загрузки для UI
+  const showGlobalLoading = autoListHook.isLoading && autoListHook.autoList.length === 0;
+  const showSearchLoading = autoListHook.isSearching;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar 
-        barStyle="dark-content"
-        backgroundColor="#ffffff"
-        translucent={false}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
       
-      {/* Хедер с заголовком и кнопками */}
+      {/* Хедер */}
       {autoListHook.userData && autoListHook.userData.firm && (
         <View style={styles.headerContainer}>
-          {/* Кнопка меню слева (гамбургер) */}
           <TouchableHighlight
             style={styles.headerButton}
             activeOpacity={1}
             underlayColor="#ffffff"
-            onPress={() => {
-              console.log('-> call MenuLeft');
-              autoActions.setMenuLeftVisible(true);
-            }}
+            onPress={() => autoActions.setMenuLeftVisible(true)}
           >
             <Image 
               source={
@@ -117,15 +99,11 @@ export default function AutoListScreen() {
             />
           </TouchableHighlight>
 
-          {/* Кнопка уведомлений (колокольчик) */}
           <TouchableHighlight
             style={styles.headerButton}
             activeOpacity={1}
             underlayColor="#ffffff"
-            onPress={() => {
-              console.log('-> move to NotificationList');
-              router.push('/(authenticated)/notifications' as any);
-            }}
+            onPress={() => router.push('/(authenticated)/notifications' as any)}
           >
             <View>
               <Image source={require('../../../assets/images/notification.png')} />
@@ -139,107 +117,68 @@ export default function AutoListScreen() {
             </View>
           </TouchableHighlight>
 
-          {/* Кнопка задолженности (если есть) */}
           {autoListHook.userData.debt_sum && autoListHook.userData.debt_sum !== '0.00' && (
             <TouchableHighlight
               style={styles.headerButton}
               activeOpacity={1}
               underlayColor="#ffffff"
-              onPress={() => {
-                console.log('-> show debt info');
-                autoActions.setModalDebtInfoVisible(true);
-              }}
+              onPress={() => autoActions.setModalDebtInfoVisible(true)}
             >
               <Image source={require('../../../assets/images/alert-circle_2.png')} />
             </TouchableHighlight>
           )}
 
-          {/* Заголовок "Мой автопарк" */}
           <Text style={styles.header}>Мой автопарк</Text>
 
-          {/* Кнопка фильтра (если есть авто) */}
-          {autoListHook.autoList.length > 0 ? (
-            <TouchableHighlight
-              style={styles.headerButton}
-              activeOpacity={1}
-              underlayColor="#ffffff"
-              onPress={() => autoActions.setFindAutoVisible(!autoActions.findAutoVisible)}
-            >
-              <Image source={require('../../../assets/images/filter.png')} />
-            </TouchableHighlight>
+          {/* Индикатор поиска в хедере */}
+          {showSearchLoading ? (
+            <View style={styles.headerButton}>
+               <ActivityIndicator size="small" color="#3A3A3A" />
+            </View>
           ) : (
-            <View style={styles.headerButton} />
+            autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters() ? (
+              <TouchableHighlight
+                style={styles.headerButton}
+                activeOpacity={1}
+                underlayColor="#ffffff"
+                onPress={() => autoActions.setFindAutoVisible(!autoActions.findAutoVisible)}
+              >
+                <Image source={require('../../../assets/images/filter.png')} />
+              </TouchableHighlight>
+            ) : (
+              <View style={styles.headerButton} />
+            )
           )}
         </View>
       )}
 
       {/* Панель активных фильтров */}
-      {autoListHook.hasActiveFilters() && !autoListHook.indicator && (
-        <View style={{
-          backgroundColor: '#EEEEEE',
-          borderBottomWidth: 1,
-          borderBottomColor: '#B8B8B8',
-          paddingHorizontal: 20,
-          paddingVertical: 10,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, color: '#656565', marginRight: 8 }}>
-              Активные фильтры:
-            </Text>
+      {autoListHook.hasActiveFilters() && (
+        <View style={styles.filterPanel}>
+          <View style={styles.filterChipsContainer}>
+            <Text style={styles.filterLabel}>Активные фильтры:</Text>
             {autoListHook.getActiveFiltersText().map((filter, index) => (
-              <View
-                key={index}
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 12,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  marginRight: 6,
-                  marginBottom: 4,
-                  borderWidth: 1,
-                  borderColor: '#3A3A3A',
-                }}
-              >
-                <Text style={{ fontSize: 11, color: '#3A3A3A', fontWeight: '500' }}>
-                  {filter}
-                </Text>
+              <View key={index} style={styles.filterChip}>
+                <Text style={styles.filterChipText}>{filter}</Text>
               </View>
             ))}
-            <TouchableOpacity
-              onPress={() => autoActions.setFindAutoVisible(true)}
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-              }}
-            >
-              <Text style={{ fontSize: 11, color: '#3A3A3A', fontWeight: 'bold' }}>
-                Изменить
-              </Text>
+            <TouchableOpacity onPress={() => autoActions.setFindAutoVisible(true)} style={styles.filterAction}>
+              <Text style={styles.filterActionText}>Изменить</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => autoListHook.clearAllFilters()}
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                marginLeft: 4,
-              }}
-            >
-              <Text style={{ fontSize: 11, color: '#EE505A', fontWeight: 'bold' }}>
-                Сбросить все
-              </Text>
+            <TouchableOpacity onPress={() => autoListHook.clearAllFilters()} style={styles.filterAction}>
+              <Text style={[styles.filterActionText, { color: '#EE505A' }]}>Сбросить все</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
-      {/* Панель фильтрации (модальное окно снизу) */}
       <FindAutoPanel
         visible={autoActions.findAutoVisible}
-        autoStr={autoListHook.autoStr}
-        autoCancelled={autoListHook.autoCancelled}
-        autoPassEnded={autoListHook.autoPassEnded}
-        autoPassEnds={autoListHook.autoPassEnds}
-        autoPassEndsUntilDate={autoListHook.autoPassEndsUntilDate}
+        autoStr={autoListHook.filters.autoStr}
+        autoCancelled={autoListHook.filters.autoCancelled}
+        autoPassEnded={autoListHook.filters.autoPassEnded}
+        autoPassEnds={autoListHook.filters.autoPassEnds}
+        autoPassEndsUntilDate={autoListHook.filters.autoPassEndsUntilDate}
         onChangeAutoStr={autoListHook.changeAutoStr}
         onClearAutoStr={autoListHook.clearAutoStr}
         onClearAllFilters={autoListHook.clearAllFilters}
@@ -249,8 +188,7 @@ export default function AutoListScreen() {
         onClose={() => autoActions.setFindAutoVisible(false)}
       />
 
-      {/* Счетчик и "добавить авто" */}
-      {!autoListHook.indicator && (
+      {!showGlobalLoading && (
         <View style={styles.autoCountRow}>
           <View style={styles.autoCountLeft}>
             <Text style={styles.autoCountText}>
@@ -272,122 +210,81 @@ export default function AutoListScreen() {
         </View>
       )}
 
-      {/* Индикатор загрузки списка */}
-      {autoListHook.indicator && (
-        <ActivityIndicator size="large" color="#313131" />
+      {showGlobalLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#313131" />
+        </View>
+      ) : (
+        <FlatList
+          data={autoListHook.autoList}
+          renderItem={renderItem}
+          keyExtractor={(item, index) => item.id || index.toString()}
+          ListEmptyComponent={() => (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>
+                {autoListHook.hasActiveFilters() ? 'Ничего не найдено' : 'Список авто пуст'}
+              </Text>
+              {!autoListHook.hasActiveFilters() && (
+                <Text style={styles.emptySubText}>Добавьте первое авто нажав на кнопку выше</Text>
+              )}
+            </View>
+          )}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          refreshing={autoListHook.isRefreshing}
+          onRefresh={autoListHook.refreshAutoList}
+          contentContainerStyle={{ paddingBottom: 80 + Math.max(bottomInset, 10) + 20 }}
+          style={{ flex: 1 }}
+          ListFooterComponent={
+            autoListHook.isLoadingMore ? (
+              <View style={{ paddingVertical: 20 }}>
+                <ActivityIndicator size="small" color="#313131" />
+              </View>
+            ) : null
+          }
+        />
       )}
 
-      {/* Список авто */}
-      <FlatList
-        data={autoListHook.autoList}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        ListEmptyComponent={() => (
-          !autoListHook.indicator ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Список авто пуст</Text>
-              <Text style={styles.emptySubText}>
-                Добавьте первое авто нажав на кнопку выше
-              </Text>
-            </View>
-          ) : null
-        )}
-        onEndReached={autoListHook.autoList.length > 0 && !autoListHook.indicator ? handleEndReached : undefined}
-        onEndReachedThreshold={0.5}
-        refreshing={false}
-        onRefresh={autoListHook.refreshAutoList}
-        contentContainerStyle={{ 
-          paddingBottom: 80 + Math.max(bottomInset, 10) + 20
-        }}
-        style={{ flex: 1 }}
-      />
-
-      {/* Нижнее меню - как в оригинале (position: absolute) */}
+      {/* Нижнее меню */}
       {autoListHook.userData && autoListHook.userData.firm && (
         <View style={[styles.bottomMenu, { paddingBottom: Math.max(bottomInset, 10) }]}>
           {autoListHook.markedCnt === 0 ? (
-            // Обычное меню
             <View style={styles.menuContainer}>
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#EEEEEE'
-                  onPress={() => autoActions.setModalAddAutoVisible(true)}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#EEEEEE' onPress={() => autoActions.setModalAddAutoVisible(true)}>
                   <SelMenuPass />
                 </TouchableHighlight>
               </View>
-
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#EEEEEE'
-                  onPress={autoActions.navigateToProfile}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#EEEEEE' onPress={autoActions.navigateToProfile}>
                   <MenuUser />
                 </TouchableHighlight>
               </View>
-
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#EEEEEE'
-                  onPress={() => {
-                    console.log('-> move to invite user');
-                    router.push({
-                      pathname: '/invite-user' as any,
-                      params: {
-                        manager_data: JSON.stringify(autoListHook.managerData)
-                      }
-                    });
-                  }}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#EEEEEE' onPress={() => router.push({ pathname: '/invite-user' as any, params: { manager_data: JSON.stringify(autoListHook.managerData) } })}>
                   <MenuInviteUser />
                 </TouchableHighlight>
               </View>
-
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#EEEEEE'
-                  onPress={autoActions.openContacts}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#EEEEEE' onPress={autoActions.openContacts}>
                   <MenuContacts />
                 </TouchableHighlight>
               </View>
             </View>
-            ) : (
-              // Меню с выделенными элементами
-              <View style={styles.menuContainerSelected}>
-                <View style={styles.menuItem}>
-                  <TouchableHighlight
-                    activeOpacity={1}
-                    underlayColor='#D9D9D9'
-                    onPress={() => autoActions.setModalDelAutoVisible(true)}
-                  >
-                    <SelMenuDelItem />
-                  </TouchableHighlight>
-                </View>
-
+          ) : (
+            <View style={styles.menuContainerSelected}>
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#D9D9D9'
-                  onPress={() => {
-                    const markedAutos = autoListHook.autoList.filter(item => item.marked);
-                    autoActions.navigateToPass(markedAutos);
-                  }}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#D9D9D9' onPress={() => autoActions.setModalDelAutoVisible(true)}>
+                  <SelMenuDelItem />
+                </TouchableHighlight>
+              </View>
+              <View style={styles.menuItem}>
+                <TouchableHighlight activeOpacity={1} underlayColor='#D9D9D9' onPress={() => { const markedAutos = autoListHook.autoList.filter(item => item.marked); autoActions.navigateToPass(markedAutos); }}>
                   <SelMenuPass />
                 </TouchableHighlight>
               </View>
-
               <View style={styles.menuItem}>
-                <TouchableHighlight
-                  activeOpacity={1}
-                  underlayColor='#D9D9D9'
-                  onPress={autoListHook.undoSelect}
-                >
+                <TouchableHighlight activeOpacity={1} underlayColor='#D9D9D9' onPress={autoListHook.undoSelect}>
                   <SelMenuUndoSelect />
                 </TouchableHighlight>
               </View>
@@ -396,7 +293,7 @@ export default function AutoListScreen() {
         </View>
       )}
 
-      {/* Модальные окна */}
+      {/* Модальные окна (без изменений) */}
       <AddAutoModal
         visible={autoActions.modalAddAutoVisible}
         autoNumberBase={autoActions.autoNumberBase}
@@ -422,9 +319,7 @@ export default function AutoListScreen() {
         markedCount={autoListHook.markedCnt}
         onConfirm={async () => {
           const token = await AsyncStorage.getItem('token');
-          const markedIds = autoListHook.autoList
-            .filter(item => item.marked)
-            .map(item => item.id);
+          const markedIds = autoListHook.autoList.filter(item => item.marked).map(item => item.id);
           await autoActions.deleteAuto(token, markedIds);
         }}
         onCancel={() => autoActions.setModalDelAutoVisible(false)}
@@ -440,7 +335,6 @@ export default function AutoListScreen() {
         onContactEmail={autoActions.contactEmail}
       />
 
-      {/* Левое меню */}
       <LeftMenuModal
         visible={autoActions.menuLeftVisible}
         userData={autoListHook.userData}
@@ -454,20 +348,17 @@ export default function AutoListScreen() {
         onNavigateToInn={autoActions.navigateToInn}
         onSwitchOrganization={(inn, onSuccess) => {
           autoActions.switchOrganization(inn, () => {
-            // Перезагружаем данные после переключения
             autoListHook.reloadData();
             if (onSuccess) onSuccess();
           });
         }}
       />
 
-      {/* Модальное окно "Наши услуги" */}
       <AnnounceOurServicesModal
         visible={autoListHook.announceOurServicesVisible}
         onClose={autoListHook.closeAnnounceOurServices}
       />
 
-      {/* Модальное окно задолженности */}
       <DebtInfoModal
         visible={autoActions.modalDebtInfoVisible}
         debtSum={autoListHook.userData.debt_sum || '0'}
@@ -488,11 +379,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
   },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
-  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,6 +393,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minWidth: 40,
+    height: 40, // Фиксированная высота для предотвращения скачков при смене на спиннер
   },
   header: {
     flex: 1,
@@ -615,5 +502,46 @@ const styles = StyleSheet.create({
     height: 80,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  filterPanel: {
+    backgroundColor: '#EEEEEE',
+    borderBottomWidth: 1,
+    borderBottomColor: '#B8B8B8',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  filterChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  filterLabel: {
+    fontSize: 12,
+    color: '#656565',
+    marginRight: 8,
+  },
+  filterChip: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+  },
+  filterChipText: {
+    fontSize: 11,
+    color: '#3A3A3A',
+    fontWeight: '500',
+  },
+  filterAction: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  filterActionText: {
+    fontSize: 11,
+    color: '#3A3A3A',
+    fontWeight: 'bold',
   },
 });

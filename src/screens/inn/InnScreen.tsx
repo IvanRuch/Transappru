@@ -87,9 +87,15 @@ class InnClass extends React.Component<InnProps, InnState> {
 
   bindInn = (value: any) => {
     Api.post('/bind-inn', { token: value, inn: this.state.inn })
-      .then(res => {
+      .then(async res => {
         const data = res.data;
         console.log('bindInn response:', data);
+
+        // Сохраняем новый токен, если он пришел
+        if (data.token) {
+            console.log('Saving new token from bind-inn response');
+            await AsyncStorage.setItem('token', data.token);
+        }
 
         // Проверка auth_required
         if (data.auth_required === 1) {
@@ -103,29 +109,32 @@ class InnClass extends React.Component<InnProps, InnState> {
         } else {
           if (Object.keys(this.state.user_data).length != 0) {
             // Для существующего пользователя: показываем модалку и возвращаем к исходной организации
-            // Сервер мог автоматически переключить на новую организацию, поэтому возвращаем обратно
             const originalInn = this.state.user_data.inn;
             console.log('Returning to original organization:', originalInn);
             
             // Переключаемся обратно на исходную организацию
-            Api.post('/set-current-inn', { token: value, current_inn: originalInn })
+            // Используем новый токен если он был обновлен
+            const currentToken = data.token || value;
+            
+            Api.post('/set-current-inn', { token: currentToken, current_inn: originalInn })
               .then(() => {
                 console.log('Successfully returned to original organization');
                 this.setState({ modalWaitInnConfirmation: true });
               })
               .catch(error => {
                 console.log('Error returning to original organization:', error);
-                // Даже если не удалось переключиться, показываем модалку
                 this.setState({ modalWaitInnConfirmation: true });
               });
           } else {
-            this.props.navigation?.navigate('AutoList');
+            // Для нового пользователя - переходим на Auth, где покажется модалка ожидания
+            // так как user_confirmed будет 0
+            console.log('New user bound INN, redirecting to Auth to wait for confirmation');
+            this.props.navigation?.navigate('Auth');
           }
         }
       })
       .catch(error => {
         console.log('Error binding INN:', error);
-        // При ошибке 401 также редиректим на авторизацию
         if (error.response?.status === 401) {
           this.props.navigation?.navigate('Auth');
         }
@@ -206,11 +215,12 @@ class InnClass extends React.Component<InnProps, InnState> {
     return { fontSize: 20, color };
   }
 
+  // Возвращаем исходные стили для кнопки "Проверить в РНИС"
   setCheckRnisButtonStyle = () => {
     const backgroundColor = this.state.modalCheckRnisButtonDisabled ? "#c0c0c0" : "#3A3A3A";
     return {
       height: 50,
-      margin: 25,
+      margin: 25, // Исходный margin
       borderRadius: 5,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
@@ -220,7 +230,7 @@ class InnClass extends React.Component<InnProps, InnState> {
 
   setCheckRnisButtonTextStyle = () => {
     const color = this.state.modalCheckRnisButtonDisabled ? "#FFFFFF" : "#FFFFFF";
-    return { paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: '500' as const, color, marginHorizontal: 30 };
+    return { paddingLeft: 20, paddingRight: 20, fontSize: 20, fontWeight: '500' as const, color, marginHorizontal: 30 }; // Исходные стили
   }
 
   render() {
@@ -333,16 +343,11 @@ class InnClass extends React.Component<InnProps, InnState> {
           </View>
         </Modal>
 
-        {(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
-          <ScreenHeader 
-            title={this.state.check_rnis ? "Проверить в РНИС" : "Введите ИНН"}
-            onBack={() => this.props.navigation?.goBack()}
-          />
-        )}
-
-        {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
-          <Text style={styles.header}>Введите ИНН</Text>
-        )}
+        {/* Заголовок экрана */}
+        <ScreenHeader 
+          title={this.state.check_rnis ? "Проверить в РНИС" : "Введите ИНН"}
+          onBack={() => this.props.navigation?.goBack()}
+        />
         
         <SafeAreaInsetsContext.Consumer>
           {(insets) => (
@@ -353,14 +358,14 @@ class InnClass extends React.Component<InnProps, InnState> {
               contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
             >
               {!(Object.keys(this.state.user_data).length != 0 || this.state.check_rnis) && (
-                <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, fontSize: 14, color: "#656565", textAlign: "justify" }}>
+                <Text style={{ paddingLeft: 40, paddingRight: 40, paddingTop: 20, marginBottom: 20, fontSize: 14, color: "#656565", textAlign: "justify" }}>
                   для более точной идентификации Вас как клиента
                 </Text>
               )}
           {!this.state.check_rnis ? (
             /* Добавление организации по ИНН */
             <>
-              <View style={{ alignItems: 'stretch', paddingTop: 20, paddingLeft: 60, paddingRight: 60 }}>
+              <View style={{ alignItems: 'stretch', paddingLeft: 60, paddingRight: 60 }}>
                 <TextInput
                   keyboardType='numeric'
                   style={{

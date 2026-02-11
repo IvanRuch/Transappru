@@ -1,22 +1,16 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
-import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
-
-const auto_list_limit = 10;
+import { useAutoData } from './useAutoData';
+import type { AutoItem } from '../types/auto';
 
 export function useAutoList() {
   const router = useRouter();
-  
-  // Debounce timer для фильтра по номеру (number в React Native)
-  const filterDebounceTimer = useRef<number | null>(null);
-  
-  // Refs
-  const intervals = useRef<any>(null);
-  const isLoadingMore = useRef(false); // Флаг для предотвращения множественных вызовов onEndReached
-  const lastEndReachedTime = useRef(0); // Timestamp последнего вызова onEndReached
+
+  // Подключаем хук данных
+  const dataHook = useAutoData();
   
   // Анимация пульсации
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -26,510 +20,31 @@ export function useAutoList() {
     outputRange: [14, 17]
   });
   const pulseAnimation = useRef<any>(null);
-  
-  // State
-  const [managerName, setManagerName] = useState('');
-  const [techSupportName, setTechSupportName] = useState('');
-  const [managerData, setManagerData] = useState<ManagerData>({});
-  const [techSupportData, setTechSupportData] = useState<ManagerData>({});
-  const [userData, setUserData] = useState<UserData>({ id: '', firm: '', inn: '', phone: '' });
-  const [userStr, setUserStr] = useState('');
-  const [userList, setUserList] = useState<UserData[]>([]);
-  const [userListEmptyStr, setUserListEmptyStr] = useState('');
-  const [ourServicesList, setOurServicesList] = useState<OurService[]>([]);
-  const [ourServicesVisible, setOurServicesVisible] = useState(false);
-  const [otherUserList, setOtherUserList] = useState<UserData[]>([]);
-  
-  const [autoStr, setAutoStr] = useState('');
-  const [autoCancelled, setAutoCancelled] = useState(false);
-  const [autoPassEnded, setAutoPassEnded] = useState(false);
-  const [autoPassEnds, setAutoPassEnds] = useState(false);
-  const [autoPassEndsUntilDate, setAutoPassEndsUntilDate] = useState('');
-  const [autoList, setAutoList] = useState<AutoItem[]>([]);
-  const [autoListCount, setAutoListCount] = useState(0);
-  const [autoListFrom, setAutoListFrom] = useState(0);
-  
-  // Refs для актуальных значений фильтров (чтобы избежать stale closures)
-  const filtersRef = useRef({
-    autoStr: '',
-    autoCancelled: false,
-    autoPassEnded: false,
-    autoPassEnds: false,
-    autoPassEndsUntilDate: '',
-    autoListFrom: 0,
-  });
-  
-  // Синхронизируем ref с состоянием
-  filtersRef.current = {
-    autoStr,
-    autoCancelled,
-    autoPassEnded,
-    autoPassEnds,
-    autoPassEndsUntilDate,
-    autoListFrom,
-  };
-  const [indicator, setIndicator] = useState(false);
+
+  // UI State
   const [markedCnt, setMarkedCnt] = useState(0);
+  const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
   
-  // Кэш полного списка без фильтров
-  const [cachedFullList, setCachedFullList] = useState<AutoItem[]>([]);
-  const [cacheTimestamp, setCacheTimestamp] = useState<number>(0);
-  const CACHE_LIFETIME_MS = 5 * 60 * 1000; // 5 минут
-  
-  // Флаг для клиентской фильтрации
-  const [useClientFiltering, setUseClientFiltering] = useState(false);
-  
-  // Получение списка авто
-  const getAutoList = useCallback(async (
-    token: string | null,
-    filters?: {
-      autoStr?: string;
-      autoCancelled?: boolean;
-      autoPassEnded?: boolean;
-      autoPassEnds?: boolean;
-      autoPassEndsUntilDate?: string;
-      autoListFrom?: number;
-    }
-  ) => {
-    if (!token) {
-      console.log('empty token');
-      router.replace('/');
-      return;
-    }
-
-    // Используем переданные фильтры или текущие значения из ref (избегаем stale closures)
-    const currentFilters = {
-      autoStr: filters?.autoStr ?? filtersRef.current.autoStr,
-      autoCancelled: filters?.autoCancelled ?? filtersRef.current.autoCancelled,
-      autoPassEnded: filters?.autoPassEnded ?? filtersRef.current.autoPassEnded,
-      autoPassEnds: filters?.autoPassEnds ?? filtersRef.current.autoPassEnds,
-      autoPassEndsUntilDate: filters?.autoPassEndsUntilDate ?? filtersRef.current.autoPassEndsUntilDate,
-      autoListFrom: filters?.autoListFrom ?? filtersRef.current.autoListFrom,
-    };
-
-    console.log('getAutoList called with filters:', {
-      autoStr: currentFilters.autoStr,
-      autoCancelled: currentFilters.autoCancelled,
-      autoPassEnded: currentFilters.autoPassEnded,
-      autoPassEnds: currentFilters.autoPassEnds,
-      autoListFrom: currentFilters.autoListFrom,
-    });
-    
-    // Показываем индикатор загрузки
-    setIndicator(true);
-    
-    // Если это новая загрузка (from = 0), сбрасываем offset
-    if (currentFilters.autoListFrom === 0) {
-      setAutoListFrom(0);
-      setMarkedCnt(0);
-      // Список НЕ очищаем - он будет заменен после получения данных
-    }
-
-    try {
-      const res = await api.post('/get-auto-list', { 
-        token,
-        auto_str: currentFilters.autoStr,
-        auto_cancelled: currentFilters.autoCancelled ? 1 : 0,
-        auto_pass_ended: currentFilters.autoPassEnded ? 1 : 0,
-        auto_pass_ends: currentFilters.autoPassEnds ? 1 : 0,
-        auto_pass_ends_until_date: currentFilters.autoPassEndsUntilDate,
-        auto_list_from: currentFilters.autoListFrom,
-        auto_list_limit: auto_list_limit
-      });
-      
-      const data = res.data;
-
-      console.log('========================================');
-      console.log('AUTO LIST - get-auto-list response:');
-      console.log('onboarding_viewed:', data.onboarding_viewed);
-      console.log('announce_our_services_viewed:', data.announce_our_services_viewed);
-      console.log('onboarding_expired:', data.onboarding_expired);
-      console.log('user_confirmed:', data.user_data?.user_confirmed);
-      console.log('phone_inn_confirmed:', data.user_data?.phone_inn_confirmed);
-      console.log('========================================');
-
-      // Проверяем статус подтверждения пользователя
-      const userConfirmed = data.user_data?.user_confirmed;
-      const phoneInnConfirmed = data.user_data?.phone_inn_confirmed;
-      
-      // Если пользователь не подтверждён (новая регистрация или отозвано подтверждение)
-      // редиректим на AuthScreen, где показывается модалка ожидания
-      if (userConfirmed === 0 || userConfirmed === "0" || userConfirmed === undefined || userConfirmed === null ||
-          phoneInnConfirmed === 0 || phoneInnConfirmed === "0" || phoneInnConfirmed === undefined || phoneInnConfirmed === null) {
-        console.log('⚠️ User not confirmed! user_confirmed:', userConfirmed, 'phone_inn_confirmed:', phoneInnConfirmed);
-        console.log('Redirecting to auth to show wait confirmation modal...');
-        // НЕ удаляем токен - он нужен для AuthScreen чтобы показать модалку ожидания
-        router.replace('/');
-        setIndicator(false);
-        return;
-      }
-
-      // Проверяем нужно ли показать OnBoarding
-      console.log('🔍 Checking onboarding_viewed:', data.onboarding_viewed, 'type:', typeof data.onboarding_viewed);
-      if (data.onboarding_viewed === 0 || data.onboarding_viewed === '0') {
-        console.log('✅ Showing onboarding (first time user)');
-        setOnboardingViewed(0);
-        router.push('/onboarding');
-        return; // ← ВАЖНО: прерываем выполнение, чтобы не показывать "Our Services" одновременно
-      } else {
-        console.log('⏭️ Onboarding already viewed, value:', data.onboarding_viewed);
-        setOnboardingViewed(1);
-      }
-
-      // Данные приходят на верхнем уровне (как в старом проекте)
-      if (data.user_data) {
-        setUserData(data.user_data);
-        setUserStr(data.user_str || '');
-        setUserList(data.user_list || []);
-        setUserListEmptyStr(data.user_list_empty_str || '');
-        
-        console.log('========================================');
-        console.log('[AutoList] userData:', JSON.stringify(data.user_data));
-        console.log('[AutoList] userData.notification_unviewed_count:', data.user_data.notification_unviewed_count);
-        console.log('[AutoList] userData.other_user_notification_unviewed_count:', data.user_data.other_user_notification_unviewed_count);
-        console.log('[AutoList] Other user list:', data.other_user_list);
-        console.log('[AutoList] Other user list length:', data.other_user_list?.length || 0);
-        if (data.other_user_list && data.other_user_list.length > 0) {
-          console.log('[AutoList] First other user:', JSON.stringify(data.other_user_list[0]));
-        }
-        console.log('========================================');
-        
-        setOtherUserList(data.other_user_list || []);
-        setOurServicesList(data.our_services_list || []);
-      }
-
-      // Данные менеджера из user_data
-      if (data.user_data?.manager_data) {
-        setManagerData(data.user_data.manager_data);
-        setManagerName(data.user_data.manager_data.name || '');
-      } else if (data.manager_data) {
-        setManagerData(data.manager_data);
-        setManagerName(data.manager_data.name || '');
-      }
-
-      // Данные техподдержки из user_data
-      if (data.user_data?.tech_support_data) {
-        setTechSupportData(data.user_data.tech_support_data);
-        setTechSupportName(data.user_data.tech_support_data.name || '');
-      }
-
-      const onboardingExpiredValue = data.onboarding_expired !== undefined ? data.onboarding_expired : 1;
-      setOnboardingExpired(onboardingExpiredValue);
-      
-      // Проверяем нужно ли показать модальное окно "Наши услуги"
-      // ВАЖНО: показываем только если онбординг УЖЕ был просмотрен (не в этой сессии)
-      // и "Наши услуги" ещё не просмотрены
-      const shouldShowOurServices = 
-        (data.onboarding_viewed === 1 || data.onboarding_viewed === '1') &&
-        (data.announce_our_services_viewed === 0 || data.announce_our_services_viewed === '0');
-      
-      if (shouldShowOurServices) {
-        console.log('✅ Showing "Our Services" modal (onboarding already viewed)');
-        setAnnounceOurServicesVisible(true);
-      } else {
-        console.log('⏭️ "Our Services" skipped. onboarding_viewed:', data.onboarding_viewed, 'announce_our_services_viewed:', data.announce_our_services_viewed);
-      }
-
-      // Список авто на верхнем уровне
-      const newAutoList = data.auto_list || [];
-      
-      // Логируем первый авто для проверки полей
-      if (newAutoList.length > 0) {
-        console.log('📋 First auto from /get-auto-list:', JSON.stringify({
-          id: newAutoList[0].id,
-          check_passes_expared: newAutoList[0].check_passes_expared,
-          check_passes_string: newAutoList[0].check_passes_string,
-          check_passes_year_propusktype: newAutoList[0].check_passes_year_propusktype,
-          check_passes_year_type_of_pass_string: newAutoList[0].check_passes_year_type_of_pass_string,
-          check_passes_year_cancelled: newAutoList[0].check_passes_year_cancelled,
-          check_passes_pass_end_left: newAutoList[0].check_passes_pass_end_left,
-          check_passes_pass_end_str: newAutoList[0].check_passes_pass_end_str,
-          check_passes_year_period_color: newAutoList[0].check_passes_year_period_color
-        }));
-        
-        // Проверяем сколько авто с expared флагами
-        const exparedCount = newAutoList.filter((auto: any) => auto.check_passes_expared == 1).length;
-        console.log('📊 Autos with check_passes_expared=1:', exparedCount, 'out of', newAutoList.length);
-      }
-      
-      // Загружаем данные для авто с флагами expared == 1
-      for (let i = 0; i < newAutoList.length; i++) {
-        const autoId = newAutoList[i].id;
-        
-        // Пропуска
-        if (newAutoList[i].check_passes_expared == 1) {
-          api.post('/get-auto-check-passes', { token, id: autoId })
-            .then(res => {
-              const passData = res.data;
-              console.log('📋 Pass data for auto', autoId, ':', JSON.stringify(passData));
-              
-              // Как в старом проекте: /get-auto-check-passes возвращает только 2 поля
-              // Все остальные поля (propusktype, pass_end_left и т.д.) уже есть в объекте из /get-auto-list
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? {
-                  ...auto,
-                  check_passes_string: passData.check_passes_string,
-                  check_passes_year_period_color: passData.check_passes_year_period_color,
-                  check_passes_expared: 0
-                } : auto
-              ));
-            })
-            .catch(err => {
-              console.log('Error loading passes for auto:', autoId, err);
-              // При ошибке сбрасываем флаг, чтобы не крутился индикатор вечно
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? { ...auto, check_passes_expared: 0 } : auto
-              ));
-            });
-        }
-        
-        // Диагностическая карта
-        if (newAutoList[i].check_diagnostic_card_expared == 1) {
-          api.post('/get-auto-check-diagnostic-card', { token, id: autoId, intervally: 1 })
-            .then(res => {
-              const data = res.data;
-              if (data.error || data.in_progress == 0) {
-                setAutoList(prev => prev.map(auto => 
-                  auto.id === autoId ? {
-                    ...auto,
-                    check_diagnostic_card_string: data.check_diagnostic_card_string || '',
-                    check_diagnostic_card_period_color: data.check_diagnostic_card_period_color || '',
-                    check_diagnostic_card_date_to_left: data.check_diagnostic_card_date_to_left || '',
-                    check_diagnostic_card_date_to_str: data.check_diagnostic_card_date_to_str || '',
-                    check_diagnostic_card_expared: 0
-                  } : auto
-                ));
-              }
-            })
-            .catch(err => {
-              console.log('Error loading diagnostic card for auto:', autoId, err);
-              // При ошибке тоже сбрасываем флаг
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? { ...auto, check_diagnostic_card_expared: 0 } : auto
-              ));
-            });
-        }
-        
-        // Штрафы
-        if (newAutoList[i].check_fines_expared == 1) {
-          api.post('/get-auto-check-fines', { token, id: autoId })
-            .then(res => {
-              const data = res.data;
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? {
-                  ...auto,
-                  check_fines_string: data.check_fines_string || '',
-                  check_fines_sum: data.check_fines_sum || '',
-                  check_fines_expared: 0
-                } : auto
-              ));
-            })
-            .catch(err => {
-              console.log('Error loading fines for auto:', autoId, err);
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? { ...auto, check_fines_expared: 0 } : auto
-              ));
-            });
-        }
-        
-        // ОСАГО
-        if (newAutoList[i].check_osago_expared == 1) {
-          api.post('/get-auto-check-osago', { token, id: autoId })
-            .then(res => {
-              const data = res.data;
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? {
-                  ...auto,
-                  check_osago_string: data.check_osago_string || '',
-                  check_osago_period_color: data.check_osago_period_color || '',
-                  check_osago_date_to_left: data.check_osago_date_to_left || '',
-                  check_osago_date_to_str: data.check_osago_date_to_str || '',
-                  check_osago_expared: 0
-                } : auto
-              ));
-            })
-            .catch(err => {
-              console.log('Error loading osago for auto:', autoId, err);
-              setAutoList(prev => prev.map(auto => 
-                auto.id === autoId ? { ...auto, check_osago_expared: 0 } : auto
-              ));
-            });
-        }
-      }
-      
-      if (currentFilters.autoListFrom === 0) {
-        console.log('Setting auto list with', newAutoList.length, 'items');
-        setAutoList(newAutoList);
-        
-        // Кэшируем полный список (без фильтров)
-        const isFullList = !currentFilters.autoStr && 
-                          !currentFilters.autoCancelled && 
-                          !currentFilters.autoPassEnded && 
-                          !currentFilters.autoPassEnds;
-        
-        if (isFullList) {
-          console.log('Caching full auto list:', newAutoList.length, 'items');
-          setCachedFullList(newAutoList);
-          setCacheTimestamp(Date.now());
-        }
-      } else {
-        console.log('Appending', newAutoList.length, 'items to existing list');
-        setAutoList(prev => [...prev, ...newAutoList]);
-      }
-      
-      // Используем значение с сервера, но проверяем корректность
-      const serverCount = data.auto_list_count || 0;
-      const hasActiveFilters = currentFilters.autoStr || 
-                               currentFilters.autoCancelled || 
-                               currentFilters.autoPassEnded || 
-                               currentFilters.autoPassEnds;
-      
-      // Если есть фильтры и это первая загрузка - используем длину списка
-      // (на случай если сервер возвращает общее количество вместо отфильтрованного)
-      if (hasActiveFilters && currentFilters.autoListFrom === 0 && newAutoList.length < serverCount) {
-        console.log('Using list length as count (filtered):', newAutoList.length);
-        setAutoListCount(newAutoList.length);
-      } else {
-        setAutoListCount(serverCount);
-      }
-      
-      setAutoListFrom(currentFilters.autoListFrom + auto_list_limit);
-
-      setIndicator(false);
-      
-      // Снимаем блокировку пагинации после загрузки
-      paginationRef.current.isFilterChanging = false;
-    } catch (error: any) {
-      console.log('error in getAutoList:', error);
-      if (error.response?.status === 401) {
-        router.replace('/');
-      }
-      setIndicator(false);
-      // Снимаем блокировку пагинации при ошибке тоже
-      paginationRef.current.isFilterChanging = false;
-    }
-  }, [router]);  // Убираем зависимости от фильтров - используем filtersRef
-
-  // Обновление данных пользователя (счетчики и т.д.)
-  const updateUserData = useCallback(async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      console.log('Updating user data (light request)...');
-      // Используем get-auto-list с лимитом 0, чтобы получить только user_data
-      const res = await api.post('/get-auto-list', { token, auto_list_limit: 0 });
-      const data = res.data;
-      
-      if (data.user_data) {
-        console.log('User data updated. New notification count:', data.user_data.notification_unviewed_count);
-        setUserData(data.user_data);
-        
-        if (data.other_user_list) {
-             setOtherUserList(data.other_user_list);
-        }
-      }
-    } catch (error) {
-      console.log('Error updating user data:', error);
-    }
-  }, []);
-
-  // Обновление списка (сброс)
-  const refreshAutoList = useCallback(async () => {
-    console.log('refreshAutoList called');
-    
-    // Инвалидируем кэш только если нет активных фильтров
-    const hasFilters = autoStr.length > 0 || autoCancelled || autoPassEnded || autoPassEnds;
-    if (!hasFilters) {
-      console.log('Invalidating cache on refresh (no filters)');
-      setCacheTimestamp(0);
-    } else {
-      console.log('Refresh with active filters, keeping cache');
-    }
-    
-    // Сбрасываем offset и счетчик отмеченных
-    setAutoListFrom(0);
-    setMarkedCnt(0);
-    // НЕ очищаем список - пусть показывается во время загрузки
-    
-    const token = await AsyncStorage.getItem('token');
-    // Передаем текущие фильтры
-    getAutoList(token, {
-      autoStr,
-      autoCancelled,
-      autoPassEnded,
-      autoPassEnds,
-      autoPassEndsUntilDate,
-      autoListFrom: 0
-    });
-  }, [getAutoList, autoStr, autoCancelled, autoPassEnded, autoPassEnds, autoPassEndsUntilDate]);
-  
-  // Инвалидация кэша (для использования после добавления/удаления авто)
-  const invalidateCache = useCallback(() => {
-    console.log('Cache invalidated');
-    setCacheTimestamp(0);
-  }, []);
-
-  // Refs для пагинации (избегаем stale closures)
-  const paginationRef = useRef({
-    autoListCount: 0,
-    autoListFrom: 0,
-    autoListLength: 0,
-    indicator: false,
-    isFilterChanging: false,  // Флаг блокировки пагинации при смене фильтра
-  });
-  
-  // Синхронизируем ref с состоянием (кроме isFilterChanging - он управляется вручную)
-  paginationRef.current.autoListCount = autoListCount;
-  paginationRef.current.autoListFrom = autoListFrom;
-  paginationRef.current.autoListLength = autoList.length;
-  paginationRef.current.indicator = indicator;
-
-  // Пагинация
-  const onEndReached = useCallback(() => {
-    // Используем актуальные значения из ref
-    const { autoListCount: count, autoListFrom: from, autoListLength: length, indicator: loading, isFilterChanging } = paginationRef.current;
-    
-    // Блокируем пагинацию во время смены фильтра
-    if (isFilterChanging) {
-      console.log('onEndReached: filter is changing, skipping');
-      return;
-    }
-    
-    // Проверяем что не идет загрузка
-    if (loading) {
-      console.log('onEndReached: already loading, skipping');
-      return;
-    }
-    
-    // Проверяем что есть еще данные для загрузки
-    if (length >= count || count === 0) {
-      console.log('onEndReached: all data loaded', length, '/', count);
-      return;
-    }
-    
-    console.log('onEndReached: loading more data from', from);
-    AsyncStorage.getItem('token').then(token => {
-      getAutoList(token, { autoListFrom: from });
-    });
-  }, [getAutoList]);
-
   // Отметить/снять отметку с элемента
   const markItem = useCallback((item: AutoItem, index: number) => {
-    const updatedList = [...autoList];
-    updatedList[index] = { ...item, marked: !item.marked };
-    setAutoList(updatedList);
+    // Обновляем элемент через хук данных
+    dataHook.updateAutoItem(item.id, { marked: !item.marked });
     
-    const newMarkedCnt = updatedList.filter(auto => auto.marked).length;
-    setMarkedCnt(newMarkedCnt);
-  }, [autoList]);
+    // Пересчитываем количество (немного неоптимально, но надежно)
+    // В идеале markedCnt должен быть вычисляемым свойством в useAutoData
+    setTimeout(() => {
+        const cnt = dataHook.autoList.filter(a => a.id !== item.id ? a.marked : !item.marked).length;
+        setMarkedCnt(cnt);
+    }, 0);
+  }, [dataHook.autoList, dataHook.updateAutoItem]);
 
   // Сброс выделения
   const undoSelect = useCallback(() => {
-    const updatedList = autoList.map(item => ({ ...item, marked: false }));
-    setAutoList(updatedList);
+    dataHook.autoList.forEach(item => {
+        if (item.marked) dataHook.updateAutoItem(item.id, { marked: false });
+    });
     setMarkedCnt(0);
-  }, [autoList]);
+  }, [dataHook.autoList, dataHook.updateAutoItem]);
 
   // Запуск анимации пульсации
   const startPulseAnimation = useCallback(() => {
@@ -550,16 +65,11 @@ export function useAutoList() {
     pulseAnimation.current.start();
   }, [pulseAnim, pulseDuration]);
 
-  // Остановка анимации пульсации
   const stopPulseAnimation = useCallback(() => {
     if (pulseAnimation.current) {
       pulseAnimation.current.stop();
     }
   }, []);
-
-  const [onboardingExpired, setOnboardingExpired] = useState(1);
-  const [onboardingViewed, setOnboardingViewed] = useState(1);
-  const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
 
   // Закрытие модального окна "Наши услуги"
   const closeAnnounceOurServices = useCallback(async () => {
@@ -570,447 +80,100 @@ export function useAutoList() {
     }
 
     try {
-      console.log('📤 Sending /get-announce-our-services request with token:', token.substring(0, 20) + '...');
-      const response = await api.post('/get-announce-our-services', { token });
-      console.log('✅ "Our Services" marked as viewed. Server response:', response.data);
+      await api.post('/get-announce-our-services', { token });
       setAnnounceOurServicesVisible(false);
     } catch (error: any) {
-      console.log('Error in closeAnnounceOurServices:', error);
-      if (error.response?.status === 401) {
-        router.replace('/');
-      }
+      if (error.response?.status === 401) router.replace('/');
     }
   }, [router]);
 
-  // Очистка таймера при размонтировании
-  useEffect(() => {
-    return () => {
-      if (filterDebounceTimer.current) {
-        clearTimeout(filterDebounceTimer.current);
-      }
-    };
-  }, []);
+  // Обертки для совместимости с UI
+  const changeAutoStr = (val: string) => dataHook.setFilterValue('autoStr', val);
+  const clearAutoStr = () => dataHook.setFilterValue('autoStr', '');
+  const clearAllFilters = () => dataHook.clearFilters();
   
-  // Клиентская фильтрация по номеру
-  const applyClientFilter = useCallback((searchStr: string) => {
-    if (!cachedFullList.length) {
-      console.log('No cached list for client filtering');
-      return;
-    }
-    
-    console.log('Applying client-side filter:', searchStr);
-    
-    if (!searchStr || searchStr.length < 3) {
-      // Показываем полный список
-      setAutoList(cachedFullList);
-      setAutoListCount(cachedFullList.length || 0);
-      return;
-    }
-    
-    // Фильтруем на клиенте
-    const filtered = cachedFullList.filter(auto => {
-      const autoNumber = auto.auto_number?.toLowerCase() || '';
-      const search = searchStr.toLowerCase();
-      return autoNumber.includes(search);
-    });
-    
-    console.log('Client filter result:', filtered.length, 'items');
-    setAutoList(filtered);
-    setAutoListCount(filtered.length || 0);
-  }, [cachedFullList]);
+  const toggleAutoCancelled = () => dataHook.setFilterValue('autoCancelled', !dataHook.filters.autoCancelled);
+  const toggleAutoPassEnded = () => dataHook.setFilterValue('autoPassEnded', !dataHook.filters.autoPassEnded);
+  const toggleAutoPassEnds = () => dataHook.setFilterValue('autoPassEnds', !dataHook.filters.autoPassEnds);
 
-  // Проверка активности фильтров
-  const hasActiveFilters = useCallback(() => {
-    return autoStr.length >= 3 ||  // Только если >= 3 символа
-           autoCancelled || 
-           autoPassEnded || 
-           autoPassEnds || 
-           autoPassEndsUntilDate.length > 0;
-  }, [autoStr, autoCancelled, autoPassEnded, autoPassEnds, autoPassEndsUntilDate]);
-
-  // Получение списка активных фильтров для отображения
-  const getActiveFiltersText = useCallback(() => {
-    const filters: string[] = [];
-    
-    if (autoStr.length >= 3) {  // Только если >= 3 символа
-      filters.push(`Номер: ${autoStr}`);
-    }
-    if (autoCancelled) {
-      filters.push('Аннулирован');
-    }
-    if (autoPassEnded) {
-      filters.push('Закончился');
-    }
-    if (autoPassEnds && autoPassEndsUntilDate.length > 0) {
-      filters.push(`До: ${autoPassEndsUntilDate}`);
-    }
-    
-    return filters;
-  }, [autoStr, autoCancelled, autoPassEnded, autoPassEnds, autoPassEndsUntilDate]);
-
-  // Filter handlers
-  const changeAutoStr = useCallback((value: string) => {
-    console.log('changeAutoStr called. New value:', value, 'Length:', value.length);
-    
-    // Очищаем предыдущий таймер
-    if (filterDebounceTimer.current) {
-      console.log('Clearing previous debounce timer');
-      clearTimeout(filterDebounceTimer.current);
-    }
-    
-    // Обновляем состояние (UI обновляется всегда)
-    setAutoStr(value);
-    
-    // Проверяем, есть ли другие активные фильтры
-    const hasOtherFilters = autoCancelled || autoPassEnded || autoPassEnds;
-    
-    // Если есть кэш и нет других фильтров - используем клиентскую фильтрацию
-    if (cachedFullList.length > 0 && !hasOtherFilters) {
-      console.log('Using client-side filtering (cached list available)');
-      
-      // Сохраняем значение для замыкания
-      const filterValue = value;
-      
-      // Debounce для плавности UI (меньше задержка)
-      filterDebounceTimer.current = setTimeout(() => {
-        applyClientFilter(filterValue);
-      }, 200); // Быстрее, чем серверный запрос
-      
-      return;
-    }
-    
-    // Иначе используем серверную фильтрацию
-    if (value.length >= 3 || value.length === 0) {
-      console.log('Using server-side filtering');
-      
-      // Сохраняем значение для замыкания
-      const filterValue = value;
-      
-      // Устанавливаем новый таймер (debounce 500ms)
-      filterDebounceTimer.current = setTimeout(() => {
-        console.log('Debounce timer fired. Applying filter with value:', filterValue);
-        AsyncStorage.getItem('token').then(token => 
-          getAutoList(token, { autoStr: filterValue, autoListFrom: 0 })
-        );
-      }, 500);
-    } else {
-      console.log('Value too short (< 3 chars), not applying filter');
-    }
-  }, [getAutoList, applyClientFilter, cachedFullList, autoCancelled, autoPassEnded, autoPassEnds]);
-
-  const clearAutoStr = useCallback(() => {
-    console.log('clearAutoStr');
-    setAutoStr('');
-    
-    // Очищаем таймер debounce
-    if (filterDebounceTimer.current) {
-      clearTimeout(filterDebounceTimer.current);
-    }
-    
-    // Проверяем, есть ли другие активные фильтры
-    const hasOtherFilters = autoCancelled || autoPassEnded || autoPassEnds;
-    
-    // Если есть кэш и нет других фильтров - используем клиентскую фильтрацию
-    if (cachedFullList.length > 0 && !hasOtherFilters) {
-      console.log('Clearing filter using cached list');
-      applyClientFilter('');
-    } else {
-      // Немедленно применяем очистку фильтра через сервер
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoStr: '', autoListFrom: 0 })
-      );
-    }
-  }, [getAutoList, applyClientFilter, cachedFullList, autoCancelled, autoPassEnded, autoPassEnds]);
-
-  // Сброс всех фильтров
-  const clearAllFilters = useCallback(() => {
-    console.log('clearAllFilters');
-    
-    // Сбрасываем флаг загрузки пагинации
-    isLoadingMore.current = false;
-    
-    // Сбрасываем фильтры
-    setAutoStr('');
-    setAutoCancelled(false);
-    setAutoPassEnded(false);
-    setAutoPassEnds(false);
-    setAutoPassEndsUntilDate('');
-    
-    const now = Date.now();
-    const cacheAge = now - cacheTimestamp;
-    const isCacheValid = cachedFullList.length > 0 && cacheAge < CACHE_LIFETIME_MS;
-    
-    if (isCacheValid) {
-      // ✅ Кэш свежий - используем мгновенно
-      console.log('Using cached full list (age:', Math.round(cacheAge / 1000), 'seconds)');
-      setAutoList(cachedFullList);
-      setAutoListCount(cachedFullList.length);
-      setAutoListFrom(0);
-      setMarkedCnt(0);
-      
-      // Обновляем в фоне если кэш старше 1 минуты
-      if (cacheAge > 60 * 1000) {
-        console.log('Refreshing cache in background...');
-        AsyncStorage.getItem('token').then(token => 
-          getAutoList(token, { 
-            autoStr: '', 
-            autoCancelled: false,
-            autoPassEnded: false,
-            autoPassEnds: false,
-            autoPassEndsUntilDate: '',
-            autoListFrom: 0 
-          })
-        );
-      }
-    } else {
-      // ❌ Кэш устарел или отсутствует - загружаем с сервера
-      console.log('Cache expired or empty, loading from server...');
-      
-      // Если есть старый кэш - показываем его временно
-      if (cachedFullList.length > 0) {
-        setAutoList(cachedFullList);
-        setAutoListCount(cachedFullList.length);
-        setAutoListFrom(0);
-        setMarkedCnt(0);
-      }
-      
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { 
-          autoStr: '', 
-          autoCancelled: false,
-          autoPassEnded: false,
-          autoPassEnds: false,
-          autoPassEndsUntilDate: '',
-          autoListFrom: 0 
-        })
-      );
-    }
-  }, [getAutoList, cachedFullList, cacheTimestamp, CACHE_LIFETIME_MS]);
-
-  const toggleAutoCancelled = useCallback(() => {
-    // Блокируем пагинацию и сбрасываем offset
-    paginationRef.current.isFilterChanging = true;
-    paginationRef.current.autoListFrom = 0;
-    setAutoListFrom(0);
-    
-    setAutoCancelled(prev => {
-      const newValue = !prev;
-      
-      // Передаем новое значение фильтра напрямую
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoCancelled: newValue, autoListFrom: 0 })
-      );
-      
-      return newValue;
-    });
-  }, [getAutoList]);
-
-  const toggleAutoPassEnded = useCallback(() => {
-    // Блокируем пагинацию и сбрасываем offset
-    paginationRef.current.isFilterChanging = true;
-    paginationRef.current.autoListFrom = 0;
-    setAutoListFrom(0);
-    
-    setAutoPassEnded(prev => {
-      const newValue = !prev;
-      
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoPassEnded: newValue, autoListFrom: 0 })
-      );
-      
-      return newValue;
-    });
-  }, [getAutoList]);
-
-  const toggleAutoPassEnds = useCallback(() => {
-    // Блокируем пагинацию и сбрасываем offset
-    paginationRef.current.isFilterChanging = true;
-    paginationRef.current.autoListFrom = 0;
-    setAutoListFrom(0);
-    
-    setAutoPassEnds(prev => {
-      const newValue = !prev;
-      
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoPassEnds: newValue, autoListFrom: 0 })
-      );
-      
-      return newValue;
-    });
-  }, [getAutoList]);
-
-  const changeAutoPassEndsUntilDate = useCallback((value: string) => {
-    console.log('changeAutoPassEndsUntilDate. value = ' + value);
-    
+  const changeAutoPassEndsUntilDate = (val: string) => {
     // Форматирование даты
-    let value_new = value.replace(/[^0-9]/g, '');
-    if (value_new.length >= 3) {
-      value_new = value_new.slice(0, 2) + '.' + value_new.slice(2);
-    }
-    if (value_new.length >= 6) {
-      value_new = value_new.slice(0, 5) + '.' + value_new.slice(5, 9);
-    }
+    let value_new = val.replace(/[^0-9]/g, '');
+    if (value_new.length >= 3) value_new = value_new.slice(0, 2) + '.' + value_new.slice(2);
+    if (value_new.length >= 6) value_new = value_new.slice(0, 5) + '.' + value_new.slice(5, 9);
     
-    setAutoPassEndsUntilDate(value_new);
+    dataHook.setFilterValue('autoPassEndsUntilDate', value_new);
     
-    if (value_new.length === 0) {
-      // Блокируем пагинацию и сбрасываем offset
-      paginationRef.current.isFilterChanging = true;
-      paginationRef.current.autoListFrom = 0;
-      setAutoListFrom(0);
-      
-      setAutoPassEnds(false);
-      
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoPassEnds: false, autoPassEndsUntilDate: value_new, autoListFrom: 0 })
-      );
-    } else if (value_new.length === 10) {
-      // Блокируем пагинацию и сбрасываем offset
-      paginationRef.current.isFilterChanging = true;
-      paginationRef.current.autoListFrom = 0;
-      setAutoListFrom(0);
-      
-      setAutoPassEnds(true);
-      
-      AsyncStorage.getItem('token').then(token => 
-        getAutoList(token, { autoPassEnds: true, autoPassEndsUntilDate: value_new, autoListFrom: 0 })
-      );
-    }
-  }, [getAutoList]);
+    if (value_new.length === 0) dataHook.setFilterValue('autoPassEnds', false);
+    else if (value_new.length === 10) dataHook.setFilterValue('autoPassEnds', true);
+  };
 
-  // Показать/скрыть детали проверки
+  // Показать/скрыть детали (вкладки)
   const showHideTab = useCallback((tabName: string, index: number) => {
-    console.log(`showHideTab: ${tabName}, index: ${index}`);
-    const updatedList = [...autoList];
-    const item = updatedList[index];
-    
-    // Проверяем, открыта ли уже эта вкладка
-    let isCurrentlyOpen = false;
-    switch (tabName) {
-      case 'fines':
-        isCurrentlyOpen = item.check_fines_tab_show === 1;
-        break;
-      case 'avtodor':
-        isCurrentlyOpen = item.check_avtodor_tab_show === 1;
-        break;
-      case 'osago':
-        isCurrentlyOpen = item.check_osago_tab_show === 1;
-        break;
-      case 'diagnostic_card':
-        isCurrentlyOpen = item.check_diagnostic_card_tab_show === 1;
-        break;
-      case 'rnis':
-        isCurrentlyOpen = item.check_rnis_tab_show === 1;
-        break;
-      case 'status':
-        isCurrentlyOpen = item.status_tab_show === 1;
-        break;
-    }
-    
-    // Закрываем все вкладки
-    item.check_fines_tab_show = 0;
-    item.check_avtodor_tab_show = 0;
-    item.check_osago_tab_show = 0;
-    item.check_diagnostic_card_tab_show = 0;
-    item.check_rnis_tab_show = 0;
-    item.status_tab_show = 0;
-    
-    // Если вкладка была закрыта - открываем её
-    if (!isCurrentlyOpen) {
-      switch (tabName) {
-        case 'fines':
-          item.check_fines_tab_show = 1;
-          break;
-        case 'avtodor':
-          item.check_avtodor_tab_show = 1;
-          break;
-        case 'osago':
-          item.check_osago_tab_show = 1;
-          break;
-        case 'diagnostic_card':
-          item.check_diagnostic_card_tab_show = 1;
-          break;
-        case 'rnis':
-          item.check_rnis_tab_show = 1;
-          break;
-        case 'status':
-          item.status_tab_show = 1;
-          break;
-      }
-    }
-    
-    setAutoList(updatedList);
-  }, [autoList]);
+    const item = dataHook.autoList[index];
+    if (!item) return;
 
-  // Функция для перезагрузки всех данных (например, после смены организации)
-  const reloadData = useCallback(async () => {
-    console.log('reloadData - resetting state and fetching data');
-    
-    // Сбрасываем состояние
-    setMarkedCnt(0);
-    setAutoList([]);
-    setAutoListCount(0);
-    setAutoListFrom(0);
-    
-    // ВАЖНО: Сбрасываем autoListFrom в ref, чтобы избежать использования старого значения
-    filtersRef.current.autoListFrom = 0;
-    paginationRef.current.autoListFrom = 0;
-    
-    // Загружаем данные заново
-    const token = await AsyncStorage.getItem('token');
-    if (token) {
-      await getAutoList(token);
+    const updates: any = {
+        check_fines_tab_show: 0,
+        check_avtodor_tab_show: 0,
+        check_osago_tab_show: 0,
+        check_diagnostic_card_tab_show: 0,
+        check_rnis_tab_show: 0,
+        status_tab_show: 0
+    };
+
+    // Если вкладка была закрыта - открываем её
+    const keyMap: Record<string, string> = {
+        'fines': 'check_fines_tab_show',
+        'avtodor': 'check_avtodor_tab_show',
+        'osago': 'check_osago_tab_show',
+        'diagnostic_card': 'check_diagnostic_card_tab_show',
+        'rnis': 'check_rnis_tab_show',
+        'status': 'status_tab_show'
+    };
+
+    const key = keyMap[tabName];
+    if (key && (item as any)[key] !== 1) {
+        updates[key] = 1;
     }
-  }, [getAutoList]);
+
+    dataHook.updateAutoItem(item.id, updates);
+  }, [dataHook.autoList, dataHook.updateAutoItem]);
+
+  // Проверка активности фильтров для UI
+  const hasActiveFilters = () => {
+    const f = dataHook.filters;
+    return f.autoStr.length >= 3 || f.autoCancelled || f.autoPassEnded || f.autoPassEnds;
+  };
+
+  const getActiveFiltersText = () => {
+    const f = dataHook.filters;
+    const list = [];
+    if (f.autoStr.length >= 3) list.push(`Номер: ${f.autoStr}`);
+    if (f.autoCancelled) list.push('Аннулирован');
+    if (f.autoPassEnded) list.push('Закончился');
+    if (f.autoPassEnds) list.push(`До: ${f.autoPassEndsUntilDate}`);
+    return list;
+  };
 
   return {
-    // State
-    managerName,
-    techSupportName,
-    managerData,
-    techSupportData,
-    userData,
-    userStr,
-    userList,
-    userListEmptyStr,
-    ourServicesList,
-    ourServicesVisible,
-    setOurServicesVisible,
-    otherUserList,
-    autoStr,
-    autoCancelled,
-    autoPassEnded,
-    autoPassEnds,
-    autoPassEndsUntilDate,
-    autoList,
-    autoListCount,
-    autoListFrom,
-    indicator,
+    // Проксируем данные из dataHook
+    ...dataHook,
+
+    // UI State
     markedCnt,
-    onboardingExpired,
-    onboardingViewed,
     announceOurServicesVisible,
-    closeAnnounceOurServices,
-    
-    // Refs
-    intervals,
-    
-    // Animation
     pulseAnim,
     pulseFontSize,
     
-    // Methods
-    getAutoList,
-    refreshAutoList,
-    reloadData,
-    invalidateCache,
-    onEndReached,
+    // UI Methods
     markItem,
     undoSelect,
     startPulseAnimation,
     stopPulseAnimation,
-    hasActiveFilters,
-    getActiveFiltersText,
+    closeAnnounceOurServices,
+
+    // Filter Wrappers
     changeAutoStr,
     clearAutoStr,
     clearAllFilters,
@@ -1018,7 +181,17 @@ export function useAutoList() {
     toggleAutoPassEnded,
     toggleAutoPassEnds,
     changeAutoPassEndsUntilDate,
+
+    // Helpers
+    hasActiveFilters,
+    getActiveFiltersText,
     showHideTab,
-    updateUserData,
+
+    // Aliases for compatibility
+    getAutoList: dataHook.loadData,
+    refreshAutoList: dataHook.refreshData,
+    reloadData: dataHook.refreshData,
+    updateUserData: dataHook.updateUserDataOnly,
+    indicator: dataHook.isLoading || dataHook.isRefreshing
   };
 }

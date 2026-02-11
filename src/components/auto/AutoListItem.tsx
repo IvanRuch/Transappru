@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableHighlight, Image, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import type { AutoItem } from '../../types/auto';
 
@@ -10,7 +10,7 @@ interface AutoListItemProps {
   onShowHideTab: (tabName: string, index: number) => void;
 }
 
-export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress, onMark, onShowHideTab }) => {
+export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab }: AutoListItemProps) => {
   // Определяем стиль элемента (отмечен или нет)
   const itemStyle = {
     padding: 20,
@@ -106,6 +106,8 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
                   )}
                 </>
               ) : (
+                // Если нет детальных данных, но есть строка - показываем ее в одном блоке
+                // Если и строки нет - показываем "нет данных"
                 <View style={[styles.passCell, { flex: 7, backgroundColor: getBgColor('white') }]}>
                   <Text style={styles.passCellText}>{item.check_passes_string || 'нет данных'}</Text>
                 </View>
@@ -439,7 +441,16 @@ export const AutoListItem: React.FC<AutoListItemProps> = ({ item, index, onPress
       </View>
     </Pressable>
   );
-};
+}, (prevProps, nextProps) => {
+  // Кастомная функция сравнения для React.memo
+  // Рендерим заново только если изменились данные элемента или индекс
+  return (
+    prevProps.item === nextProps.item &&
+    prevProps.index === nextProps.index
+  );
+});
+
+AutoListItem.displayName = 'AutoListItem';
 
 const styles = StyleSheet.create({
   passRow: {

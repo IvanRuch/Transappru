@@ -29,7 +29,12 @@ Api.interceptors.response.use(
   (response: AxiosResponse) => {
     // Log the response
     if (__DEV__) {
-      console.log(`⬇️ [API] ${response.status} ${response.config.url}`, response.data);
+      // Скрываем большие данные для определенных эндпоинтов
+      if (response.config.url?.includes('get-user-agreement-and-privacy-policy')) {
+        console.log(`⬇️ [API] ${response.status} ${response.config.url} (Data hidden: too large)`);
+      } else {
+        console.log(`⬇️ [API] ${response.status} ${response.config.url}`, response.data);
+      }
     }
     return response;
   },
@@ -59,6 +64,10 @@ Api.interceptors.response.use(
     } else if (error.request) {
       // The request was made but no response was received
       console.error(`❌ [API] No response from ${error.config?.url}:`, error.message);
+      // Выводим детали ошибки для диагностики Network Error
+      if (__DEV__) {
+          console.log('Error details:', error.toJSON ? error.toJSON() : error);
+      }
     } else {
       // Something happened in setting up the request that triggered an Error
       console.error('❌ [API] Setup Error:', error.message);
