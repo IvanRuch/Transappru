@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableHighlight, TouchableOpacity, Image, Modal, ActivityIndicator, Linking, Platform, StatusBar, 
   FlatList, Pressable, TextInput, ImageBackground
@@ -16,6 +16,39 @@ import { router } from 'expo-router';
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
 import { SHOW_PAYMENT_UI } from '../../config/features';
+
+// Компонент для постраничного вывода длинных списков
+const PaginatedList = ({ data, renderItem, initialCount = 5, step = 20 }: { data: any[], renderItem: (item: any, index: number) => React.ReactNode, initialCount?: number, step?: number }) => {
+  const [visibleCount, setVisibleCount] = useState(initialCount);
+
+  if (!data || data.length === 0) return null;
+
+  const visibleData = data.slice(0, visibleCount);
+
+  return (
+    <View>
+      {visibleData.map((item, index) => renderItem(item, index))}
+
+      {visibleCount < data.length && (
+        <TouchableOpacity
+          onPress={() => setVisibleCount(prev => prev + step)}
+          style={{
+            padding: 15,
+            alignItems: 'center',
+            backgroundColor: '#F0F0F0',
+            marginHorizontal: 20,
+            marginBottom: 10,
+            borderRadius: 8
+          }}
+        >
+          <Text style={{ color: '#3A3A3A', fontWeight: 'bold' }}>
+            Показать еще {Math.min(step, data.length - visibleCount)} (осталось {data.length - visibleCount})
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
 
 interface AutoProps {
   route: {
@@ -726,12 +759,12 @@ class Auto extends React.Component<AutoProps, AutoState> {
     }
   }
 
-  renderAutoFinePaidItem = (item: any) => {
+  renderAutoFinePaidItem = (item: any, index: number) => {
 
     return (
 
       <View
-        key={item.id}
+        key={item.id || index}
         style={{ 
           flexDirection: "row", 
           margin: 20, 
@@ -801,7 +834,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
     );
   }
 
-  renderAutoFineUnpaidItem = (item: any) => {
+  renderAutoFineUnpaidItem = (item: any, index: number) => {
 
     console.log('item')
     console.log(item)
@@ -809,7 +842,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
     return (
 
       <View
-        key={item.id}
+        key={item.id || index}
         style={{ 
           flexDirection: "row", 
           margin: 20, 
@@ -940,12 +973,12 @@ class Auto extends React.Component<AutoProps, AutoState> {
     }
   }
 
-  renderAutoAvtodorPaidItem = (item: any) => {
+  renderAutoAvtodorPaidItem = (item: any, index: number) => {
 
     return (
 
       <View
-        key={item.id}
+        key={item.id || index}
         style={{ 
           flexDirection: "row", 
           margin: 20, 
@@ -1028,7 +1061,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
     );
   }
 
-  renderAutoAvtodorUnpaidItem = (item: any) => {
+  renderAutoAvtodorUnpaidItem = (item: any, index: number) => {
 
     console.log('item')
     console.log(item)
@@ -1036,7 +1069,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
     return (
 
       <View
-        key={item.id}
+        key={item.id || index}
         style={{ 
           flexDirection: "row", 
           margin: 20, 
@@ -1795,9 +1828,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
                       </Pressable>
 
                       { this.state.auto_fine_paid_list_hide ? (
-                          <View>
-                            {this.state.auto_fine_data.paid_list.map((item: any) => this.renderAutoFinePaidItem(item))}
-                          </View>
+                          <PaginatedList
+                            data={this.state.auto_fine_data.paid_list}
+                            renderItem={(item, index) => this.renderAutoFinePaidItem(item, index)}
+                          />
                         ) : null
                       }
 
@@ -1825,9 +1859,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
 
                       { this.state.auto_fine_unpaid_list_hide ? (
                           <>
-                            <View>
-                              {this.state.auto_fine_data.unpaid_list.map((item: any) => this.renderAutoFineUnpaidItem(item))}
-                            </View>
+                            <PaginatedList
+                              data={this.state.auto_fine_data.unpaid_list}
+                              renderItem={(item, index) => this.renderAutoFineUnpaidItem(item, index)}
+                            />
 
                             {/* Кнопки оплаты штрафов - только если включена оплата */}
                             { SHOW_PAYMENT_UI && (
@@ -1996,9 +2031,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
                       </Pressable>
 
                       { this.state.auto_avtodor_paid_list_hide ? (
-                          <View>
-                            {this.state.auto_avtodor_data.paid_list.map((item: any) => this.renderAutoAvtodorPaidItem(item))}
-                          </View>
+                          <PaginatedList
+                            data={this.state.auto_avtodor_data.paid_list}
+                            renderItem={(item, index) => this.renderAutoAvtodorPaidItem(item, index)}
+                          />
                         ) : null
                       }
 
@@ -2026,9 +2062,10 @@ class Auto extends React.Component<AutoProps, AutoState> {
 
                       { this.state.auto_avtodor_unpaid_list_hide ? (
                           <>
-                            <View>
-                              {this.state.auto_avtodor_data.unpaid_list.map((item: any) => this.renderAutoAvtodorUnpaidItem(item))}
-                            </View>
+                            <PaginatedList
+                              data={this.state.auto_avtodor_data.unpaid_list}
+                              renderItem={(item, index) => this.renderAutoAvtodorUnpaidItem(item, index)}
+                            />
 
                             { this.state.auto_avtodor_data.unpaid_list.length ? (
                                 <View style={{ 

@@ -330,6 +330,8 @@ export default function AutoListScreen() {
         managerData={autoListHook.managerData}
         techSupportData={autoListHook.techSupportData}
         techSupportName={autoListHook.techSupportName}
+        userId={autoListHook.userData.id} // Передаем ID
+        userInn={autoListHook.userData.inn} // Передаем ИНН
         onClose={() => autoActions.setModalViewContacts(false)}
         onContactPhone={autoActions.contactPhone}
         onContactEmail={autoActions.contactEmail}

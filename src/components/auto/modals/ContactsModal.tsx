@@ -8,6 +8,8 @@ interface ContactsModalProps {
   managerData: ManagerData;
   techSupportData?: ManagerData;
   techSupportName?: string;
+  userId?: string; // ID пользователя
+  userInn?: string; // ИНН пользователя
   onClose: () => void;
   onContactPhone: (phone: string) => void;
   onContactEmail: (email: string, subject: string, body: string) => void;
@@ -18,6 +20,8 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
   managerData,
   techSupportData,
   techSupportName,
+  userId,
+  userInn,
   onClose,
   onContactPhone,
   onContactEmail,
@@ -27,6 +31,34 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
     Linking.openURL(url).catch(() => {
       console.log('WhatsApp not installed');
     });
+  };
+
+  const contactTelegram = (username: string, userId?: string, userInn?: string) => {
+    // Формируем приветственное сообщение
+    let text = 'Здравствуйте! У меня вопрос по приложению TransApp.';
+    
+    const details = [];
+    if (userInn) details.push(`ИНН: ${userInn}`);
+    if (userId) details.push(`ID: ${userId}`);
+    
+    if (details.length > 0) {
+        text += ` (${details.join(', ')})`;
+    }
+    
+    // Ссылка на чат с пользователем
+    const appUrl = `tg://resolve?domain=${username}&text=${encodeURIComponent(text)}`;
+    const webUrl = `https://t.me/${username}?text=${encodeURIComponent(text)}`; // Fallback
+
+    console.log('Telegram App URL:', appUrl);
+    console.log('Telegram Web URL:', webUrl);
+
+    Linking.canOpenURL(appUrl).then(supported => {
+        if (supported) {
+            return Linking.openURL(appUrl);
+        } else {
+            return Linking.openURL(webUrl);
+        }
+    }).catch(err => console.error('An error occurred', err));
   };
 
   return (
@@ -171,13 +203,15 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
                               <TouchableHighlight
                                 activeOpacity={1}
                                 underlayColor='#F7F7F7'
-                                onPress={() => contactWhatsapp(
-                                  techSupportData.mobile_phone || '',
-                                  techSupportData.whatapp_greetings || ''
-                                )}
+                                onPress={() => contactTelegram('grizodubov', userId, userInn)}
                               >
                                 <View style={styles.actionButton}>
-                                  <Image source={require('../../../../assets/images/contact_whatsapp_2.png')} />
+                                  {/* Используем новую иконку Telegram */}
+                                  <Image 
+                                    source={require('../../../../assets/images/Telegram Logos/Logo.png')} 
+                                    style={{ width: 36, height: 36 }}
+                                    resizeMode="contain"
+                                  />
                                 </View>
                               </TouchableHighlight>
                             </View>

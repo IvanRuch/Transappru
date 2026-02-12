@@ -4,41 +4,30 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Api from '../../src/utils/Api';
 
-const AUTH_CHECK_INTERVAL = 30000;
-
 export default function AuthenticatedLayout() {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
+    // Проверка при монтировании (первый вход)
     checkAuth();
     
-    // Запускаем периодическую проверку
-    startPeriodicCheck();
-    
+    // Слушатель изменения состояния приложения (свернуто/развернуто)
     const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
       subscription.remove();
     };
   }, []);
 
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    // Если приложение возвращается из фона в активный режим
     if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-      console.log('App returned to foreground, checking user_confirmed...');
+      console.log('📱 App returned to foreground, checking user status...');
       checkUserConfirmed();
     }
     appState.current = nextAppState;
-  };
-
-  const startPeriodicCheck = () => {
-    intervalRef.current = setInterval(() => {
-      checkUserConfirmed();
-    }, AUTH_CHECK_INTERVAL);
   };
 
   const checkAuth = async () => {
@@ -72,8 +61,7 @@ export default function AuthenticatedLayout() {
       if (error.response?.status === 401) {
          router.replace('/');
       } else {
-         // Если ошибка сети, пускаем (или показываем экран ошибки, но пока пускаем, чтобы не блокировать оффлайн)
-         // Но лучше проверить, есть ли кэш
+         // Если ошибка сети, пускаем (кэш сработает внутри экранов)
          setIsChecking(false);
       }
     }
@@ -88,13 +76,11 @@ export default function AuthenticatedLayout() {
       const data = res.data;
       
       const userConfirmed = data.session_data?.user_data?.user_confirmed;
+      const phoneInnConfirmed = data.session_data?.user_data?.phone_inn_confirmed;
       
-      if (userConfirmed === 0 || userConfirmed === "0") {
+      if ((userConfirmed === 0 || userConfirmed === "0") ||
+          (phoneInnConfirmed === 0 || phoneInnConfirmed === "0")) {
         console.log('⚠️ User confirmation revoked! Redirecting to auth...');
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-        }
-        // Не удаляем токен здесь, пусть AuthScreen сам разберется или Api интерсептор
         router.replace('/');
       }
     } catch (error: any) {
