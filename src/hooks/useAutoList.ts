@@ -101,11 +101,14 @@ export function useAutoList() {
     let value_new = val.replace(/[^0-9]/g, '');
     if (value_new.length >= 3) value_new = value_new.slice(0, 2) + '.' + value_new.slice(2);
     if (value_new.length >= 6) value_new = value_new.slice(0, 5) + '.' + value_new.slice(5, 9);
-    
-    dataHook.setFilterValue('autoPassEndsUntilDate', value_new);
-    
-    if (value_new.length === 0) dataHook.setFilterValue('autoPassEnds', false);
-    else if (value_new.length === 10) dataHook.setFilterValue('autoPassEnds', true);
+
+    if (value_new.length === 0) {
+      dataHook.setFilterValues({ autoPassEndsUntilDate: value_new, autoPassEnds: false });
+    } else if (value_new.length === 10) {
+      dataHook.setFilterValues({ autoPassEndsUntilDate: value_new, autoPassEnds: true });
+    } else {
+      dataHook.setFilterValue('autoPassEndsUntilDate', value_new);
+    }
   };
 
   // Показать/скрыть детали (вкладки)
@@ -191,6 +194,7 @@ export function useAutoList() {
     getAutoList: dataHook.loadData,
     refreshAutoList: dataHook.refreshData,
     reloadData: dataHook.refreshData,
+    resetAutoList: dataHook.resetData,
     updateUserData: dataHook.updateUserDataOnly,
     indicator: dataHook.isLoading || dataHook.isRefreshing
   };

@@ -28,16 +28,22 @@ import {
 } from '../../components/auto/modals';
 import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
+import { useNotification } from '../../contexts/NotificationContext';
 
 export default function AutoListScreen() {
   const router = useRouter();
   const { bottom: bottomInset } = useSafeAreaInsets();
   const autoListHook = useAutoList();
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
+  const { resetViewedCount } = useNotification();
 
   useFocusEffect(
     useCallback(() => {
       console.log('AutoListScreen focused');
+      const viewedCount = resetViewedCount();
+      if (viewedCount > 0) {
+        autoListHook.decrementNotificationCount(viewedCount);
+      }
       autoListHook.updateUserData();
       autoListHook.startPulseAnimation();
       return () => autoListHook.stopPulseAnimation();
@@ -348,11 +354,15 @@ export default function AutoListScreen() {
         onNavigateToOnBoarding={autoActions.navigateToOnBoarding}
         onNavigateToDriverList={autoActions.navigateToDriverList}
         onNavigateToInn={autoActions.navigateToInn}
-        onSwitchOrganization={(inn, onSuccess) => {
-          autoActions.switchOrganization(inn, () => {
-            autoListHook.reloadData();
-            if (onSuccess) onSuccess();
-          });
+        onSwitchOrganization={(inn, onSuccess, onFinally) => {
+          autoActions.switchOrganization(
+            inn, 
+            () => {
+              autoListHook.resetAutoList();
+              if (onSuccess) onSuccess();
+            },
+            onFinally
+          );
         }}
       />
 

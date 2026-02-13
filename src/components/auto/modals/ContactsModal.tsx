@@ -208,8 +208,8 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
                                 <View style={styles.actionButton}>
                                   {/* Используем новую иконку Telegram */}
                                   <Image 
-                                    source={require('../../../../assets/images/Telegram Logos/Logo.png')} 
-                                    style={{ width: 36, height: 36 }}
+                                    source={require('../../../../assets/images/Telegram Logos/Logo_mono_0.5x.png')}
+                                    style={{ width: 32, height: 32 }}
                                     resizeMode="contain"
                                   />
                                 </View>

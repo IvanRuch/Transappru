@@ -10,6 +10,9 @@ interface NotificationContextType {
   notification: NotificationData | null;
   visible: boolean;
   hideNotification: () => void;
+  viewedCount: number;
+  addViewedCount: (count: number) => void;
+  resetViewedCount: () => number;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -17,6 +20,20 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notification, setNotification] = useState<NotificationData | null>(null);
   const [visible, setVisible] = useState(false);
+  const viewedCountRef = React.useRef(0);
+  const [viewedCount, setViewedCount] = useState(0);
+
+  const addViewedCount = (count: number) => {
+    viewedCountRef.current += count;
+    setViewedCount(viewedCountRef.current);
+  };
+
+  const resetViewedCount = (): number => {
+    const count = viewedCountRef.current;
+    viewedCountRef.current = 0;
+    setViewedCount(0);
+    return count;
+  };
 
   const showNotification = (title: string, body: string) => {
     setNotification({ title, body });
@@ -37,6 +54,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         notification,
         visible,
         hideNotification,
+        viewedCount,
+        addViewedCount,
+        resetViewedCount,
       }}
     >
       {children}

@@ -16,7 +16,7 @@ interface LeftMenuModalProps {
   onNavigateToOnBoarding: () => void;
   onNavigateToDriverList: () => void;
   onNavigateToInn: (userData: UserData, checkRnis: boolean) => void;
-  onSwitchOrganization: (inn: string, onSuccess?: () => void) => void;
+  onSwitchOrganization: (inn: string, onSuccess?: () => void, onFinally?: () => void) => void;
 }
 
 export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
@@ -35,6 +35,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [ourServicesVisible, setOurServicesVisible] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   
   // Адаптивная ширина меню: максимум 75% экрана или 340px
   const screenWidth = Dimensions.get('window').width;
@@ -235,10 +236,13 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                 {otherUserList.map((item, index) => (
                   <TouchableHighlight
                     key={index}
-                    style={{ paddingTop: 10, paddingBottom: 10 }}
+                    style={{ paddingTop: 10, paddingBottom: 10, opacity: isSwitching ? 0.5 : 1 }}
                     activeOpacity={1}
                     underlayColor='#F0F0F0'
+                    disabled={isSwitching}
                     onPress={() => {
+                      if (isSwitching) return;
+                      
                       console.log('Switching to organization:', item.inn, 'user_confirmed:', item.user_confirmed, 'phone_inn_confirmed:', item.phone_inn_confirmed);
                       // Проверяем подтверждение перед переключением (как в старом проекте)
                       // Значения могут быть как числом, так и строкой
@@ -246,9 +250,12 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                       const isPhoneConfirmed = item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1';
                       
                       if (isUserConfirmed && isPhoneConfirmed) {
-                        onSwitchOrganization(item.inn, () => {
-                          onClose();
-                        });
+                        setIsSwitching(true);
+                        onSwitchOrganization(
+                          item.inn, 
+                          () => onClose(), // onSuccess
+                          () => setIsSwitching(false) // onFinally
+                        );
                       } else {
                         console.log('Organization not confirmed, click ignored');
                       }

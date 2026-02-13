@@ -76,14 +76,19 @@ export function useAutoData() {
   ) => {
     if (!isBackground) {
       if (requestOffset === 0) {
-        if (autoList.length === 0) setIsLoading(true);
-        else setIsSearching(true);
+        if (stateRef.current.autoListLength === 0) setIsLoading(true);
+        else {
+          setIsSearching(true);
+          // Очищаем текущий список при поиске, чтобы не показывать старые данные
+          setAutoList([]);
+        }
       } else {
         setIsLoadingMore(true);
       }
     }
 
     try {
+      console.log('fetchAutoList: filters =', JSON.stringify(requestFilters), 'offset =', requestOffset);
       const res = await api.post('/get-auto-list', { 
         token,
         auto_str: requestFilters.autoStr,
@@ -170,7 +175,7 @@ export function useAutoData() {
       setIsSearching(false);
       setIsLoadingMore(false);
     }
-  }, [router, autoList.length]);
+  }, [router]);
 
   // Загрузка деталей (вынесена для чистоты)
   const loadDetailsForItems = (token: string, items: AutoItem[]) => {
@@ -183,19 +188,26 @@ export function useAutoData() {
   };
 
   // Вспомогательные функции загрузки деталей
-  const loadPasses = (token: string, id: string) => {
-    api.post('/get-auto-check-passes', { token, id }).then(res => {
-      updateAutoItem(id, { 
-        ...res.data, 
-        check_passes_expared: 0 
-      });
-    }).catch(e => console.log('Pass load error', e));
+  const loadPasses = (token: string, id: string, retries = 3) => {
+    api.post('/get-auto-check-passes', { token, id, intervally: 1 }).then(res => {
+      if (res.data.error || res.data.in_progress != 1) {
+        updateAutoItem(id, { ...res.data, check_passes_expared: 0 });
+      } else if (retries > 0) {
+        setTimeout(() => loadPasses(token, id, retries - 1), 5000);
+      } else {
+        updateAutoItem(id, { check_passes_expared: 0 });
+      }
+    }).catch(e => updateAutoItem(id, { check_passes_expared: 0 }));
   };
 
-  const loadDiagnosticCard = (token: string, id: string) => {
+  const loadDiagnosticCard = (token: string, id: string, retries = 3) => {
     api.post('/get-auto-check-diagnostic-card', { token, id, intervally: 1 }).then(res => {
-        if (res.data.error || res.data.in_progress == 0) {
+        if (res.data.error || res.data.in_progress != 1) {
             updateAutoItem(id, { ...res.data, check_diagnostic_card_expared: 0 });
+        } else if (retries > 0) {
+            setTimeout(() => loadDiagnosticCard(token, id, retries - 1), 5000);
+        } else {
+            updateAutoItem(id, { check_diagnostic_card_expared: 0 });
         }
     }).catch(e => updateAutoItem(id, { check_diagnostic_card_expared: 0 }));
   };
@@ -215,6 +227,7 @@ export function useAutoData() {
   // Обновление одного элемента в списке
   const updateAutoItem = useCallback((id: string, data: Partial<AutoItem>) => {
     setAutoList(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
+    setCachedFullList(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
   }, []);
 
   // Публичные методы
@@ -235,27 +248,62 @@ export function useAutoData() {
     if (token) fetchAutoList(token, stateRef.current.filters, 0);
   }, [fetchAutoList]);
 
+  const resetData = useCallback(async () => {
+    setIsLoading(true);
+    setOffset(0);
+    setAutoList([]);
+    setAutoListCount(0);
+    setCachedFullList([]);
+    setCacheTimestamp(0);
+    
+    const token = await AsyncStorage.getItem('token');
+    if (token) {
+      // При полном сбросе также сбрасываем фильтры
+      const emptyFilters = {
+        autoStr: '',
+        autoCancelled: false,
+        autoPassEnded: false,
+        autoPassEnds: false,
+        autoPassEndsUntilDate: '',
+      };
+      setFilters(emptyFilters);
+      stateRef.current.filters = emptyFilters;
+      stateRef.current.offset = 0;
+      stateRef.current.autoListLength = 0;
+      
+      await fetchAutoList(token, emptyFilters, 0);
+    }
+    setIsLoading(false);
+  }, [fetchAutoList]);
+
   const loadMore = useCallback(async () => {
     const { isLoading, autoListLength, filters } = stateRef.current;
     // Если уже идет загрузка или загрузили все - выходим
     if (isLoading || autoListLength >= autoListCount) return;
 
     const newOffset = stateRef.current.offset + AUTO_LIST_LIMIT;
+    stateRef.current = { ...stateRef.current, offset: newOffset };
     setOffset(newOffset);
-    
+
     const token = await AsyncStorage.getItem('token');
     if (token) fetchAutoList(token, filters, newOffset);
   }, [autoListCount, fetchAutoList]);
 
   // Умная фильтрация
   const setFilterValue = useCallback((key: string, value: any) => {
-    const newFilters = { ...stateRef.current.filters, [key]: value };
+    // Получаем актуальные фильтры из ref и обновляем их
+    const currentFilters = stateRef.current.filters;
+    const newFilters = { ...currentFilters, [key]: value };
+    
+    // Обновляем состояние и ref
+    stateRef.current = { ...stateRef.current, filters: newFilters, offset: 0 };
     setFilters(newFilters);
     setOffset(0);
 
     if (key === 'autoStr') {
       const hasOtherFilters = newFilters.autoCancelled || newFilters.autoPassEnded || newFilters.autoPassEnds;
       
+      // Локальный поиск только если нет других фильтров и есть кэш
       if (cachedFullList.length > 0 && !hasOtherFilters) {
         if (filterDebounceTimer.current) clearTimeout(filterDebounceTimer.current);
         
@@ -279,10 +327,33 @@ export function useAutoData() {
     
     filterDebounceTimer.current = setTimeout(async () => {
       const token = await AsyncStorage.getItem('token');
-      if (token) fetchAutoList(token, newFilters, 0);
+      if (token) {
+        // Очищаем список перед поиском, чтобы не было "залипания" старых данных
+        setAutoList([]); 
+        fetchAutoList(token, newFilters, 0);
+      }
     }, 500);
 
   }, [cachedFullList, fetchAutoList]);
+
+  const setFilterValues = useCallback((updates: Record<string, any>) => {
+    const currentFilters = stateRef.current.filters;
+    const newFilters = { ...currentFilters, ...updates };
+    
+    stateRef.current = { ...stateRef.current, filters: newFilters, offset: 0 };
+    setFilters(newFilters);
+    setOffset(0);
+
+    if (filterDebounceTimer.current) clearTimeout(filterDebounceTimer.current);
+
+    filterDebounceTimer.current = setTimeout(async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        setAutoList([]);
+        fetchAutoList(token, newFilters, 0);
+      }
+    }, 500);
+  }, [fetchAutoList]);
 
   const clearFilters = useCallback(async () => {
     const emptyFilters = {
@@ -292,8 +363,10 @@ export function useAutoData() {
       autoPassEnds: false,
       autoPassEndsUntilDate: '',
     };
+    stateRef.current = { ...stateRef.current, filters: emptyFilters, offset: 0 };
     setFilters(emptyFilters);
     setOffset(0);
+    setAutoList([]); // Очищаем текущий вид
 
     const now = Date.now();
     if (cachedFullList.length > 0 && (now - cacheTimestamp < CACHE_LIFETIME_MS)) {
@@ -304,6 +377,13 @@ export function useAutoData() {
       if (token) fetchAutoList(token, emptyFilters, 0);
     }
   }, [cachedFullList, cacheTimestamp, fetchAutoList]);
+
+  const decrementNotificationCount = useCallback((count: number) => {
+    setUserData(prev => ({
+      ...prev,
+      notification_unviewed_count: Math.max(0, (prev.notification_unviewed_count || 0) - count)
+    }));
+  }, []);
 
   const updateUserDataOnly = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
@@ -336,13 +416,16 @@ export function useAutoData() {
 
     filters,
     setFilterValue,
+    setFilterValues,
     clearFilters,
     
     loadData,
     refreshData,
+    resetData,
     loadMore,
     updateAutoItem,
     updateUserDataOnly,
+    decrementNotificationCount,
     
     invalidateCache: () => setCacheTimestamp(0)
   };

@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { LogBox, View, Text, StyleSheet, Platform, StatusBar, AppState } from 'react-native';
+import { LogBox, View, Text, StyleSheet, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FirebaseService } from '@/src/services/firebase';
-import Api from '@/src/utils/Api';
 import { NotificationProvider, useNotification } from '@/src/contexts/NotificationContext';
 import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
@@ -34,32 +33,6 @@ export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const segments = useSegments();
-
-  // Ленивая проверка сессии при возвращении в приложение (AppState)
-  useEffect(() => {
-    const validateSession = async () => {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) return;
-
-      try {
-        console.log('📱 [AppState] App active. Validating session...');
-        // Делаем легкий запрос. Если токен отозван, Interceptor в Api.ts сделает router.replace('/')
-        await Api.post('/get-session-data', { token });
-      } catch (e) {
-        console.log('📱 [AppState] Session validation skipped (network or auth error)');
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', nextAppState => {
-      if (nextAppState === 'active') {
-        validateSession();
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
 
   // Следим за изменением навигации, чтобы обновить токен (простая реактивность)
   useEffect(() => {

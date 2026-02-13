@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform, Keyboard, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform, Keyboard } from 'react-native';
 import Modal from 'react-native-modal';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface FindAutoPanelProps {
   visible: boolean;
@@ -102,14 +101,11 @@ export function FindAutoPanel({
           </TouchableHighlight>
         </View>
 
-        <KeyboardAwareScrollView
+        <ScrollView
           style={styles.scrollContent}
           contentContainerStyle={styles.scrollContentContainer}
           keyboardShouldPersistTaps="handled"
-          enableOnAndroid={true}
-          extraScrollHeight={Platform.OS === 'ios' ? 20 : 0}
         >
-          <Pressable onPress={Keyboard.dismiss}>
             <View style={styles.container}>
               {/* Поле поиска */}
               <View style={styles.searchRow}>
@@ -121,7 +117,6 @@ export function FindAutoPanel({
                     onChangeText={onChangeAutoStr}
                     value={autoStr}
                     autoFocus={false}
-                    onBlur={() => Keyboard.dismiss()} // Dismiss keyboard on blur
                   />
                 </View>
                 {autoStr.length > 0 && (
@@ -231,9 +226,9 @@ export function FindAutoPanel({
                   {Platform.OS === 'ios' && (
                     <TouchableOpacity
                       onPress={() => setShowDatePicker(false)}
-                      style={styles.datePickerDoneButton}
+                      style={styles.datePickerDoneLink}
                     >
-                      <Text style={styles.datePickerDoneButtonText}>
+                      <Text style={styles.datePickerDoneLinkText}>
                         Готово
                       </Text>
                     </TouchableOpacity>
@@ -241,23 +236,33 @@ export function FindAutoPanel({
                 </View>
               )}
 
-              {/* Кнопка сброса всех фильтров */}
-              {onClearAllFilters && (autoStr || autoCancelled || autoPassEnded || autoPassEnds) && (
-                <TouchableOpacity
-                  onPress={() => {
-                    onClearAllFilters();
-                    onClose();
-                  }}
-                  style={styles.resetButton}
-                >
-                  <Text style={styles.resetButtonText}>
-                    Сбросить все фильтры
-                  </Text>
-                </TouchableOpacity>
-              )}
             </View>
-          </Pressable>
-        </KeyboardAwareScrollView>
+        </ScrollView>
+
+        {/* Кнопки действий */}
+        <View style={styles.actionsContainer}>
+          {onClearAllFilters && (autoStr || autoCancelled || autoPassEnded || autoPassEnds) ? (
+            <TouchableOpacity
+              onPress={() => {
+                onClearAllFilters();
+                onClose();
+              }}
+              style={styles.resetButton}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.resetButtonText}>Сбросить</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.resetButtonPlaceholder} />
+          )}
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.applyButton}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.applyButtonText}>Применить</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -390,33 +395,51 @@ const styles = StyleSheet.create({
     height: 16,
     tintColor: '#EE505A',
   },
-  datePickerDoneButton: {
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#3A9BDC',
-    borderRadius: 8,
-    alignItems: 'center',
+  datePickerDoneLink: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
   },
-  datePickerDoneButtonText: {
+  datePickerDoneLinkText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: '#3A9BDC',
+    fontWeight: '600',
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    gap: 12,
   },
   resetButton: {
-    marginTop: 20,
-    marginBottom: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    flex: 1,
+    paddingVertical: 14,
     backgroundColor: '#FFF5F5',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#EE505A',
     alignItems: 'center',
   },
+  resetButtonPlaceholder: {
+    flex: 1,
+  },
   resetButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#EE505A',
+    fontWeight: 'bold',
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 14,
+    backgroundColor: '#3A9BDC',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
 });

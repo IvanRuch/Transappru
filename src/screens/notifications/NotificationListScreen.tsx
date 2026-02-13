@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Api from '../../utils/Api';
 import { ScreenHeader } from '../../components/common';
+import { useNotification } from '../../contexts/NotificationContext';
 
 interface NotificationItem {
   id: string;
@@ -21,7 +22,8 @@ const viewabilityConfig = {
 
 export default function NotificationListScreen() {
   const router = useRouter();
-  
+  const { addViewedCount } = useNotification();
+
   const [indicator, setIndicator] = useState(false);
   const [notificationList, setNotificationList] = useState<NotificationItem[]>([]);
 
@@ -85,20 +87,25 @@ export default function NotificationListScreen() {
     }
   };
 
-  const setNotificationAsViewed = async (notificationIds: string[]) => {
+  const addViewedCountRef = useRef(addViewedCount);
+  addViewedCountRef.current = addViewedCount;
+
+  const setNotificationAsViewed = useCallback(async (notificationIds: string[]) => {
     const token = await AsyncStorage.getItem('token');
     if (!token || notificationIds.length === 0) return;
 
     try {
-      const res = await Api.post('/set-notification-as-viewed', { 
-        token, 
-        notification_ids: notificationIds.join(',') 
+      const res = await Api.post('/set-notification-as-viewed', {
+        token,
+        notification_ids: notificationIds.join(',')
       });
       const data = res.data;
       console.log('Set as viewed:', data);
 
       if (data.auth_required == 1) {
         router.replace('/');
+      } else {
+        addViewedCountRef.current(notificationIds.length);
       }
     } catch (error: any) {
       console.log('Error marking as viewed:', error);
@@ -106,7 +113,10 @@ export default function NotificationListScreen() {
         router.replace('/');
       }
     }
-  };
+  }, [router]);
+
+  const setNotificationAsViewedRef = useRef(setNotificationAsViewed);
+  setNotificationAsViewedRef.current = setNotificationAsViewed;
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     console.log('[NotificationList] onViewableItemsChanged - Visible items:', viewableItems.length);
@@ -135,7 +145,7 @@ export default function NotificationListScreen() {
 
     if (notificationIds.length > 0) {
       console.log('[NotificationList] Marking as viewed:', notificationIds);
-      setNotificationAsViewed(notificationIds);
+      setNotificationAsViewedRef.current(notificationIds);
     }
   }).current;
 
@@ -146,7 +156,7 @@ export default function NotificationListScreen() {
     const notificationIds: string[] = [];
 
     for (let i = 0; i < updatedList.length; i++) {
-      if (updatedList[i].id === item.id && updatedList[i].viewed === '0') {
+      if (updatedList[i].id === item.id && (updatedList[i].viewed === '0' || updatedList[i].viewed === 0)) {
         updatedList[i].viewed = 1;
         notificationIds.push(item.id);
       }

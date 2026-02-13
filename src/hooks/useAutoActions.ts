@@ -74,7 +74,7 @@ export function useAutoActions(
     setModalViewContacts(true);
   }, []);
 
-  const switchOrganization = useCallback(async (inn: string, onSuccess?: () => void) => {
+  const switchOrganization = useCallback(async (inn: string, onSuccess?: () => void, onFinally?: () => void) => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
@@ -113,6 +113,10 @@ export function useAutoActions(
       } else {
         // Для других ошибок показываем сообщение
         alert('Ошибка при переключении организации. Попробуйте позже.');
+      }
+    } finally {
+      if (onFinally) {
+        onFinally();
       }
     }
   }, [router]);

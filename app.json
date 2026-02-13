@@ -25,7 +25,8 @@
         "CFBundleDevelopmentRegion": "ru",
         "CFBundleAllowMixedLocalizations": true,
         "NSLocationWhenInUseUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
-        "NSLocationAlwaysUsageDescription": "Приложение использует вашу геолокацию для отображения на карте"
+        "NSLocationAlwaysUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
+        "LSApplicationQueriesSchemes": ["tg", "whatsapp"]
       },
       "googleServicesFile": "./GoogleService-Info.plist"
     },
