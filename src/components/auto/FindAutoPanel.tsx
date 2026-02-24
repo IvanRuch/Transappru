@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableHighlight, TouchableOpacity, Image, StyleSheet, ScrollView, Platform, Keyboard } from 'react-native';
 import Modal from 'react-native-modal';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from '../common/DateTimePicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface FindAutoPanelProps {

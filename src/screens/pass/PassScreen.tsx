@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableHighlight, TouchableOpacity, TextInput, Image, Modal, ActivityIndicator, Pressable, StatusBar, FlatList, ImageBackground, Platform } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';

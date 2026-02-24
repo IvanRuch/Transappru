@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableHighlight, TouchableOpacity, Image, Modal, ActivityIndicator, Linking, Platform, StatusBar, 
-  FlatList, Pressable, TextInput, ImageBackground
+  FlatList, Pressable, TextInput, ImageBackground, Alert
 } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from "expo-document-picker";
 import axios from "axios";
-import RNFS from 'react-native-fs';
+import RNFS from '../../utils/fileSystem';
 import { router } from 'expo-router';
 //import RNFetchBlob from 'rn-fetch-blob'
 
@@ -1182,6 +1182,29 @@ class Auto extends React.Component<AutoProps, AutoState> {
     }
   }
 
+  /* Заказать полис ОСАГО */
+  orderOsagoPolicy = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+      
+      await Api.post('/order-osago-policy', { token, id: this.state.auto_data.id });
+      
+      Alert.alert(
+        'Заявка отправлена',
+        'Ваша заявка на оформление полиса ОСАГО принята. Мы свяжемся с вами в ближайшее время.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error ordering OSAGO policy:', error);
+      Alert.alert(
+        'Ошибка',
+        'Не удалось отправить заявку. Попробуйте позже.',
+        [{ text: 'OK' }]
+      );
+    }
+  }
+
   /* Диагностическая карта */
   getAutoCheckDiagnosticCard = (value: any) => {
     console.log('getAutoCheckDiagnosticCard. value = ' + value)
@@ -2106,37 +2129,71 @@ class Auto extends React.Component<AutoProps, AutoState> {
         }        
 
         { this.state.current_tab == 'osago' ? (
-            <ScrollView>
-              <View style={{
-                flex: 1,
-                alignItems: 'stretch',
-                justifyContent: 'flex-start',
-              }}>
+            <>
+              <SafeAreaInsetsContext.Consumer>
+                {(insets) => (
+                  <ScrollView contentContainerStyle={{ paddingBottom: 88 + Math.max(insets?.bottom || 0, 16) }}>
+                    <View style={{
+                      flex: 1,
+                      alignItems: 'stretch',
+                      justifyContent: 'flex-start',
+                    }}>
 
-                { this.state.osago_indicator ? (
-                    <ActivityIndicator size="large" color="#313131" animating={true}/>
-                  ) : (
-                    <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
-
-                      { typeof(this.state.auto_osago_data.number) == 'undefined' ? (
-                          <Text style={{ fontSize: 15, color: "#313131"}}>Действующие полисы ОСАГО не найдены</Text>
+                      { this.state.osago_indicator ? (
+                          <ActivityIndicator size="large" color="#313131" animating={true}/>
                         ) : (
-                          <>
-                            <Text style={{ fontSize: 15, color: "#313131"}}>Серия договора {this.state.auto_osago_data.series}</Text>
-                            <Text style={{ fontSize: 15, color: "#313131"}}>Номер договора {this.state.auto_osago_data.number}</Text>
-                            <Text style={{ fontSize: 15, color: "#313131"}}>Страховая компания {this.state.auto_osago_data.insurer}</Text>
-                            <Text style={{ fontSize: 15, color: "#313131"}}>Ограничение лиц, допущенных к управлению транспортным средством: {this.state.auto_osago_data.restrictions == 'WITH RESTRICTIONS' ? 'с ограничениями' : 'без ограничений'}</Text>
-                            <Text style={{ fontSize: 15, color: "#313131"}}>Дата окончания действия договора: {this.state.auto_osago_data.date_to}</Text>
-                          </>
+                          <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
+
+                            { typeof(this.state.auto_osago_data.number) == 'undefined' ? (
+                                <Text style={{ fontSize: 15, color: "#313131" }}>Действующие полисы ОСАГО не найдены</Text>
+                              ) : (
+                                <>
+                                  <Text style={{ fontSize: 15, color: "#313131" }}>Серия договора {this.state.auto_osago_data.series}</Text>
+                                  <Text style={{ fontSize: 15, color: "#313131" }}>Номер договора {this.state.auto_osago_data.number}</Text>
+                                  <Text style={{ fontSize: 15, color: "#313131" }}>Страховая компания {this.state.auto_osago_data.insurer}</Text>
+                                  <Text style={{ fontSize: 15, color: "#313131" }}>Ограничение лиц, допущенных к управлению транспортным средством: {this.state.auto_osago_data.restrictions == 'WITH RESTRICTIONS' ? 'с ограничениями' : 'без ограничений'}</Text>
+                                  <Text style={{ fontSize: 15, color: "#313131" }}>Дата окончания действия договора: {this.state.auto_osago_data.date_to}</Text>
+                                </>
+                              )
+                            }
+
+                          </View>
                         )
                       }
 
                     </View>
-                  )
-                }
+                  </ScrollView>
+                )}
+              </SafeAreaInsetsContext.Consumer>
 
-              </View>
-            </ScrollView>
+              { !this.state.osago_indicator && (
+                  typeof(this.state.auto_osago_data.number) == 'undefined' ||
+                  this.state.auto_data.check_osago_date_to_left === ''
+                ) ? (
+                <SafeAreaInsetsContext.Consumer>
+                  {(insets) => (
+                    <TouchableHighlight
+                      style={{
+                        position: 'absolute',
+                        left: 16,
+                        right: 16,
+                        bottom: Math.max(insets?.bottom || 0, 16),
+                        height: 56,
+                        borderRadius: 14,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#3A3A3A',
+                      }}
+                      activeOpacity={0.8}
+                      underlayColor="#2A2A2A"
+                      onPress={() => this.orderOsagoPolicy()}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 17, fontWeight: '600' }}>Заказать полис</Text>
+                    </TouchableHighlight>
+                  )}
+                </SafeAreaInsetsContext.Consumer>
+              ) : null }
+            </>
           ) : null
         }
 
@@ -2200,18 +2257,19 @@ class Auto extends React.Component<AutoProps, AutoState> {
               <SafeAreaInsetsContext.Consumer>
                 {(insets) => (
                   <TouchableHighlight
-                    style={{ 
-                      position: 'absolute', 
-                      left: 10, 
-                      bottom: Math.max(insets?.bottom || 0, 10), 
-                      right: 10, 
-                      height: 50, 
-                      margin: 25, 
-                      borderRadius: 5, 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      backgroundColor: "#3A3A3A" 
+                    style={{
+                      position: 'absolute',
+                      left: 16,
+                      right: 16,
+                      bottom: Math.max(insets?.bottom || 0, 16),
+                      height: 56,
+                      borderRadius: 14,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: "#3A3A3A"
                     }}
+                    activeOpacity={0.8}
+                    underlayColor="#2A2A2A"
                     onPress={() => {
                       console.log('-> move to Pass')
                       let auto_data_new = this.state.auto_data
@@ -2219,7 +2277,7 @@ class Auto extends React.Component<AutoProps, AutoState> {
                       this.setState({auto_data: auto_data_new})
                       this.props.navigation.navigate('Pass', { auto_list: [ this.state.auto_data ] })
                     }}>
-                    <Text style={{ fontSize: 24, color: "#EEEEEE" }}>Заказать пропуск</Text>
+                    <Text style={{ fontSize: 17, fontWeight: '600', color: "#FFFFFF" }}>Заказать пропуск</Text>
                   </TouchableHighlight>
                 )}
               </SafeAreaInsetsContext.Consumer>

@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableHighlight, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, Image, Platform, StatusBar } from 'react-native';
+import { View, Text, FlatList, TouchableHighlight, TouchableOpacity, ActivityIndicator, Animated, StyleSheet, Image, Platform, StatusBar, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -29,6 +29,7 @@ import {
 import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel } from '../../components/auto/FindAutoPanel';
 import { useNotification } from '../../contexts/NotificationContext';
+import api from '../../services/api';
 
 export default function AutoListScreen() {
   const router = useRouter();
@@ -67,6 +68,28 @@ export default function AutoListScreen() {
     autoListHook.loadMore(); // Используем loadMore
   }, [autoListHook]);
 
+  const handleOrderOsagoPolicy = useCallback(async (item: any) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
+      
+      await api.post('/order-osago-policy', { token, id: item.id });
+      
+      Alert.alert(
+        'Заявка отправлена',
+        'Ваша заявка на оформление полиса ОСАГО принята. Мы свяжемся с вами в ближайшее время.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error ordering OSAGO policy:', error);
+      Alert.alert(
+        'Ошибка',
+        'Не удалось отправить заявку. Попробуйте позже.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, []);
+
   const renderItem = useCallback(({ item, index }: { item: any; index: number }) => {
     return (
       <AutoListItem
@@ -75,9 +98,10 @@ export default function AutoListScreen() {
         onPress={handleItemPress}
         onMark={handleItemMark}
         onShowHideTab={autoListHook.showHideTab}
+        onOrderOsagoPolicy={handleOrderOsagoPolicy}
       />
     );
-  }, [handleItemPress, handleItemMark, autoListHook.showHideTab]);
+  }, [handleItemPress, handleItemMark, autoListHook.showHideTab, handleOrderOsagoPolicy]);
 
   // Определяем состояние загрузки для UI
   const showGlobalLoading = autoListHook.isLoading && autoListHook.autoList.length === 0;

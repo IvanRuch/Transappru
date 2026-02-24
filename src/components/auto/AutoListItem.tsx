@@ -8,9 +8,10 @@ interface AutoListItemProps {
   onPress: (item: AutoItem) => void;
   onMark: (item: AutoItem, index: number) => void;
   onShowHideTab: (tabName: string, index: number) => void;
+  onOrderOsagoPolicy?: (item: AutoItem) => void;
 }
 
-export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab }: AutoListItemProps) => {
+export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab, onOrderOsagoPolicy }: AutoListItemProps) => {
   // Определяем стиль элемента (отмечен или нет)
   const itemStyle = {
     padding: 20,
@@ -381,6 +382,16 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab 
                 <Text style={{ color: getTextColor(item.check_osago_period_color || 'white') }}>
                   {item.check_osago_string}
                 </Text>
+                {onOrderOsagoPolicy && (
+                  <TouchableHighlight
+                    style={styles.orderOsagoButton}
+                    activeOpacity={0.8}
+                    underlayColor="#3a7bd5"
+                    onPress={() => onOrderOsagoPolicy(item)}
+                  >
+                    <Text style={styles.orderOsagoButtonText}>Заказать полис</Text>
+                  </TouchableHighlight>
+                )}
               </View>
             )}
           </View>
@@ -497,5 +508,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     marginTop: 10,
+  },
+  orderOsagoButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#3A3A3A',
+    borderRadius: 6,
+  },
+  orderOsagoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

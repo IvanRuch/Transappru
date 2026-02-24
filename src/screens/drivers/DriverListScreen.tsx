@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View, Image, TouchableHighlight, TouchableOpacity, Modal, TextInput, ActivityIndicator, FlatList, Pressable, ScrollView, StatusBar, Platform } from 'react-native';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';

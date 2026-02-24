@@ -43,6 +43,7 @@ export const usePushNotifications = (authToken: string | null | undefined) => {
       }
 
       const fcmToken = await getFCMToken();
+      console.log('📲 [Push] FCM Token:', fcmToken);
       if (!fcmToken || !isMounted.current) return;
 
       await syncTokenWithServer(fcmToken, authToken);
