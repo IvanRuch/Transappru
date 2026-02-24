@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 
 interface AddAutoModalProps {
   visible: boolean;
@@ -41,8 +41,15 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
       visible={visible}
       onRequestClose={onCancel}
     >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <View style={styles.overlay}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.container}>
             <View style={styles.modalContent}>
             {/* Заголовок с кнопкой закрытия */}
@@ -159,6 +166,7 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
         </View>
         </ScrollView>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
