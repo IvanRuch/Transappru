@@ -12,10 +12,26 @@ const getBaseUrl = (): string => {
   return `https://${hostname}/api/`;
 };
 
+// Сериализует тело запроса в application/x-www-form-urlencoded.
+// Вложенные объекты/массивы сериализуются через JSON.stringify.
+// Это "simple request" по стандарту CORS — preflight не отправляется,
+// что позволяет обойти HTTP Basic Auth на OPTIONS у сервера.
+const serializeToFormData = (data: any): string => {
+  if (!data || typeof data !== 'object') return String(data ?? '');
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(data)) {
+    if (value === null || value === undefined) continue;
+    params.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+  }
+  return params.toString();
+};
+
 const Api: AxiosInstance = axios.create({
   baseURL: getBaseUrl(),
   responseType: 'json',
   timeout: 15000,
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  transformRequest: [(data) => serializeToFormData(data)],
 });
 
 // Request Interceptor

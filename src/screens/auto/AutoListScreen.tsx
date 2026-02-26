@@ -112,7 +112,7 @@ export default function AutoListScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
       
       {/* Хедер */}
-      {autoListHook.userData && autoListHook.userData.firm && (
+      {!!(autoListHook.userData && autoListHook.userData.firm) && (
         <View style={styles.headerContainer}>
           <TouchableHighlight
             style={styles.headerButton}
@@ -147,7 +147,7 @@ export default function AutoListScreen() {
             </View>
           </TouchableHighlight>
 
-          {autoListHook.userData.debt_sum && autoListHook.userData.debt_sum !== '0.00' && (
+          {!!autoListHook.userData.debt_sum && autoListHook.userData.debt_sum !== '0.00' && (
             <TouchableHighlight
               style={styles.headerButton}
               activeOpacity={1}
@@ -276,7 +276,7 @@ export default function AutoListScreen() {
       )}
 
       {/* Нижнее меню */}
-      {autoListHook.userData && autoListHook.userData.firm && (
+      {!!(autoListHook.userData && autoListHook.userData.firm) && (
         <View style={[styles.bottomMenu, { paddingBottom: Math.max(bottomInset, 10) }]}>
           {autoListHook.markedCnt === 0 ? (
             <View style={styles.menuContainer}>

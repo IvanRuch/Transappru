@@ -116,7 +116,7 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
             </View>
 
             {/* Дней осталось */}
-            {item.check_passes_year_propusktype && (
+            {!!item.check_passes_year_propusktype && (
               <View style={styles.daysRow}>
                 <View style={{ flex: 4, alignItems: 'center' }}>
                   <Text style={{ color: getTextColor(item.check_passes_year_period_color || 'white') }}>
@@ -178,7 +178,7 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
         )}
 
         {/* Статус заявки */}
-        {item.status_header && item.status_header !== '' && (
+        {!!item.status_header && item.status_header !== '' && (
           <>
             <View style={styles.passRow}>
               <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
@@ -197,7 +197,7 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
         )}
 
         {/* Задолженность */}
-        {item.debt_sum && item.debt_sum !== '0.00' && (
+        {!!item.debt_sum && item.debt_sum !== '0.00' && (
           <View style={styles.debtRow}>
             <View style={{ flex: 4, alignItems: 'center' }}>
               <View style={{ alignItems: 'center', flexDirection: 'row' }}>
@@ -351,7 +351,7 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
         </View>
 
         {/* Детали штрафов */}
-        {item.check_fines_tab_show != 0 && item.check_fines_string && (
+        {item.check_fines_tab_show != 0 && !!item.check_fines_string && (
           <View style={styles.detailsRow}>
             <View style={{ flex: 7, alignItems: 'center' }}>
               <Text style={{ color: getTextColor(item.check_fines_color || 'white') }}>
@@ -424,7 +424,7 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
         )}
 
         {/* Детали платных дорог */}
-        {item.check_avtodor_tab_show != 0 && item.check_avtodor_string && (
+        {item.check_avtodor_tab_show != 0 && !!item.check_avtodor_string && (
           <View style={styles.detailsRow}>
             <View style={{ flex: 7, alignItems: 'center' }}>
               <Text style={{ color: getTextColor(item.check_avtodor_color || 'white') }}>

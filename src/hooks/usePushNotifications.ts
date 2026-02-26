@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
 import messaging, { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useRootNavigationState } from 'expo-router';
@@ -11,14 +10,31 @@ const STORAGE_KEYS = {
   LAST_SENT_HASH: 'push_last_sent_hash',
 };
 
+// ── Дедупликация foreground-сообщений ────────────────────────────────────
+// Firebase SDK может доставить одно сообщение повторно (retry, Strict Mode).
+// Set на уровне модуля — переживает ремаунты компонентов.
+const recentMessageIds = new Set<string>();
+const MAX_RECENT_IDS = 50;
+
+function isDuplicateMessage(messageId: string | undefined): boolean {
+  if (!messageId) return false;
+  if (recentMessageIds.has(messageId)) return true;
+  recentMessageIds.add(messageId);
+  if (recentMessageIds.size > MAX_RECENT_IDS) {
+    const oldest = recentMessageIds.values().next().value;
+    if (oldest) recentMessageIds.delete(oldest);
+  }
+  return false;
+}
+
 export const usePushNotifications = (authToken: string | null | undefined) => {
   const { showNotification } = useNotification();
-  const navigationState = useRootNavigationState(); // Отслеживаем состояние навигации
-  
+  const navigationState = useRootNavigationState();
+
   const isMounted = useRef(false);
   const initialNotificationProcessed = useRef(false);
+  const listenersSetUp = useRef(false);
 
-  // Флаг готовности навигации (Expo Router)
   const isNavigationReady = navigationState?.key != null;
 
   useEffect(() => {
@@ -26,15 +42,14 @@ export const usePushNotifications = (authToken: string | null | undefined) => {
     return () => { isMounted.current = false; };
   }, []);
 
-  // 1. Авторизация и синхронизация токена (Зависит от authToken)
+  // 1. Авторизация и синхронизация токена
   useEffect(() => {
     if (!authToken) return;
 
     const init = async () => {
-      // В v23.5.0+ метод requestPermission сам обрабатывает Android 13+ (API 33+)
       const authStatus = await messaging().requestPermission();
-      const enabled = 
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED || 
+      const enabled =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
         authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
       if (!enabled || !isMounted.current) {
@@ -43,7 +58,6 @@ export const usePushNotifications = (authToken: string | null | undefined) => {
       }
 
       const fcmToken = await getFCMToken();
-      console.log('📲 [Push] FCM Token:', fcmToken);
       if (!fcmToken || !isMounted.current) return;
 
       await syncTokenWithServer(fcmToken, authToken);
@@ -60,38 +74,50 @@ export const usePushNotifications = (authToken: string | null | undefined) => {
     return () => unsubTokenRefresh();
   }, [authToken]);
 
-  // 2. Слушатели сообщений и Cold Start (Ждем готовности навигации)
+  // 2. Слушатели сообщений (ждём готовности навигации)
   useEffect(() => {
-    // Ждем, пока Expo Router будет готов к переходам
-    if (!isNavigationReady) {
-      console.log('⏳ [Push] Waiting for navigation to be ready...');
+    if (!isNavigationReady) return;
+
+    // Защита от двойной подписки (React Strict Mode, пересоздание компонентов)
+    if (listenersSetUp.current) {
+      console.log('⚠️ [Push] Listeners already active, skipping');
       return;
     }
-
-    console.log('🚀 [Push] Navigation is ready, setting up listeners');
+    listenersSetUp.current = true;
+    console.log('🚀 [Push] Setting up message listeners');
 
     // A. Foreground: приложение открыто
     const unsubOnMessage = messaging().onMessage(async (remoteMessage) => {
-      console.log('📲 [Push] Foreground Message:', remoteMessage);
-      if (remoteMessage.notification) {
-        showNotification(
-          remoteMessage.notification.title || 'Уведомление',
-          remoteMessage.notification.body || ''
-        );
+      console.log('📲 [Push] Foreground:', remoteMessage.messageId);
+
+      // Дедупликация по messageId
+      if (isDuplicateMessage(remoteMessage.messageId)) {
+        console.log('⚠️ [Push] Duplicate foreground message skipped:', remoteMessage.messageId);
+        return;
       }
+
+      // Поддержка обоих форматов: data-only (новый сервер) и notification (текущий)
+      const title = (remoteMessage.data?.title as string)
+                 || remoteMessage.notification?.title
+                 || 'Уведомление';
+      const body  = (remoteMessage.data?.body as string)
+                 || remoteMessage.notification?.body
+                 || '';
+
+      showNotification(title, body);
     });
 
     // B. Background: клик по уведомлению из фона
     const unsubOnNotificationOpened = messaging().onNotificationOpenedApp(remoteMessage => {
-      console.log('📲 [Push] Background Click:', remoteMessage);
+      console.log('📲 [Push] Background tap:', remoteMessage.messageId);
       handleNotificationNavigation(remoteMessage);
     });
 
-    // C. Quit State (Cold Start): открытие закрытого приложения
+    // C. Quit State (Cold Start)
     if (!initialNotificationProcessed.current) {
       messaging().getInitialNotification().then(remoteMessage => {
         if (remoteMessage) {
-          console.log('📲 [Push] Quit State Click:', remoteMessage);
+          console.log('📲 [Push] Cold start tap:', remoteMessage.messageId);
           initialNotificationProcessed.current = true;
           handleNotificationNavigation(remoteMessage);
         }
@@ -99,10 +125,11 @@ export const usePushNotifications = (authToken: string | null | undefined) => {
     }
 
     return () => {
+      listenersSetUp.current = false;
       unsubOnMessage();
       unsubOnNotificationOpened();
     };
-  }, [isNavigationReady]); // Эффект перезапустится один раз, когда навигация станет готова
+  }, [isNavigationReady]);
 };
 
 // --- Вспомогательные функции ---
@@ -120,7 +147,7 @@ const syncTokenWithServer = async (fcmToken: string, authToken: string) => {
   try {
     const identityString = `${fcmToken}|${authToken}`;
     const lastSentIdentity = await AsyncStorage.getItem(STORAGE_KEYS.LAST_SENT_HASH);
-    
+
     if (identityString === lastSentIdentity) {
       console.log('🔒 [Push] Token up-to-date (hash match).');
       return;
@@ -134,7 +161,7 @@ const syncTokenWithServer = async (fcmToken: string, authToken: string) => {
       fcmtoken: fcmToken,
       device_info: deviceInfo
     });
-    
+
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_SENT_HASH, identityString);
     console.log('✅ [Push] Token synced');
   } catch (error) {

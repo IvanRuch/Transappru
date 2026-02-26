@@ -15,6 +15,23 @@ const getMainApiUrl = (): string => {
 // Платёжный микросервис — всегда фиксированный URL
 const PAYMENT_API_URL = 'https://payment.transapp.ru/api';
 
+// "Simple request" по стандарту CORS — браузер не делает preflight.
+// Сервер принимает application/x-www-form-urlencoded.
+const serializeToFormData = (data: any): string => {
+  if (!data || typeof data !== 'object') return String(data ?? '');
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(data)) {
+    if (value === null || value === undefined) continue;
+    params.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+  }
+  return params.toString();
+};
+
+const FORM_CONFIG = {
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  transformRequest: [(data: any) => serializeToFormData(data)],
+};
+
 class ApiService {
   private api: AxiosInstance;
   private paymentApi: AxiosInstance;
@@ -24,12 +41,14 @@ class ApiService {
       baseURL: getMainApiUrl(),
       responseType: 'json',
       timeout: 30000,
+      ...FORM_CONFIG,
     });
 
     this.paymentApi = axios.create({
       baseURL: PAYMENT_API_URL,
       responseType: 'json',
       timeout: 30000,
+      ...FORM_CONFIG,
     });
 
     this.setupInterceptors(this.api);

@@ -294,42 +294,31 @@ export function useAutoData() {
     // Получаем актуальные фильтры из ref и обновляем их
     const currentFilters = stateRef.current.filters;
     const newFilters = { ...currentFilters, [key]: value };
-    
+
     // Обновляем состояние и ref
     stateRef.current = { ...stateRef.current, filters: newFilters, offset: 0 };
     setFilters(newFilters);
     setOffset(0);
 
-    if (key === 'autoStr') {
+    if (filterDebounceTimer.current) clearTimeout(filterDebounceTimer.current);
+
+    // При очистке строки поиска (< 3 символов) — мгновенно восстанавливаем полный список
+    // из кэша, не обращаясь к серверу (хорошо для UX).
+    // Для >= 3 символов всегда идём на сервер: кэш содержит только первую страницу
+    // (AUTO_LIST_LIMIT записей), и машина может оказаться на следующих страницах.
+    if (key === 'autoStr' && (!value || value.length < 3)) {
       const hasOtherFilters = newFilters.autoCancelled || newFilters.autoPassEnded || newFilters.autoPassEnds;
-      
-      // Локальный поиск только если нет других фильтров и есть кэш
       if (cachedFullList.length > 0 && !hasOtherFilters) {
-        if (filterDebounceTimer.current) clearTimeout(filterDebounceTimer.current);
-        
-        filterDebounceTimer.current = setTimeout(() => {
-          if (!value || value.length < 3) {
-            setAutoList(cachedFullList);
-            setAutoListCount(cachedFullList.length);
-          } else {
-            const filtered = cachedFullList.filter(item => 
-              item.auto_number.toLowerCase().includes(value.toLowerCase())
-            );
-            setAutoList(filtered);
-            setAutoListCount(filtered.length);
-          }
-        }, 200);
+        setAutoList(cachedFullList);
+        setAutoListCount(cachedFullList.length);
         return;
       }
     }
 
-    if (filterDebounceTimer.current) clearTimeout(filterDebounceTimer.current);
-    
     filterDebounceTimer.current = setTimeout(async () => {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        // Очищаем список перед поиском, чтобы не было "залипания" старых данных
-        setAutoList([]); 
+        setAutoList([]);
         fetchAutoList(token, newFilters, 0);
       }
     }, 500);
