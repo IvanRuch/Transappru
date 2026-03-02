@@ -116,6 +116,67 @@ Data: {}
 
 ---
 
+## ⚙️ Настройки уведомлений (Notification Settings)
+
+### Экран
+**Файл:** `src/screens/notifications/NotificationSettingsScreen.tsx`
+**Роут:** `app/(authenticated)/notification-settings.tsx`
+
+Позволяет пользователю включать/выключать push-уведомления по типам и отдельным авто.
+
+### Архитектура
+
+Двухуровневая система настроек:
+- **Master (тип)** — глобальный переключатель по типу уведомления (ОСАГО, РНИС, пропуска и т.д.)
+- **Per-auto** — переключатель для конкретного авто внутри типа
+
+**Серверная логика: OR** — уведомление отправляется если master OR per-auto = 1.
+
+Поэтому при переключении master клиент **каскадно** выставляет все per-auto:
+- Master OFF → master `"0"` + все per-auto `"0"`
+- Master ON → master `"1"` + все per-auto `"1"` (записи удаляются — дефолт = включено)
+
+### API
+
+```bash
+# Получить дерево настроек
+POST /get-notification-granted
+{ "token": "..." }
+# → { "notification_granted_list": [{ "notification_type": "rnis_error", "granted": "1", "header": "...", "auto_granted": [...] }] }
+
+# Переключить master (тип целиком)
+POST /set-notification-granted
+{ "token": "...", "notification_type": "rnis_error", "granted": "0" }
+
+# Переключить per-auto
+POST /set-notification-granted
+{ "token": "...", "notification_type": "rnis_error", "user_auto": "14911", "granted": "0" }
+```
+
+### Таблицы БД
+
+| Таблица | Назначение | Дефолт (нет записи) |
+|---------|-----------|---------------------|
+| `user_notification_granted` | Master по типу для пользователя | granted = 1 |
+| `user_auto_notification_granted` | Per-auto по типу | granted = 1 |
+
+Записи создаются только при отключении (`granted=0`). При включении (`granted=1`) запись удаляется.
+
+### Файлы
+
+| Файл | Назначение |
+|------|-----------|
+| `src/types/notifications.ts` | Типы `NotificationTypeGranted`, `AutoGranted`, `NotificationGrantedResponse` |
+| `src/hooks/useNotificationSettings.ts` | Хук: загрузка, optimistic toggle, каскад per-auto |
+| `src/screens/notifications/NotificationSettingsScreen.tsx` | UI: секции, expand/collapse, Switch |
+| `app/(authenticated)/notification-settings.tsx` | Роут Expo Router |
+
+### Навигация
+- **Mobile:** пункт «Настройки уведомлений» в `LeftMenuModal.tsx` (после «Начисления»)
+- **Web:** NavItem в `WebSidebar.tsx` (после «Уведомления»)
+
+---
+
 ## 🧪 Тестирование
 
 ### Отправка тестового уведомления

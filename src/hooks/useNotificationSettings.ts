@@ -50,14 +50,24 @@ export function useNotificationSettings() {
   }, [loadSettings]);
 
   // ── Master toggle (тип целиком) ─────────────────────────────────────────
+  // Серверная логика OR: уведомление отправляется если master OR per-auto.
+  // Поэтому при master OFF каскадно выставляем все per-auto в "0",
+  // при master ON — все per-auto в "1" (записи удалятся из таблицы).
   const toggleMaster = useCallback(async (notificationType: string, newValue: boolean) => {
     const grantedStr = newValue ? '1' : '0';
-    const prev = settings.map(s => ({ ...s }));
+    const prev = settings.map(s => ({
+      ...s,
+      auto_granted: s.auto_granted.map(a => ({ ...a })),
+    }));
 
-    // Optimistic update
+    // Optimistic update: master + все per-auto
     setSettings(s => s.map(item =>
       item.notification_type === notificationType
-        ? { ...item, granted: grantedStr }
+        ? {
+            ...item,
+            granted: grantedStr,
+            auto_granted: item.auto_granted.map(a => ({ ...a, granted: grantedStr })),
+          }
         : item
     ));
 
@@ -65,11 +75,27 @@ export function useNotificationSettings() {
     if (!token) return;
 
     try {
+      // Master
       await Api.post('/set-notification-granted', {
         token,
         notification_type: notificationType,
         granted: grantedStr,
       });
+
+      // Каскад per-auto
+      const targetType = settings.find(s => s.notification_type === notificationType);
+      if (targetType && targetType.auto_granted.length > 0) {
+        await Promise.all(
+          targetType.auto_granted.map(auto =>
+            Api.post('/set-notification-granted', {
+              token,
+              notification_type: notificationType,
+              user_auto: auto.id,
+              granted: grantedStr,
+            })
+          )
+        );
+      }
     } catch {
       setSettings(prev);
       Alert.alert('Ошибка', 'Не удалось сохранить настройку');
