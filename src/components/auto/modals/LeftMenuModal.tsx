@@ -393,8 +393,37 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
               </View>
             </TouchableHighlight>
 
-            {/* 7. Профиль */}
-            <TouchableHighlight 
+            {/* 7. Настройки уведомлений */}
+            <TouchableHighlight
+              style={{ paddingTop: 20 }}
+              activeOpacity={1}
+              underlayColor='#FFFFFF'
+              onPress={() => {
+                onClose();
+                router.push('/(authenticated)/notification-settings' as any);
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'stretch' }}>
+                <View style={{ flex: 1, alignItems: 'center', height: 29, padding: 5 }}>
+                  <Image source={require('../../../../assets/images/notification.png')} style={{ width: 18, height: 18, tintColor: '#3A3A3A' }} />
+                </View>
+                <View style={{
+                  flex: 7,
+                  alignItems: 'flex-start',
+                  height: 29,
+                  paddingTop: 5,
+                  paddingBottom: 5,
+                  paddingLeft: 10,
+                }}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#3A3A3A' }}>
+                    Настройки уведомлений
+                  </Text>
+                </View>
+              </View>
+            </TouchableHighlight>
+
+            {/* 8. Профиль */}
+            <TouchableHighlight
               style={{ paddingTop: 20 }}
               activeOpacity={1}
               underlayColor='#FFFFFF'

@@ -112,6 +112,8 @@ export default function AuthenticatedLayout() {
       <Stack.Screen name="services" options={{ title: 'Услуги' }} />
       <Stack.Screen name="auto/[id]" options={{ title: 'Автомобиль' }} />
       
+      <Stack.Screen name="notification-settings" options={{ title: 'Настройки уведомлений' }} />
+
       {/* Экраны оплаты */}
       <Stack.Screen name="fine-payment-confirm" options={{ title: 'Оплата штрафа' }} />
       <Stack.Screen name="fine-payment-webview" options={{ title: 'Оплата' }} />

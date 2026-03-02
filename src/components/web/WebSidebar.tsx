@@ -217,6 +217,13 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           expanded={expanded}
           badge={notifBadge}
         />
+        <NavItem
+          icon={require('../../../assets/images/notification.png')}
+          label="Настройки уведомлений"
+          path="/(authenticated)/notification-settings"
+          active={isActive('/(authenticated)/notification-settings')}
+          expanded={expanded}
+        />
 
         <Divider expanded={expanded} />
 
