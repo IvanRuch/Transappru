@@ -75,14 +75,7 @@ export function useNotificationSettings() {
     if (!token) return;
 
     try {
-      // Master
-      await Api.post('/set-notification-granted', {
-        token,
-        notification_type: notificationType,
-        granted: grantedStr,
-      });
-
-      // Каскад per-auto
+      // Каскад per-auto СНАЧАЛА
       const targetType = settings.find(s => s.notification_type === notificationType);
       if (targetType && targetType.auto_granted.length > 0) {
         await Promise.all(
@@ -96,6 +89,13 @@ export function useNotificationSettings() {
           )
         );
       }
+
+      // Master ПОСЛЕДНИМ — чтобы per-auto вызовы не затёрли его на сервере
+      await Api.post('/set-notification-granted', {
+        token,
+        notification_type: notificationType,
+        granted: grantedStr,
+      });
     } catch {
       setSettings(prev);
       Alert.alert('Ошибка', 'Не удалось сохранить настройку');
