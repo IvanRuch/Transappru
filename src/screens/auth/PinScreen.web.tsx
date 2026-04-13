@@ -118,8 +118,8 @@ export default function PinScreen() {
   // ── Form card (inline JSX to avoid remounting) ────────────────────────────
   const formCard = (
     <View style={[styles.card, isDesktop && styles.cardDesktop]}>
-      <Text style={styles.formTitle}>Введите подтверждающий код</Text>
-      <Text style={styles.formSubtitle}>ожидайте sms-сообщение с кодом</Text>
+      <Text style={styles.formTitle}>Код подтверждения</Text>
+      <Text style={styles.formSubtitle}>Введите 4-значный код из SMS</Text>
 
       <View style={styles.codeRow}>
         <input

@@ -162,8 +162,8 @@ export default function PinScreen() {
         </TouchableOpacity>
       )}
 
-      <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите подтверждающий код</Text>
-      <Text style={{ color: '#4C4C4C' }}>ожидайте sms-сообщение с кодом</Text>
+      <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Код подтверждения</Text>
+      <Text style={{ color: '#4C4C4C' }}>Введите 4-значный код из SMS</Text>
       <TextInput
         keyboardType='numeric'
         textAlign={'center'}
