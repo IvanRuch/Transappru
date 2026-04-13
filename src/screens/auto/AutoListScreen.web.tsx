@@ -114,6 +114,34 @@ export default function AutoListScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Мой автопарк</Text>
 
+        {/* Inline search — desktop only */}
+        {columns >= 2 && (autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters()) && (
+          <View style={styles.inlineSearch}>
+            <Text style={styles.inlineSearchIcon}>🔍</Text>
+            <input
+              type="text"
+              placeholder="Поиск по номеру..."
+              value={autoListHook.filters.autoStr}
+              onChange={(e: any) => autoListHook.changeAutoStr(e.target.value)}
+              style={{
+                flex: 1,
+                height: 36,
+                fontSize: 14,
+                color: '#1A1A1A',
+                border: 'none',
+                outline: 'none',
+                backgroundColor: 'transparent',
+                fontFamily: 'inherit',
+              }}
+            />
+            {autoListHook.filters.autoStr ? (
+              <TouchableOpacity onPress={autoListHook.clearAutoStr} style={{ padding: 4 }}>
+                <Text style={{ color: '#999', fontSize: 18 }}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+
         <View style={styles.headerActions}>
           {/* Уведомления */}
           <TouchableHighlight
@@ -347,6 +375,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  inlineSearch: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    maxWidth: 320,
+    height: 40,
+  },
+  inlineSearchIcon: {
+    fontSize: 14,
+    marginRight: 8,
   },
   headerBtn: {
     width: 40,

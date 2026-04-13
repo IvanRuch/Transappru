@@ -122,6 +122,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const [servicesOpen,   setServicesOpen]   = useState(false);
   const [loading,        setLoading]        = useState(true);
   const [switching,      setSwitching]      = useState(false);
+  const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -134,6 +135,9 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         setUserData(d.user_data);
         setOtherUserList(d.other_user_list || []);
         setOurServices(d.our_services_list || []);
+      }
+      if (d.onboarding_expired !== undefined) {
+        setOnboardingExpired(d.onboarding_expired);
       }
     } catch (e) {
       // silent — sidebar is non-critical
@@ -300,13 +304,15 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           active={isActive('/(authenticated)/drivers')}
           expanded={expanded}
         />
-        <NavItem
-          icon={require('../../../assets/images/menu_left_onboarding.png')}
-          label="Как работать"
-          path="/onboarding"
-          active={isActive('/onboarding')}
-          expanded={expanded}
-        />
+        {(onboardingExpired === 0 || onboardingExpired === '0') && (
+          <NavItem
+            icon={require('../../../assets/images/menu_left_onboarding.png')}
+            label="Как работать"
+            path="/onboarding"
+            active={isActive('/onboarding')}
+            expanded={expanded}
+          />
+        )}
 
         {/* ── Другие организации ── */}
         {otherUserList.length > 0 && (
@@ -448,8 +454,8 @@ const styles = StyleSheet.create({
     height: 24,
   },
   navLabel: {
-    marginLeft: 12,
-    fontSize: 14,
+    marginLeft: 10,
+    fontSize: 13,
     color: LABEL_COLOR,
     flex: 1,
   },
@@ -506,6 +512,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minHeight: 56,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   footerFirm: {
     fontSize: 13,

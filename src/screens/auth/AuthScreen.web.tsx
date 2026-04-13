@@ -24,7 +24,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-import Api from '../../utils/Api';
+import api from '../../services/api';
 import { ApiResponse, SessionData } from '../../types/api';
 
 const MAX_POLL_STEPS = 60;
@@ -77,7 +77,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
     let t = 0;
     const timer = setInterval(async () => {
       try {
-        const res  = await Api.post<ApiResponse>('/get-session-data', { token });
+        const res  = await api.post<ApiResponse>('/get-session-data', { token });
         const data = res.data;
         if (data.session_data) {
           setSessionData(data.session_data);
@@ -126,7 +126,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
   const getSessionData = async (token: string) => {
     if (!token) return;
     try {
-      const res  = await Api.post<ApiResponse>('/get-session-data', { token });
+      const res  = await api.post<ApiResponse>('/get-session-data', { token });
       const data = res.data;
       if (data.session_data) processSessionData(data.session_data, token);
     } catch {
@@ -140,7 +140,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
     setIsSubmitting(true);
     const cleanPhone = phone.replace(/\+/, '');
     try {
-      const res  = await Api.post('/auth-by-phone', { phone: cleanPhone });
+      const res  = await api.post('/auth-by-phone', { phone: cleanPhone });
       const data = res.data;
       await AsyncStorage.setItem('token', data.token);
       router.push('/pin');
@@ -164,7 +164,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
       }
 
       try {
-        const res  = await Api.post('/get-user-agreement-and-privacy-policy');
+        const res  = await api.post('/get-user-agreement-and-privacy-policy');
         const data = res.data;
         setUserAgreement(data.content_data.user_agreement);
         setPrivacyPolicy(data.content_data.privacy_policy);

@@ -64,6 +64,9 @@ export default function PinScreen() {
       const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
       console.log('onboarding_expired:', data.onboarding_expired,
         needsOnboarding ? '→ should show onboarding' : '→ skip onboarding');
+      if (data.onboarding_expired === undefined) {
+        console.warn('⚠️ /confirm-token did not return onboarding_expired — defaulting to skip');
+      }
       console.log('========================================');
 
       if (data.error === 1) {

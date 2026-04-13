@@ -17,7 +17,7 @@
 
 ## Recent Changes
 
-- **2026-04-13**: Web auth flow complete: AuthScreen.web.tsx, PinScreen.web.tsx, OnBoardingScreen.web.tsx. Added onboarding_expired flag logging and auto-redirect to onboarding from PinScreen. ADR-001 documented
+- **2026-04-13**: Web improvements: unified API client (services/api), InnScreen.web.tsx, inline search in auto-list, sidebar UX fixes (text truncation, conditional onboarding link, footer overflow). Full auth+onboarding flow verified
 - **2026-04-09**: Claude Code configuration setup — CLAUDE.md (4 files), 3 PostToolUse hooks, 7 slash commands, 2 custom skills, 46 external skills, 3 MCP servers (PostgreSQL + Playwright + Context7), Writerside structure (16 topics), agnix validation
 
 ## Next Tasks

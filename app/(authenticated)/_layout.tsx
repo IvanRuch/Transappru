@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { AppState, AppStateStatus, View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Api from '../../src/utils/Api';
+import api from '../../src/services/api';
 
 export default function AuthenticatedLayout() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function AuthenticatedLayout() {
 
       // Проверяем статус подтверждения
       console.log('🔒 [AuthenticatedLayout] Checking user status...');
-      const res = await Api.post('/get-session-data', { token });
+      const res = await api.post('/get-session-data', { token });
       const data = res.data;
       
       const userConfirmed = data.session_data?.user_data?.user_confirmed;
@@ -72,7 +72,7 @@ export default function AuthenticatedLayout() {
       const token = await AsyncStorage.getItem('token');
       if (!token) return;
 
-      const res = await Api.post('/get-session-data', { token });
+      const res = await api.post('/get-session-data', { token });
       const data = res.data;
       
       const userConfirmed = data.session_data?.user_data?.user_confirmed;

@@ -2,8 +2,8 @@
 
 ## Current State (as of 2026-04-13)
 
-**Our web version does not exist yet.** It will be built on a shared codebase
-with the mobile app (`/src/`), replacing the legacy production site.
+Web version is **in active development** using Expo Web from the shared `/src/` codebase.
+Auth flow, onboarding, INN registration, and main auto-list screens are working.
 
 ## Legacy Web App (reference only)
 
@@ -44,10 +44,10 @@ Use legacy apps as reference to ensure nothing useful is missed.
 |---------------|------------------|-----------|-------|
 | Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting |
 | PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: same layout, 4-digit code input |
-| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | — | Has `.web.tsx` variant |
+| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar |
 | Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | — | |
 | Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | — | |
-| INN (`Inn.js`) | — | — | Check if needed |
+| INN (`Inn.js`) | `screens/inn/InnScreen.tsx` | ✅ Done | `.web.tsx`: INN binding + RNIS check, latin→cyrillic |
 | User (`User.js`) | — | — | Check if needed |
 | Charges | `screens/charges/ChargesScreen.tsx` | — | Not in legacy web |
 | Fine payment | `screens/fine-payment/*` | — | Not in legacy web |
@@ -63,3 +63,15 @@ Console logs are added for key auth flow events (visible in browser DevTools):
 - **API interceptor**: all requests/responses logged with `⬆️`/`⬇️` prefixes
 
 Note: `onboarding_expired` can come as string `"0"` or number `0` from API — both are handled.
+
+## API Client
+
+All `.web.tsx` screens use `import api from '../../services/api'` (the unified API client).
+The old `utils/Api.ts` is no longer used in web screens.
+
+## Sidebar (WebSidebar.tsx)
+
+- "Как работать" link conditionally shown only when `onboarding_expired === 0`
+- Organization list with switch support
+- Services dropdown (expandable)
+- Responsive: collapses below 900px viewport width

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import Api from '../../utils/Api';
+import api from '../../services/api';
 
 interface Slide {
   msg: string;
@@ -47,7 +47,7 @@ export default function OnBoardingScreen() {
       try {
         const token = await AsyncStorage.getItem('token');
         if (token) {
-          await Api.post('/get-onboarding', { token });
+          await api.post('/get-onboarding', { token });
         }
         router.replace('/(authenticated)/auto-list');
       } catch {
@@ -64,7 +64,7 @@ export default function OnBoardingScreen() {
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        await Api.post('/get-onboarding', { token });
+        await api.post('/get-onboarding', { token });
       }
       router.replace('/(authenticated)/auto-list');
     } catch {
