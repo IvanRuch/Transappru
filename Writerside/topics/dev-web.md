@@ -51,3 +51,5 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | User (`User.js`) | — | — | Check if needed |
 | Charges | `screens/charges/ChargesScreen.tsx` | — | Not in legacy web |
 | Fine payment | `screens/fine-payment/*` | — | Not in legacy web |
+| Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
+| Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
