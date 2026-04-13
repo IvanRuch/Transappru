@@ -25,3 +25,9 @@ See `src/CLAUDE.md` for coding conventions.
 ## Screens
 
 <!-- Document key screens and their routes -->
+
+## Planned Improvements
+
+| Task | Screen | Description |
+|------|--------|-------------|
+| OTP-style PIN input | `screens/auth/PinScreen.tsx` | Replace single TextInput with 4 separate digit fields (as done in `PinScreen.web.tsx`). Auto-advance on input, backspace returns to previous field, paste support. |

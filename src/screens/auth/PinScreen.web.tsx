@@ -6,7 +6,7 @@
  *  - Mobile web  (<768 px): centered card
  *  - Desktop web (≥768 px): left branding panel + right form card
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -29,11 +29,13 @@ export default function PinScreen() {
   const isDesktop = width >= 768;
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [code, setCode] = useState('');
+  const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const [modalVisible, setModalVisible] = useState(false);
   const [msg, setMsg] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null]);
 
+  const code = digits.join('');
   const disabled = !/^\d{4}$/.test(code);
 
   // ── Check if user can go back ─────────────────────────────────────────────
@@ -45,11 +47,55 @@ export default function PinScreen() {
     checkCanGoBack();
   }, []);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const changeCode = (value: string) => {
-    setCode(value.replace(/\D/g, '').substring(0, 4));
-  };
+  // ── PIN digit handlers ───────────────────────────────────────────────────
+  const handleDigitChange = useCallback((index: number, value: string) => {
+    // Handle paste of full code
+    const pasted = value.replace(/\D/g, '');
+    if (pasted.length >= 4) {
+      const newDigits = pasted.substring(0, 4).split('');
+      setDigits(newDigits);
+      inputRefs.current[3]?.focus();
+      return;
+    }
 
+    // Single digit input
+    const digit = pasted.slice(-1);
+    setDigits(prev => {
+      const next = [...prev];
+      next[index] = digit;
+      return next;
+    });
+    if (digit && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  }, []);
+
+  const handleDigitKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace') {
+      if (!digits[index] && index > 0) {
+        // Empty field — move back and clear previous
+        setDigits(prev => {
+          const next = [...prev];
+          next[index - 1] = '';
+          return next;
+        });
+        inputRefs.current[index - 1]?.focus();
+      } else {
+        // Clear current field
+        setDigits(prev => {
+          const next = [...prev];
+          next[index] = '';
+          return next;
+        });
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 3) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  }, [digits]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('token');
     if (!token) return;
@@ -141,25 +187,35 @@ export default function PinScreen() {
       <Text style={styles.formSubtitle}>Введите 4-значный код из SMS</Text>
 
       <View style={styles.codeRow}>
-        <input
-          type="tel"
-          placeholder="0000"
-          value={code}
-          onChange={(e: any) => changeCode(e.target.value)}
-          autoFocus
-          style={{
-            width: '100%',
-            height: 64,
-            fontSize: 36,
-            color: '#1A1A1A',
-            border: 'none',
-            outline: 'none',
-            backgroundColor: 'transparent',
-            textAlign: 'center',
-            letterSpacing: 12,
-            fontFamily: 'inherit',
-          }}
-        />
+        {[0, 1, 2, 3].map(i => (
+          <input
+            key={i}
+            ref={(el: any) => { inputRefs.current[i] = el; }}
+            type="tel"
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="0"
+            value={digits[i]}
+            autoFocus={i === 0}
+            onChange={(e: any) => handleDigitChange(i, e.target.value)}
+            onKeyDown={(e: any) => handleDigitKeyDown(i, e)}
+            onFocus={(e: any) => e.target.select()}
+            style={{
+              width: 56,
+              height: 56,
+              fontSize: 28,
+              color: '#1A1A1A',
+              border: '1px solid #D0D0D0',
+              borderRadius: 8,
+              outline: 'none',
+              backgroundColor: digits[i] ? '#FFFFFF' : '#FAFAFA',
+              textAlign: 'center' as const,
+              fontFamily: 'inherit',
+              fontWeight: '600',
+              caretColor: '#3A3A3A',
+            }}
+          />
+        ))}
       </View>
 
       <TouchableOpacity
@@ -316,14 +372,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   codeRow: {
-    height: 64,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D0D0D0',
-    marginBottom: 16,
-    backgroundColor: '#FAFAFA',
-    overflow: 'hidden',
+    flexDirection: 'row',
     justifyContent: 'center',
+    gap: 12,
+    marginBottom: 24,
   },
   submitBtn: {
     height: 50,

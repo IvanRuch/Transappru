@@ -42,8 +42,8 @@ Use legacy apps as reference to ensure nothing useful is missed.
 
 | Legacy Screen | Mobile (`/src/`) | Web (new) | Notes |
 |---------------|------------------|-----------|-------|
-| Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting |
-| PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: same layout, 4-digit code input |
+| Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting, cursor lock after "+7" |
+| PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: 4 separate OTP-style digit fields, auto-advance, backspace, paste support |
 | Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar |
 | Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | — | |
 | Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | — | |
