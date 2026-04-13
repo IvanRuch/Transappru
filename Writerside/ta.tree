@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE instance-profile SYSTEM "https://resources.jetbrains.com/writerside/1.0/product-profile.dtd">
+<instance-profile id="ta"
+                  name="TransApp"
+                  start-page="landing.md">
+
+    <toc-element topic="landing.md"/>
+    <toc-element topic="project-dashboard.md"/>
+
+    <toc-element toc-title="Overview">
+        <toc-element topic="project-overview.md"/>
+        <toc-element topic="decision-log.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Mobile App">
+        <toc-element topic="dev-mobile.md"/>
+        <toc-element topic="dev-expo-router.md"/>
+        <toc-element topic="dev-payment-flow.md"/>
+        <toc-element topic="dev-push-notifications.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Payment Service">
+        <toc-element topic="api-payment.md"/>
+        <toc-element topic="dev-backend.md"/>
+        <toc-element topic="dev-database.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Web">
+        <toc-element topic="dev-web.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Infrastructure">
+        <toc-element topic="infra-docker.md"/>
+        <toc-element topic="infra-eas-build.md"/>
+        <toc-element topic="infra-firebase.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Setup Guides">
+        <toc-element topic="setup-android.md"/>
+        <toc-element topic="setup-ios.md"/>
+        <toc-element topic="setup-mac-m2.md"/>
+    </toc-element>
+
+    <toc-element toc-title="Guides">
+        <toc-element topic="guide-claude-code-setup.md"/>
+    </toc-element>
+
+</instance-profile>
