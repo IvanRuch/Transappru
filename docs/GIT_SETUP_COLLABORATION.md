@@ -3,7 +3,7 @@
 ## ✅ Текущая конфигурация (обновлено 2025-12-29)
 
 **Репозитории:**
-- **origin:** `git@github.com:grizodubov/TransApp_upd.git` (ваш репозиторий)
+- **origin:** `git@github.com:TransKonsalt/TransApp.git` (ваш репозиторий)
 - **upstream:** `git@github.com:IvanRuch/Transappru.git` (репозиторий коллеги)
 
 **Ветки:**
@@ -23,8 +23,8 @@ git remote -v
 
 Результат:
 ```
-origin    git@github.com:grizodubov/TransApp_upd.git (fetch)
-origin    git@github.com:grizodubov/TransApp_upd.git (push)
+origin    git@github.com:TransKonsalt/TransApp.git (fetch)
+origin    git@github.com:TransKonsalt/TransApp.git (push)
 upstream  git@github.com:IvanRuch/Transappru.git (fetch)
 upstream  git@github.com:IvanRuch/Transappru.git (push)
 ```

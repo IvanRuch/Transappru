@@ -47,6 +47,9 @@ google-services.json
 GoogleService-Info.plist
 old-project
 
+# Claude Code local settings (machine-specific paths)
+.claude/settings.local.json
+
 # Symlinks to external repos
 backend_reference
 /Transappru/
