@@ -97,3 +97,15 @@ The old `utils/Api.ts` is no longer used in web screens.
 - Organization list with switch support
 - Services dropdown (expandable)
 - Responsive: collapses below 900px viewport width
+
+## Deployment Checklist (TODO)
+
+Before deploying web to production:
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | **SPA fallback** — configure nginx `try_files $uri /index.html` (or use Vercel/Netlify which handle it automatically) | Pending |
+| 2 | **Build script** — add `"build:web": "expo export --platform web"` to package.json | Pending |
+| 3 | **Payment API URL** — hardcoded `https://payment.transapp.ru/api` in `api.web.ts`, make dynamic or env-based | Pending |
+| 4 | **Same-domain deployment** — `api.web.ts` builds URL as `https://{hostname}/api/`; web must be on same domain as API, otherwise add CORS headers on server | Pending |
+| 5 | **Test production build** — run `expo export --platform web`, serve `dist/` locally, verify full auth flow | Pending |
