@@ -123,6 +123,9 @@ export function useAutoData() {
       }
       
       if (data.onboarding_expired !== undefined) {
+          const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
+          console.log('📋 onboarding_expired from /get-auto-list:', data.onboarding_expired,
+            needsOnboarding ? '→ onboarding NOT viewed, should show' : '→ onboarding already viewed');
           setOnboardingExpired(data.onboarding_expired);
       }
 

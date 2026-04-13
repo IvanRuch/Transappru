@@ -58,15 +58,31 @@ export default function PinScreen() {
       const res = await api.post('/confirm-token', { token, code });
       const data = res.data;
 
+      console.log('========================================');
+      console.log('PIN SCREEN (web) - confirm-token response:');
+      console.log('error:', data.error);
+      console.log('phone_inn_bind:', data.phone_inn_bind);
+      console.log('is_manager:', data.is_manager);
+      const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
+      console.log('onboarding_expired:', data.onboarding_expired,
+        needsOnboarding ? '→ should show onboarding' : '→ skip onboarding');
+      console.log('========================================');
+
       if (data.error === 1) {
         setMsg(data.msg);
         setModalVisible(true);
       } else {
+
         if (
           (data.phone_inn_bind === 1 || data.phone_inn_bind === '1') ||
           (data.is_manager === 1 || data.is_manager === '1')
         ) {
-          router.replace('/(authenticated)/auto-list' as any);
+          if (needsOnboarding) {
+            console.log('→ Redirecting to onboarding');
+            router.replace('/onboarding' as any);
+          } else {
+            router.replace('/(authenticated)/auto-list' as any);
+          }
         } else {
           router.replace('/(authenticated)/inn' as any);
         }

@@ -58,23 +58,28 @@ export default function PinScreen() {
       
       console.log('========================================');
       console.log('PIN SCREEN - confirm-token response:');
-      console.log('Full response:', data);
       console.log('error:', data.error);
       console.log('phone_inn_bind:', data.phone_inn_bind);
       console.log('is_manager:', data.is_manager);
-      console.log('onboarding_expired:', data.onboarding_expired);
+      const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
+      console.log('onboarding_expired:', data.onboarding_expired,
+        needsOnboarding ? '→ should show onboarding' : '→ skip onboarding');
       console.log('========================================');
 
       if (data.error === 1) {
         setMsg(data.msg);
         setModalVisible(true);
       } else {
-        // PIN подтверждён
-        // Проверка onboarding_viewed происходит в AutoListScreen через /get-auto-list
-        if ((data.phone_inn_bind === 1 || data.phone_inn_bind === "1") || 
+
+        if ((data.phone_inn_bind === 1 || data.phone_inn_bind === "1") ||
             (data.is_manager === 1 || data.is_manager === "1")) {
-          console.log('✅ Navigating to AutoList');
-          router.replace('/(authenticated)/auto-list' as any);
+          if (needsOnboarding) {
+            console.log('📋 Redirecting to onboarding');
+            router.replace('/onboarding' as any);
+          } else {
+            console.log('✅ Navigating to AutoList');
+            router.replace('/(authenticated)/auto-list' as any);
+          }
         } else {
           console.log('⚠️ Need Inn setup, navigating to Inn');
           router.replace('/(authenticated)/inn' as any);

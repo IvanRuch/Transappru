@@ -53,3 +53,13 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | Fine payment | `screens/fine-payment/*` | — | Not in legacy web |
 | Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
 | Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
+
+## Debug Logging
+
+Console logs are added for key auth flow events (visible in browser DevTools):
+
+- **PinScreen** (`/confirm-token`): `phone_inn_bind`, `is_manager`, `onboarding_expired` with human-readable labels
+- **useAutoData** (`/get-auto-list`): `onboarding_expired` flag value and interpretation
+- **API interceptor**: all requests/responses logged with `⬆️`/`⬇️` prefixes
+
+Note: `onboarding_expired` can come as string `"0"` or number `0` from API — both are handled.
