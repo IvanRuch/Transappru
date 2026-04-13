@@ -12,6 +12,28 @@ Before adding a new rule — ASK the user for confirmation. Do NOT add silently.
 
 Domain-specific corrections go into the corresponding subdirectory CLAUDE.md, not here.
 
+## Legacy Projects (reference only, NOT our code)
+
+Two legacy directories exist in the repo root, both gitignored:
+
+- `/Transappru/` — legacy mobile app (from the previous developer)
+- `/transappweb/` — legacy web app (prod site as of Apr 2026),
+  source repo: https://gitlab.trade.su/transapp/transappweb
+
+These are NOT part of our codebase. They are kept locally as reference
+to ensure feature parity — we must not miss useful functionality when
+building our replacement.
+
+**Our codebase:**
+- `/src/` — new mobile app (Expo / React Native, TypeScript)
+- `/payment-service/` — backend (Python / Litestar)
+- Web version — **Expo Web** from `/src/` (ADR-001), in progress
+
+**Rules:**
+- NEVER edit files in `/Transappru/` or `/transappweb/`
+- NEVER treat `/transappweb/` as "our web version"
+- Use legacy code only for reading / comparing features
+
 ## Platform-Specific Files
 
 When editing a component/hook that has both `.ts` and `.web.ts` variants,

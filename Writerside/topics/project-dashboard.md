@@ -1,6 +1,6 @@
 # Project Dashboard
 
-> Last updated: 2026-04-09
+> Last updated: 2026-04-13
 
 ## Current Focus
 
@@ -10,18 +10,22 @@
 |------|--------|-------|
 | Mobile App | 🔄 Active development | v2.0.17, Expo 54 |
 | Payment Service | ✅ Deployed | Kazna API integration |
-| Web Version | ⚠️ Secondary | Minimal parity with mobile |
+| Web Version | 🔄 Starting | Expo Web from `/src/`, ADR-001 |
+| Legacy Web | ⚠️ In production | `/transappweb/` — to be replaced |
+| Legacy Mobile | 📦 Archive | `/Transappru/` — reference only |
 | Documentation | 🔄 Migration to Writerside | From /docs/ markdown |
 
 ## Recent Changes
 
+- **2026-04-13**: Documented legacy vs new project structure; corrected web version status — our web version does not exist yet, `transappweb/` is the legacy site to be replaced
 - **2026-04-09**: Claude Code configuration setup — CLAUDE.md (4 files), 3 PostToolUse hooks, 7 slash commands, 2 custom skills, 46 external skills, 3 MCP servers (PostgreSQL + Playwright + Context7), Writerside structure (16 topics), agnix validation
 
 ## Next Tasks
 
-1. Migrate key /docs/ content to Writerside topics (ARCHITECTURE.md, EXPO_ROUTER_GUIDE.md, etc.)
-2. Configure and verify MCP servers (start Docker, test PostgreSQL query)
-3. Set up test framework for mobile app (Jest/Vitest)
+1. ~~Decide web strategy~~ — done, ADR-001: Expo Web
+2. Migrate key /docs/ content to Writerside topics
+3. Configure and verify MCP servers (start Docker, test PostgreSQL query)
+4. Set up test framework for mobile app (Jest/Vitest)
 
 ## Version History
 

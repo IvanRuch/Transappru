@@ -1,20 +1,53 @@
 # Web Version
 
-<!-- Content to be migrated from /docs/WEB_ADAPTATION.md -->
+## Current State (as of 2026-04-13)
 
-## Overview
+**Our web version does not exist yet.** It will be built on a shared codebase
+with the mobile app (`/src/`), replacing the legacy production site.
 
-Secondary web version built with React 19 + JavaScript.
-Located in `transappweb/`.
+## Legacy Web App (reference only)
 
-## Running
+| Property | Value |
+|----------|-------|
+| Location | `/transappweb/` (gitignored) |
+| Source repo | https://gitlab.trade.su/transapp/transappweb |
+| Stack | React 19, plain JavaScript, no router |
+| Status | **Currently in production** — to be replaced |
+| Key files | `Auth.js`, `Auto.js`, `AutoList.js`, `DriverList.js`, `Inn.js`, `Pin.js`, `User.js` |
 
-```bash
-cd transappweb && npm start
-```
+The legacy web app was built by the previous developer as a standalone JS project,
+separate from the legacy mobile app (`/Transappru/`).
 
-## Notes
+## Legacy Mobile App (reference only)
 
-- Plain JavaScript (no TypeScript)
-- Minimal feature parity with mobile app
-- See `transappweb/CLAUDE.md` for conventions
+| Property | Value |
+|----------|-------|
+| Location | `/Transappru/` (gitignored) |
+| Status | Legacy, not maintained |
+
+## Our Plan (ADR-001)
+
+Build the new web version using **Expo Web** from the same `/src/` codebase.
+See [Decision Log](decision-log.md) ADR-001.
+
+**Approach:**
+- Run `npx expo start --web` against `/src/`
+- Use `.web.tsx` overrides where native and web UX diverge
+- Use `Platform.select` for minor platform differences
+- Platform-gate features that can't work on web (push, camera, etc.)
+
+## Feature Parity Checklist
+
+Use legacy apps as reference to ensure nothing useful is missed.
+
+| Legacy Screen | Mobile (`/src/`) | Web (new) | Notes |
+|---------------|------------------|-----------|-------|
+| Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | — | Has `.web.tsx` variant |
+| PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | — | |
+| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | — | Has `.web.tsx` variant |
+| Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | — | |
+| Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | — | |
+| INN (`Inn.js`) | — | — | Check if needed |
+| User (`User.js`) | — | — | Check if needed |
+| Charges | `screens/charges/ChargesScreen.tsx` | — | Not in legacy web |
+| Fine payment | `screens/fine-payment/*` | — | Not in legacy web |

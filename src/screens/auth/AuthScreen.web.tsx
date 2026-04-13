@@ -40,8 +40,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
   const isDesktop = width >= 768;
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [phone,                setPhone]                = useState('');
-  const [disabled,             setDisabled]             = useState(true);
+  const [phoneDigits,          setPhoneDigits]          = useState('');
   const [checked,              setChecked]              = useState(false);
   const [userAgreement,        setUserAgreement]        = useState('');
   const [modalUserAgreement,   setModalUserAgreement]   = useState(false);
@@ -54,25 +53,13 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
 
   const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Phone field helpers ──────────────────────────────────────────────────
-  const focusPhone = () => {
-    if (phone === '') setPhone('+7');
-  };
+  // ── Phone: derived from phoneDigits (single source of truth) ───────────
+  const phone    = phoneDigits.length > 0 ? '+7' + phoneDigits : '';
+  const disabled = phone.length !== 12 || !/^\+7\d{10}$/.test(phone);
 
-  const changePhone = (value: string) => {
-    let cleaned = value.replace(/\D/g, '');
-    if (cleaned.length === 0) {
-      setPhone(value === '+' ? '+7' : '');
-      return;
-    }
-    if (cleaned.startsWith('7') || cleaned.startsWith('8')) cleaned = cleaned.substring(1);
-    if (cleaned.length > 10) cleaned = cleaned.substring(0, 10);
-    setPhone('+7' + cleaned);
+  const changePhoneDigits = (value: string) => {
+    setPhoneDigits(value.replace(/\D/g, '').substring(0, 10));
   };
-
-  useEffect(() => {
-    setDisabled(phone.length !== 12 || !phone.startsWith('+7') || !/^\+7\d{10}$/.test(phone));
-  }, [phone]);
 
   // ── Polling ──────────────────────────────────────────────────────────────
   const startPolling = (token: string) => {
@@ -213,22 +200,42 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
     </Modal>
   );
 
-  // ── Form card ─────────────────────────────────────────────────────────────
-  const FormCard = () => (
+  // ── Form card (inlined to avoid remounting on state change) ──────────────
+  const formCard = (
     <View style={[styles.card, isDesktop && styles.cardDesktop]}>
       <Text style={styles.formTitle}>Введите номер телефона</Text>
       <Text style={styles.formSubtitle}>чтобы войти или зарегистрироваться</Text>
 
-      <TextInput
-        style={styles.input}
-        maxLength={12}
-        placeholder="+70000000000"
-        placeholderTextColor="#C0C0C0"
-        onFocus={focusPhone}
-        onChangeText={changePhone}
-        value={phone}
-        autoComplete="tel"
-      />
+      <View style={styles.phoneRow}>
+        <input
+          type="tel"
+          placeholder="+7 000 000 00 00"
+          value={phoneDigits.length > 0 ? `+7 ${phoneDigits}` : ''}
+          onChange={(e: any) => {
+            const raw = e.target.value.replace(/\D/g, '');
+            // Strip leading 7/8 (user pasted full number)
+            const digits = (raw.startsWith('7') || raw.startsWith('8')) && raw.length > 10
+              ? raw.substring(1) : raw;
+            changePhoneDigits(digits);
+          }}
+          onFocus={(e: any) => {
+            if (!e.target.value) e.target.value = '+7 ';
+          }}
+          autoComplete="tel"
+          style={{
+            width: '100%',
+            height: 56,
+            fontSize: 24,
+            color: '#1A1A1A',
+            border: 'none',
+            outline: 'none',
+            backgroundColor: 'transparent',
+            textAlign: 'center',
+            letterSpacing: 1,
+            fontFamily: 'inherit',
+          }}
+        />
+      </View>
 
       <TouchableOpacity
         disabled={disabled || !checked || isSubmitting}
@@ -303,7 +310,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
               await AsyncStorage.removeItem('token');
               if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
               setSessionData({});
-              setPhone('');
+              setPhoneDigits('');
               setModalWaitConfirmation(false);
             }}
           >
@@ -337,7 +344,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
           {/* Left branding panel */}
           <View style={styles.brandPanel}>
             <Image
-              source={require('../../../assets/images/menu_left.png')}
+              source={require('../../../assets/images/icon.png')}
               style={styles.brandLogo}
               resizeMode="contain"
             />
@@ -347,7 +354,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
 
           {/* Right form */}
           <View style={styles.formPanel}>
-            <FormCard />
+            {formCard}
           </View>
         </View>
       ) : (
@@ -357,7 +364,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <FormCard />
+          {formCard}
         </ScrollView>
       )}
     </View>
@@ -394,7 +401,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     marginBottom: 24,
-    tintColor: '#FFFFFF',
+    borderRadius: 16,
   },
   brandTitle: {
     fontSize: 36,
@@ -455,17 +462,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-  input: {
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 56,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#D0D0D0',
-    paddingHorizontal: 16,
-    fontSize: 24,
-    color: '#1A1A1A',
-    textAlign: 'center',
     marginBottom: 16,
     backgroundColor: '#FAFAFA',
+    overflow: 'hidden',
   },
   submitBtn: {
     height: 50,
