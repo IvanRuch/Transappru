@@ -233,7 +233,25 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
             changePhoneDigits(digits);
           }}
           onFocus={(e: any) => {
-            if (!e.target.value) e.target.value = '+7 ';
+            const input = e.target;
+            if (!input.value) input.value = '+7 ';
+            // Place cursor after "+7 " prefix
+            setTimeout(() => {
+              const minPos = 3; // length of "+7 "
+              if (input.selectionStart < minPos) {
+                const end = input.value.length;
+                input.setSelectionRange(end, end);
+              }
+            }, 0);
+          }}
+          onSelect={(e: any) => {
+            const input = e.target;
+            if (input.value && input.value.startsWith('+7')) {
+              const minPos = 3; // after "+7 "
+              if (input.selectionStart < minPos) {
+                input.setSelectionRange(minPos, Math.max(minPos, input.selectionEnd));
+              }
+            }
           }}
           autoComplete="tel"
           style={{
