@@ -57,6 +57,13 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
   const phone    = phoneDigits.length > 0 ? '+7' + phoneDigits : '';
   const disabled = phone.length !== 12 || !/^\+7\d{10}$/.test(phone);
 
+  // Format: +7 XXX XXX XX XX
+  const formatPhone = (d: string) => {
+    if (!d) return '';
+    const parts = [d.substring(0, 3), d.substring(3, 6), d.substring(6, 8), d.substring(8, 10)];
+    return '+7 ' + parts.filter(Boolean).join(' ');
+  };
+
   const changePhoneDigits = (value: string) => {
     setPhoneDigits(value.replace(/\D/g, '').substring(0, 10));
   };
@@ -210,12 +217,19 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
         <input
           type="tel"
           placeholder="+7 000 000 00 00"
-          value={phoneDigits.length > 0 ? `+7 ${phoneDigits}` : ''}
+          value={phoneDigits.length > 0 ? formatPhone(phoneDigits) : ''}
           onChange={(e: any) => {
-            const raw = e.target.value.replace(/\D/g, '');
-            // Strip leading 7/8 (user pasted full number)
-            const digits = (raw.startsWith('7') || raw.startsWith('8')) && raw.length > 10
-              ? raw.substring(1) : raw;
+            const val = e.target.value;
+            let digits: string;
+            if (val.startsWith('+7')) {
+              // Normal editing — strip our "+7" prefix, keep remaining digits
+              digits = val.substring(2).replace(/\D/g, '');
+            } else {
+              // Pasted raw number (e.g. "87777777777" or "77777777777")
+              const raw = val.replace(/\D/g, '');
+              digits = (raw.startsWith('7') || raw.startsWith('8')) && raw.length > 10
+                ? raw.substring(1) : raw;
+            }
             changePhoneDigits(digits);
           }}
           onFocus={(e: any) => {
