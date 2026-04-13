@@ -54,12 +54,34 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
 | Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
 
+## First-Login Flow
+
+When a new user logs in for the first time, three flags from `trans_konsalt.session` table
+control which screens/modals are shown:
+
+| Flag | Screen/Modal | Where checked |
+|------|-------------|---------------|
+| `onboarding_viewed = 0` | Onboarding carousel (`/onboarding`) | `useAutoData.ts` via `/get-auto-list` response (`onboarding_expired` field) |
+| `announce_our_services_viewed = 0` | "Наши услуги" modal | `useAutoData.ts` via `/get-auto-list` response |
+| `add_notification_viewed = 0` | Notification info popup | Not yet implemented |
+
+**Flow:** index → auth → pin → auto-list → (redirect to onboarding if needed) → back to auto-list → "Наши услуги" modal.
+
+**Anti-loop protection:** Module-level flags `_onboardingRedirectDone` and `_announceShown` in `useAutoData.ts`
+prevent infinite redirect loops when the server returns stale flag values (e.g. multiple session records).
+
+## Logout
+
+`handleLogout()` in `app/user.tsx` removes the token from AsyncStorage and uses `router.replace('/')`.
+The token is saved to `saved_token_for_return` for quick re-login via PinScreen.
+
 ## Debug Logging
 
 Console logs are added for key auth flow events (visible in browser DevTools):
 
 - **PinScreen** (`/confirm-token`): `phone_inn_bind`, `is_manager`, `onboarding_expired` with human-readable labels
 - **useAutoData** (`/get-auto-list`): `onboarding_expired` flag value and interpretation
+- **OnBoardingScreen** (`/get-onboarding`): marks onboarding as viewed on mount
 - **API interceptor**: all requests/responses logged with `⬆️`/`⬇️` prefixes
 
 Note: `onboarding_expired` can come as string `"0"` or number `0` from API — both are handled.

@@ -23,7 +23,6 @@ export function useAutoList() {
 
   // UI State
   const [markedCnt, setMarkedCnt] = useState(0);
-  const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
   
   // Отметить/снять отметку с элемента
   const markItem = useCallback((item: AutoItem, index: number) => {
@@ -81,7 +80,7 @@ export function useAutoList() {
 
     try {
       await api.post('/get-announce-our-services', { token });
-      setAnnounceOurServicesVisible(false);
+      dataHook.setAnnounceOurServicesVisible(false);
     } catch (error: any) {
       if (error.response?.status === 401) router.replace('/');
     }
@@ -165,7 +164,6 @@ export function useAutoList() {
 
     // UI State
     markedCnt,
-    announceOurServicesVisible,
     pulseAnim,
     pulseFontSize,
     

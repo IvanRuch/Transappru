@@ -7,6 +7,14 @@ import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto'
 const AUTO_LIST_LIMIT = 10;
 const CACHE_LIFETIME_MS = 5 * 60 * 1000; // 5 минут
 
+// Module-level flag to prevent onboarding redirect loop.
+// When onboarding screen navigates to auto-list, this flag is set
+// so that fetchAutoList doesn't redirect back to onboarding even
+// if the server still returns onboarding_expired=0 (e.g. due to
+// multiple session records or race condition).
+let _onboardingRedirectDone = false;
+let _announceShown = false;
+
 export function useAutoData() {
   const router = useRouter();
   
@@ -19,7 +27,8 @@ export function useAutoData() {
   const [otherUserList, setOtherUserList] = useState<UserData[]>([]);
   const [ourServicesList, setOurServicesList] = useState<OurService[]>([]);
   const [onboardingExpired, setOnboardingExpired] = useState(1);
-  
+  const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
+
   // Состояние списка авто
   const [autoList, setAutoList] = useState<AutoItem[]>([]);
   const [autoListCount, setAutoListCount] = useState(0);
@@ -127,6 +136,23 @@ export function useAutoData() {
           console.log('📋 onboarding_expired from /get-auto-list:', data.onboarding_expired,
             needsOnboarding ? '→ onboarding NOT viewed, should show' : '→ onboarding already viewed');
           setOnboardingExpired(data.onboarding_expired);
+
+          // Redirect to onboarding if not viewed (same as legacy web AutoList.js:640)
+          // Skip if we already redirected once in this session (guard against loop)
+          if (needsOnboarding && requestOffset === 0 && !_onboardingRedirectDone) {
+            console.log('📋 Redirecting to onboarding from auto-list');
+            _onboardingRedirectDone = true;
+            router.replace('/onboarding' as any);
+            return null;
+          }
+      }
+
+      // Show "announce our services" modal (same as legacy web AutoList.js:646)
+      // Only show once per session to avoid re-triggering on refresh
+      if ((data.announce_our_services_viewed === '0' || data.announce_our_services_viewed === 0) && !_announceShown) {
+        console.log('📋 announce_our_services_viewed: 0 → showing services announcement');
+        _announceShown = true;
+        setAnnounceOurServicesVisible(true);
       }
 
       const newItems = data.auto_list || [];
@@ -400,7 +426,9 @@ export function useAutoData() {
     otherUserList,
     ourServicesList,
     onboardingExpired,
-    
+    announceOurServicesVisible,
+    setAnnounceOurServicesVisible,
+
     isLoading,
     isRefreshing,
     isSearching,

@@ -39,37 +39,40 @@ export default function OnBoardingScreen() {
 
   const isLast = current === slides.length - 1;
 
-  const handleNext = async () => {
+  // Mark onboarding as viewed on mount (same as mobile OnBoardingScreen.tsx)
+  React.useEffect(() => {
+    AsyncStorage.getItem('token').then(async (token) => {
+      if (!token) {
+        router.replace('/');
+        return;
+      }
+      try {
+        await api.post('/get-onboarding', { token });
+        console.log('Onboarding: marked as viewed on mount');
+      } catch (error: any) {
+        console.log('Error marking onboarding:', error);
+        if (error.response?.status === 401) router.replace('/');
+      }
+    });
+  }, []);
+
+  const navigateToAutoList = () => {
+    router.replace('/(authenticated)/auto-list');
+  };
+
+  const handleNext = () => {
     if (isLoading) return;
 
     if (isLast) {
-      setIsLoading(true);
-      try {
-        const token = await AsyncStorage.getItem('token');
-        if (token) {
-          await api.post('/get-onboarding', { token });
-        }
-        router.replace('/(authenticated)/auto-list');
-      } catch {
-        setIsLoading(false);
-      }
+      navigateToAutoList();
     } else {
       setCurrent(current + 1);
     }
   };
 
-  const handleSkip = async () => {
+  const handleSkip = () => {
     if (isLoading) return;
-    setIsLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (token) {
-        await api.post('/get-onboarding', { token });
-      }
-      router.replace('/(authenticated)/auto-list');
-    } catch {
-      setIsLoading(false);
-    }
+    navigateToAutoList();
   };
 
   const slide = slides[current];
@@ -154,10 +157,10 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   slideImage: {
-    width: '80%',
-    height: '80%',
-    maxWidth: 500,
-    maxHeight: 600,
+    width: '90%',
+    height: '90%',
+    maxWidth: 700,
+    maxHeight: 800,
   },
   rightPanel: {
     flex: 1,

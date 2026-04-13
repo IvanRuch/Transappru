@@ -58,19 +58,18 @@ export default function UserScreen() {
   }, [loadUserData]);
 
   const handleLogout = async () => {
-    // Не удаляем токен, просто переходим на экран авторизации
-    // Это позволяет вернуться назад или войти под другим аккаунтом
-    console.log('🚪 Logout: navigating to auth screen (token preserved)');
-    
-    // Сохраняем текущий токен для возможности возврата
+    console.log('🚪 Logout: clearing token and navigating to auth screen');
+
+    // Сохраняем текущий токен для возможности возврата через PinScreen
     const currentToken = await AsyncStorage.getItem('token');
     if (currentToken) {
       await AsyncStorage.setItem('saved_token_for_return', currentToken);
     }
-    
-    // Используем специальный флаг в AsyncStorage чтобы index.tsx знал что нужно показать AuthScreen
-    await AsyncStorage.setItem('show_auth_screen', 'true');
-    router.push('/' as any);
+
+    // Удаляем основной токен — без этого на вебе HMR/refresh
+    // находит валидный токен и возвращает на authenticated экран
+    await AsyncStorage.removeItem('token');
+    router.replace('/' as any);
   };
 
   const openModalEditContact = (mode: 'add' | 'edit', contact?: ContactData) => {
