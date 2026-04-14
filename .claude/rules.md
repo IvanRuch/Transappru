@@ -34,6 +34,16 @@ building our replacement.
 - NEVER treat `/transappweb/` as "our web version"
 - Use legacy code only for reading / comparing features
 
+## Web Development Reference Priority
+
+The **primary reference** for building the web version is the **mobile app** (`/src/`).
+It is fully functional and in production — the web must reach feature parity with it.
+
+Legacy web (`/transappweb/`) is a **secondary reference only** — useful to understand
+how native mobile plugins (maps, camera, etc.) were replaced for the browser,
+but those solutions may be outdated. Prefer finding the best modern web approach
+rather than copying legacy web patterns.
+
 ## Platform-Specific Files
 
 When editing a component/hook that has both `.ts` and `.web.ts` variants,

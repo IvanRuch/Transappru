@@ -1,9 +1,9 @@
 # Web Version
 
-## Current State (as of 2026-04-13)
+## Current State (as of 2026-04-14)
 
 Web version is **in active development** using Expo Web from the shared `/src/` codebase.
-Auth flow, onboarding, INN registration, and main auto-list screens are working.
+Auth flow, onboarding, INN registration, auto-list, and auto detail screens are working.
 
 ## Legacy Web App (reference only)
 
@@ -45,7 +45,7 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting, cursor lock after "+7" |
 | PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: 4 separate OTP-style digit fields, auto-advance, backspace, paste support |
 | Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar |
-| Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | — | |
+| Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | ✅ Done | `.web.tsx`: functional component, 8 tabs split into `web/` sub-components, HTML file upload, browser download, responsive tab bar |
 | Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | — | |
 | INN (`Inn.js`) | `screens/inn/InnScreen.tsx` | ✅ Done | `.web.tsx`: INN binding + RNIS check, latin→cyrillic |
 | User (`User.js`) | — | — | Check if needed |
@@ -90,6 +90,33 @@ Note: `onboarding_expired` can come as string `"0"` or number `0` from API — b
 
 All `.web.tsx` screens use `import api from '../../services/api'` (the unified API client).
 The old `utils/Api.ts` is no longer used in web screens.
+
+## AutoDetailScreen (web)
+
+The mobile version is a single 2400-line class component. The web version is split into sub-components:
+
+| File | Purpose |
+|------|---------|
+| `AutoDetailScreen.web.tsx` | Orchestrator — header, STS input, tab routing |
+| `web/useAutoDetail.ts` | Hook: all state + 11 API endpoints |
+| `web/TabBar.tsx` | Tab navigation (desktop: row, mobile: horizontal scroll) |
+| `web/PassesTab.tsx` | Vehicle passes |
+| `web/FinesTab.tsx` | Traffic fines (paid/unpaid, payment button) |
+| `web/AvtodorTab.tsx` | Toll roads (paid/unpaid) |
+| `web/OsagoTab.tsx` | Insurance policy |
+| `web/DiagnosticCardTab.tsx` | Diagnostic card |
+| `web/RnisTab.tsx` | RNIS registry check |
+| `web/FilesTab.tsx` | File management |
+| `web/FileEditModal.tsx` | Upload/edit files (HTML `<input type="file">`) |
+| `web/FileDeleteModal.tsx` | Delete confirmation |
+| `web/PaginatedList.tsx` | "Show more" for long lists |
+
+**Key web replacements:**
+- `DocumentPicker` → HTML `<input type="file">` via `useRef`
+- `RNFS.downloadFile` → `window.open(url, '_blank')`
+- `Alert.alert` → `window.alert()` / `window.confirm()`
+- `Api` (utils/) → `api` (services/) — CORS-friendly
+- Tabs lazy-load data on first visit
 
 ## Sidebar (WebSidebar.tsx)
 
