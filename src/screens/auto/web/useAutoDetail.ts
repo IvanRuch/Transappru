@@ -183,10 +183,6 @@ export function useAutoDetail(autoData: any) {
   // ── Tab switching with lazy-load ────────────────────────────────────
 
   const setTab = useCallback((tab: TabKey) => {
-    if (tab === 'driver') {
-      router.push('/(authenticated)/drivers' as any);
-      return;
-    }
     setCurrentTab(tab);
 
     const loaderMap: Record<string, () => Promise<void>> = {

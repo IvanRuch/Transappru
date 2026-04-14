@@ -21,6 +21,7 @@ import { OsagoTab } from './web/OsagoTab';
 import { DiagnosticCardTab } from './web/DiagnosticCardTab';
 import { RnisTab } from './web/RnisTab';
 import { FilesTab } from './web/FilesTab';
+import { DriversTab } from './web/DriversTab';
 
 export default function AutoDetailScreen() {
   const params = useLocalSearchParams();
@@ -156,6 +157,9 @@ export default function AutoDetailScreen() {
             onDownloadFile={d.downloadFile}
           />
         );
+
+      case 'driver':
+        return <DriversTab />;
 
       default:
         return null;

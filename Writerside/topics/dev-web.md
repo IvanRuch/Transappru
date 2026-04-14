@@ -3,7 +3,7 @@
 ## Current State (as of 2026-04-14)
 
 Web version is **in active development** using Expo Web from the shared `/src/` codebase.
-Auth flow, onboarding, INN registration, auto-list, and auto detail screens are working.
+Auth flow, onboarding, INN registration, auto-list, auto detail (8 tabs), and driver management are working.
 
 ## Legacy Web App (reference only)
 
