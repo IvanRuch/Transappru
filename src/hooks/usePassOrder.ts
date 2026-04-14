@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
@@ -73,6 +74,23 @@ export function usePassOrder() {
         });
     });
   }, []);
+
+  // ── Apply map data from URL params (web: returning from map screen) ──────
+  const mapDataParam = params.address_map_data;
+  const appliedMapDataRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !mapDataParam) return;
+    const raw = Array.isArray(mapDataParam) ? mapDataParam[0] : mapDataParam;
+    if (typeof raw !== 'string' || raw === appliedMapDataRef.current) return;
+    try {
+      const mapData = JSON.parse(raw);
+      if (mapData?.address) {
+        appliedMapDataRef.current = raw;
+        applyMapData(mapData);
+      }
+    } catch { /* ignore malformed data */ }
+  }, [mapDataParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toggle zone tab (aware of map coordinates) ────────────────────────────
   const toggleTab = useCallback((tab: string) => {

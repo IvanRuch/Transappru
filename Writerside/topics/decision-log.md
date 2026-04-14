@@ -93,3 +93,31 @@ useChargesSelection, usePaymentConfirm, useInnBinding, usePassOrder.
 - 8 screen pairs simplified (16 files touched)
 - InnScreen and PassScreen mobile converted from class to functional components
 - Map-related state in usePassOrder is inert on web (lon/lat always empty)
+
+---
+
+### ADR-004: Yandex Maps JS API v3 for web map screen (2026-04-14)
+
+**Context:** Mobile PassYaMapScreen uses `react-native-yamap-plus` (native YandexMapKit SDK) for
+address selection on a map with zone polygons (МКАД/ТТК/СК). The web version had a stub
+("Карта недоступна в веб-версии"). Address selection via map is needed for web parity.
+
+**Decision:** Use Yandex Maps JS API v3 loaded dynamically from CDN, with `@yandex/ymaps3-reactify`
+for React component wrappers. Extract shared polygon coordinates to `src/data/moscowZonePolygons.ts`.
+
+**Rationale:**
+- Yandex Maps v3 is the current recommended version (v2 is legacy)
+- Dynamic script loading avoids bundling 500KB+ of map code — loaded only when map screen is opened
+- `@yandex/ymaps3-reactify` provides declarative React components (`YMap`, `YMapFeature`, `YMapMarker`, `YMapListener`)
+- Shared polygon file eliminates duplication (~190KB of coordinates used by both mobile and web)
+- Alternative (Leaflet/MapLibre) rejected: project already uses Yandex geocoding API (`/get-address-map`), staying in Yandex ecosystem is simpler
+- Alternative (embed via iframe) rejected: no polygon rendering, no custom click handling
+
+**Consequences:**
+- `PassYaMapScreen.web.tsx` replaces stub with full-featured map (~560 lines)
+- `moscowZonePolygons.ts` provides both native `{lon,lat}[]` and web `[lon,lat][]` formats
+- Mobile `PassYaMapScreen.tsx` imports polygons from shared file (removes ~150KB of inline data)
+- Separate API key for web (`e2f7a3f4-...`) vs mobile (`9247644d-...`)
+- `usePassOrder.ts` enhanced with `address_map_data` URL param handling for web return flow
+- `PassScreen.web.tsx` gets map button (📍) matching mobile's map icon
+- All `.web.tsx` screens must NOT wrap in `WebAppLayout` (provided by `_layout.web.tsx`)

@@ -15,10 +15,25 @@ export default function PassRoute() {
   const [currentLon, setCurrentLon] = useState(params.lon as string || '');
   const [currentLat, setCurrentLat] = useState(params.lat as string || '');
   
+  // Sync URL params → state when returning from map screen (web: address_map_data in URL)
+  useEffect(() => {
+    if (params.address_map_data) {
+      try {
+        const parsed = JSON.parse(params.address_map_data as string);
+        setCurrentAddressMapData(parsed);
+        if (parsed?.lon) setCurrentLon(String(parsed.lon));
+        if (parsed?.lat) setCurrentLat(String(parsed.lat));
+      } catch { /* ignore */ }
+    }
+    if (params.auto_list) {
+      try { setCurrentAutoList(JSON.parse(params.auto_list as string)); } catch { /* ignore */ }
+    }
+  }, [params.address_map_data, params.auto_list]);
+
   // Вызываем focus listeners когда экран получает фокус
   useFocusEffect(
     React.useCallback(() => {
-      // Проверяем есть ли данные с карты
+      // Проверяем есть ли данные с карты (mobile: getPendingMapData)
       const mapData = getPendingMapData();
       if (mapData) {
         // Обновляем props напрямую для немедленного эффекта

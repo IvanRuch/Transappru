@@ -7,8 +7,8 @@
 import React, { useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import WebAppLayout from '../../components/web/WebAppLayout';
 import { usePassOrder } from '../../hooks/usePassOrder';
+// WebAppLayout is provided by _layout.web.tsx — do NOT wrap again here.
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
 
@@ -19,6 +19,7 @@ export default function PassScreen() {
   const {
     vehicles,
     locationType, toggleTab,
+    lon, lat,
     address,
     streetList, addressList, userAddressList,
     handleAddressChange, markStreet, markAddress, markUserAddress,
@@ -57,7 +58,7 @@ export default function PassScreen() {
   };
 
   const inputStyle: React.CSSProperties = {
-    width: '100%',
+    flex: 1,
     padding: '12px',
     fontSize: '14px',
     borderRadius: '8px',
@@ -72,7 +73,7 @@ export default function PassScreen() {
   };
 
   return (
-    <WebAppLayout>
+    <View style={{ flex: 1 }}>
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn}>
@@ -117,6 +118,23 @@ export default function PassScreen() {
             placeholder="Начните вводить улицу..."
             style={inputStyle}
           />
+          <Pressable
+            style={s.mapBtn}
+            onPress={() => {
+              router.push({
+                pathname: '/(authenticated)/pass-yamap' as any,
+                params: {
+                  location_type: locationType,
+                  auto_list: JSON.stringify(vehicles),
+                  lon: String(lon),
+                  lat: String(lat),
+                  address: address,
+                },
+              });
+            }}
+          >
+            <Text style={s.mapBtnIcon}>📍</Text>
+          </Pressable>
         </View>
 
         {/* Street suggestions */}
@@ -231,7 +249,7 @@ export default function PassScreen() {
           </View>
         </View>
       )}
-    </WebAppLayout>
+    </View>
   );
 }
 
@@ -279,7 +297,9 @@ const s = StyleSheet.create({
     backgroundColor: '#F9FAF9',
   },
   clearBtnText: { fontSize: 13, color: '#656565' },
-  addressRow: { marginBottom: 10 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  mapBtn: { padding: 10, marginLeft: 10 },
+  mapBtnIcon: { fontSize: 22 },
 
   // Suggestions
   suggestionsBlock: { marginBottom: 10 },

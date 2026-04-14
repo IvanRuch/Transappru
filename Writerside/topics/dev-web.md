@@ -58,6 +58,7 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | Payment webview | `screens/fine-payment/FinePaymentWebViewScreen.tsx` | ✅ Done | `.web.tsx`: iframe-based payment page |
 | Payment success | `screens/fine-payment/FinePaymentSuccessScreen.tsx` | ✅ Done | `.web.tsx`: success message, navigation back |
 | Pass ordering | `screens/pass/PassScreen.tsx` | ✅ Done | `.web.tsx`: 2-stage autocomplete, zone tabs, vehicle list, /add-address. Sidebar "Пропуск" → AutoListScreen?mode=pass (auto-opens AddAutoModal, card click marks vehicles, footer "Заказать пропуск") → PassScreen |
+| Pass map | `screens/pass/PassYaMapScreen.tsx` | ✅ Done | `.web.tsx`: Yandex Maps JS API v3 (ADR-004). Zone polygons (МКАД/ТТК/СК), click-to-select address via `/get-address-map`, returns data to PassScreen. Shared polygon data in `src/data/moscowZonePolygons.ts` |
 | Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
 | Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
 
@@ -114,6 +115,25 @@ See [Decision Log](decision-log.md) ADR-003.
 Hooks use `api` from `services/api`. Platform-specific behavior via callbacks (e.g. `useInnBinding(onConfirmationClose)`).
 
 **Utility:** `src/utils/plateHelpers.ts` — shared GRZ normalization (Latin→Cyrillic, allowed chars, digits-only).
+
+## Yandex Maps (Web — ADR-004)
+
+Mobile uses `react-native-yamap-plus` (native SDK). Web uses **Yandex Maps JS API v3** loaded dynamically.
+
+| File | Purpose |
+|------|---------|
+| `screens/pass/PassYaMapScreen.web.tsx` | Full map screen — loads Yandex API, renders polygons, click-to-select, address resolution |
+| `data/moscowZonePolygons.ts` | Shared polygon coordinates (МКАД 1348pts, ТТК 1052pts, СК 461pts) — both native `{lon,lat}[]` and web `[lon,lat][]` formats |
+| `screens/pass/PassYaMapScreen.tsx` | Mobile screen — imports from shared polygons file |
+
+**Key implementation details:**
+- Dynamic script loading (`api-maps.yandex.ru/v3/`) — no bundle bloat, cached via module-level promise
+- `@yandex/ymaps3-reactify` wraps imperative API into React components (`YMap`, `YMapFeature`, `YMapMarker`, `YMapListener`)
+- `reactify.useDefault()` for uncontrolled map location (center/zoom)
+- Click handler via `YMapListener onClick` → `/get-address-map` API → address overlay + "Добавить" button
+- "Добавить" returns `address_map_data` as JSON in URL params to PassScreen
+- `_layout.web.tsx` provides `WebAppLayout` — map screen uses `<View style={{flex:1}}>` (no double sidebar)
+- API key: `e2f7a3f4-a2db-4aa1-beac-eae772516bf1` (web key, separate from mobile `9247644d-...`)
 
 ## API Client
 

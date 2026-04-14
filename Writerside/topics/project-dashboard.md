@@ -17,6 +17,7 @@
 
 ## Recent Changes
 
+- **2026-04-14**: Web: Yandex Maps JS API v3 for address selection on map (ADR-004) — PassYaMapScreen.web.tsx with zone polygons (МКАД/ТТК/СК), click-to-select address, shared polygon data extracted to src/data/moscowZonePolygons.ts. PassScreen.web.tsx: map button (📍), WebAppLayout double-sidebar fix
 - **2026-04-14**: Refactoring: 8 shared hooks extracted from 16 screen pairs (ADR-003) — useAuthFlow, usePinConfirm, useOnboardingFlow, useNotificationList, useChargesSelection, usePaymentConfirm, useInnBinding, usePassOrder + plateHelpers utility + useNotificationSettings fix. InnScreen and PassScreen converted from class to functional components. Screen-layer reuse ~65-70%
 - **2026-04-14**: AddAutoModal: GRZ input validation in useAutoActions.ts — Cyrillic-only letter filter (АВЕКМНОРСТУХ), Latin→Cyrillic auto-conversion, digits-only region code, uppercase normalization; Safari autofill fix (strip RN-generated attributes + CSS pseudo-element hiding); placeholder alignment (Platform.select); click-outside-to-close overlay; gray placeholders
 - **2026-04-14**: Web: pass ordering flow — sidebar "Пропуск" now matches mobile behavior: AutoListScreen?mode=pass (auto-opens AddAutoModal, card click marks vehicles, footer "Заказать пропуск (N)") → PassScreen with selected vehicles. Removed self-loading fallback, added empty state redirect
