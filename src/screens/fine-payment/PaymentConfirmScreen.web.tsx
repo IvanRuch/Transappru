@@ -1,99 +1,30 @@
 /**
  * Web version of PaymentConfirmScreen.
- * Commission calculation, FIO input, kvit toggle, payment initiation.
- * Replaces: Alert.alert → window.alert, Image → emoji, Switch → custom toggle,
- * InfoPopup → inline overlay, SafeAreaView → WebAppLayout.
+ * Uses shared usePaymentConfirm hook for business logic.
+ * Platform-specific: WebAppLayout, Pressable, native <input>, custom toggle,
+ * inline discount info box, window.alert for errors.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import WebAppLayout from '../../components/web/WebAppLayout';
-import PaymentService, { CommissionResponse, ChargeItemDTO } from '../../services/payment';
-import { ChargeItem } from '../../types/charges';
+import { usePaymentConfirm } from '../../hooks/usePaymentConfirm';
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
 
 export default function PaymentConfirmScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [commissionData, setCommissionData] = useState<CommissionResponse | null>(null);
-  const [calculating, setCalculating] = useState(true);
-  const [showDiscountInfo, setShowDiscountInfo] = useState(false);
-  const [showAllCharges, setShowAllCharges] = useState(false);
-  const [fio, setFio] = useState('');
-  const [kvit, setKvit] = useState(false);
-  const [error, setError] = useState('');
-
-  const charges: ChargeItem[] = useMemo(() => {
-    if (params.charges) {
-      try {
-        const chargesStr = Array.isArray(params.charges) ? params.charges[0] : params.charges;
-        if (typeof chargesStr === 'string') return JSON.parse(chargesStr);
-      } catch (e) {
-        console.error('Error parsing charges:', e);
-        return [];
-      }
-    } else if (params.fine_data) {
-      try {
-        const fineDataStr = Array.isArray(params.fine_data) ? params.fine_data[0] : params.fine_data;
-        if (typeof fineDataStr === 'string') return [JSON.parse(fineDataStr)];
-      } catch (e) {
-        console.error('Error parsing fine_data:', e);
-        return [];
-      }
-    }
-    return [];
-  }, [params.charges, params.fine_data]);
-
-  const isSingle = charges.length === 1;
-  const firstCharge = charges[0];
-  const totalAmount = charges.reduce((sum, c) => sum + parseFloat(c.sum || '0'), 0);
-
-  const hasDiscount = isSingle && firstCharge?.discount_time_left && firstCharge.discount_time_left !== '';
-  const discountPercent = hasDiscount ? parseInt(firstCharge.discount_percent || '0') : 0;
-  const fullAmount = isSingle ? parseFloat(firstCharge?.full_sum || firstCharge?.sum || '0') : totalAmount;
-  const discountAmount = hasDiscount ? fullAmount * (discountPercent / 100) : 0;
-
-  const getDepType = (charge: ChargeItem) =>
-    (charge.is_platon === '1' || charge.is_platon === 1) ? 'paidRoads' : 'gibdd';
-
-  const getTypeName = (type: string) => {
-    switch (type) {
-      case 'gibdd': return 'ГИБДД';
-      case 'paidRoads': return 'Платные дороги';
-      case 'fssp': return 'ФССП';
-      case 'fns': return 'ФНС';
-      default: return 'Прочее';
-    }
-  };
-
-  const calculateCommission = useCallback(async () => {
-    if (charges.length === 0) return;
-    try {
-      setCalculating(true);
-      let data;
-      if (isSingle) {
-        data = await PaymentService.calculateCommission(totalAmount, getDepType(firstCharge));
-      } else {
-        const chargesDTO: ChargeItemDTO[] = charges.map(c => ({
-          amount: parseFloat(c.sum || '0'),
-          depType: getDepType(c),
-        }));
-        data = await PaymentService.calculateMultiCommission(chargesDTO);
-      }
-      setCommissionData(data);
-    } catch (err) {
-      console.error('Error calculating commission:', err);
-      window.alert('Не удалось рассчитать комиссию');
-    } finally {
-      setCalculating(false);
-    }
-  }, [charges, isSingle, firstCharge, totalAmount]);
-
-  useEffect(() => {
-    calculateCommission();
-  }, [calculateCommission]);
+  const {
+    charges, isSingle, firstCharge, totalAmount,
+    hasDiscount, discountPercent, discountAmount,
+    calculating, commissionData,
+    fio, setFio, fioError, setFioError,
+    kvit, setKvit,
+    loading,
+    showDiscountInfo, setShowDiscountInfo,
+    showAllCharges, setShowAllCharges,
+    handlePay, getTypeName,
+  } = usePaymentConfirm();
 
   if (charges.length === 0) {
     return (
@@ -112,63 +43,9 @@ export default function PaymentConfirmScreen() {
   }
 
   const handlePayment = async () => {
-    setError('');
-    const trimmedFio = fio.trim();
-
-    if (!trimmedFio) {
-      setError('Пожалуйста, укажите ФИО плательщика');
-      return;
-    }
-    const words = trimmedFio.split(/\s+/);
-    if (words.length < 2) {
-      setError('Пожалуйста, укажите Фамилию и Имя (минимум два слова)');
-      return;
-    }
-    if (words.length > 6) {
-      setError('ФИО слишком длинное. Пожалуйста, проверьте правильность ввода.');
-      return;
-    }
-    if (!/^[а-яА-ЯёЁ\s-]+$/.test(trimmedFio)) {
-      setError('ФИО должно содержать только кириллицу');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      let response;
-      if (isSingle) {
-        response = await PaymentService.initiatePayment(
-          firstCharge.uin,
-          totalAmount,
-          `Оплата начисления ${firstCharge.uin}`,
-          trimmedFio,
-          undefined,
-          kvit,
-        );
-      } else {
-        const uins = charges.map(c => c.uin);
-        const depType = getDepType(firstCharge);
-        response = await PaymentService.initiateMultiPayment(uins, totalAmount, trimmedFio, undefined, kvit, depType);
-      }
-
-      if (response && response.payment_url) {
-        router.push({
-          pathname: '/(authenticated)/fine-payment-webview' as any,
-          params: {
-            payment_url: response.payment_url,
-            fine_data: JSON.stringify(firstCharge),
-            payment_id: response.payment_id,
-          },
-        });
-      } else {
-        throw new Error('Не удалось получить ссылку на оплату');
-      }
-    } catch (err: any) {
-      console.error('Error getting payment URL:', err);
-      const msg = err.response?.data?.detail || err.response?.data?.message || 'Не удалось инициализировать оплату. Попробуйте позже.';
-      window.alert(msg);
-    } finally {
-      setLoading(false);
+    const errorMsg = await handlePay();
+    if (errorMsg) {
+      window.alert(errorMsg);
     }
   };
 
@@ -211,7 +88,7 @@ export default function PaymentConfirmScreen() {
     padding: '12px',
     fontSize: '16px',
     borderRadius: '8px',
-    border: '1px solid #B8B8B8',
+    border: fioError ? '1px solid #C62828' : '1px solid #B8B8B8',
     outline: 'none',
     fontFamily: 'inherit',
     color: '#313131',
@@ -375,16 +252,16 @@ export default function PaymentConfirmScreen() {
             <input
               type="text"
               value={fio}
-              onChange={(e: any) => { setFio(e.target.value); setError(''); }}
+              onChange={(e: any) => { setFio(e.target.value); setFioError(''); }}
               placeholder="Иванов Иван Иванович"
               maxLength={100}
               style={inputStyle}
             />
           </View>
 
-          {error ? (
+          {fioError ? (
             <View style={s.errorBox}>
-              <Text style={s.errorText}>{error}</Text>
+              <Text style={s.errorText}>{fioError}</Text>
             </View>
           ) : null}
 

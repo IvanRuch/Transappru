@@ -3,17 +3,16 @@
  * Grouped unpaid fines by auto, filter panel, selection & payment footer.
  * Uses shared useCharges hook (resolves to api.web.ts on web).
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import WebAppLayout from '../../components/web/WebAppLayout';
 import { useCharges } from '../../hooks/useCharges';
+import { useChargesSelection, ChargeFilterType } from '../../hooks/useChargesSelection';
 import { ChargeItem } from '../../types/charges';
 import { SHOW_PAYMENT_UI } from '../../config/features';
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
-
-type ChargeFilterType = 'all' | 'gibdd' | 'paidRoads' | 'fssp' | 'fns';
 
 const FILTERS: { id: ChargeFilterType; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -22,8 +21,6 @@ const FILTERS: { id: ChargeFilterType; label: string }[] = [
   { id: 'fssp', label: 'ФССП' },
   { id: 'fns', label: 'ФНС' },
 ];
-
-const COLLAPSED_LIMIT = 5;
 
 // ── Inline ChargeCard for web (no image assets) ──────────────────────────
 
@@ -120,151 +117,20 @@ const cs = StyleSheet.create({
 
 export default function ChargesScreen() {
   const router = useRouter();
+  const chargesData = useCharges();
   const {
-    loading,
-    refreshing,
-    autoCharges,
-    otherCharges,
-    refresh,
-    getTotalAmount,
-    getTotalCount,
-    getAutosWithFines,
-    getFineTypeStats,
-    loadAutoFines,
-    loadingAutoFines,
-    backgroundLoading,
-    lastUpdateTime,
-  } = useCharges();
+    loading, refreshing, autoCharges,
+    getTotalAmount, getTotalCount, getFineTypeStats,
+    loadingAutoFines, backgroundLoading, lastUpdateTime,
+  } = chargesData;
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [refreshBlockedMessage, setRefreshBlockedMessage] = useState<string | null>(null);
-  const [selectedCharges, setSelectedCharges] = useState<Set<string>>(new Set());
-  const [activeFilter, setActiveFilter] = useState<ChargeFilterType>('all');
-
-  const autosWithFines = getAutosWithFines();
-
-  // ── Filtering ──
-
-  const getChargeType = (charge: ChargeItem): ChargeFilterType => {
-    if (charge.is_platon === '1' || charge.is_platon === 1) return 'paidRoads';
-    if (charge.is_to_fssp === '1' || charge.is_to_fssp === 1) return 'fssp';
-    return 'gibdd';
-  };
-
-  const filteredData = useMemo(() => {
-    if (activeFilter === 'all') {
-      return { autos: autosWithFines, other: otherCharges };
-    }
-    const filteredAutos = autosWithFines
-      .map(auto => {
-        const group = autoCharges[auto.auto_number];
-        if (!group) return null;
-        const filteredCharges = group.charges.filter(c => getChargeType(c) === activeFilter);
-        if (filteredCharges.length === 0) return null;
-        return { ...auto, filteredCharges };
-      })
-      .filter(Boolean) as any[];
-    const filteredOther = otherCharges.filter(c => getChargeType(c) === activeFilter);
-    return { autos: filteredAutos, other: filteredOther };
-  }, [autosWithFines, otherCharges, autoCharges, activeFilter]);
-
-  // ── Clean up stale selections ──
-
-  useEffect(() => {
-    if (loading || refreshing || backgroundLoading) return;
-    if (selectedCharges.size === 0) return;
-
-    const allCurrentIds = new Set<string>();
-    Object.values(autoCharges).forEach(g => g.charges.forEach(c => allCurrentIds.add(c.id)));
-    otherCharges.forEach(c => allCurrentIds.add(c.id));
-
-    setSelectedCharges(prev => {
-      const next = new Set<string>();
-      let changed = false;
-      prev.forEach(id => {
-        if (allCurrentIds.has(id)) next.add(id);
-        else changed = true;
-      });
-      return changed ? next : prev;
-    });
-  }, [autoCharges, otherCharges, loading, refreshing, backgroundLoading]);
-
-  // ── Helpers ──
-
-  const enrichCharge = (charge: ChargeItem, autoNumber?: string) => ({
-    ...charge,
-    _auto_number: autoNumber,
-  });
-
-  const handleChargePress = (charge: ChargeItem) => {
-    let autoNumber: string | undefined;
-    Object.entries(autoCharges).forEach(([num, group]) => {
-      if (group.charges.some(c => c.id === charge.id)) autoNumber = num;
-    });
-    router.push({
-      pathname: '/auto-fine' as any,
-      params: { fine_data: JSON.stringify(enrichCharge(charge, autoNumber)) },
-    });
-  };
-
-  const handleRefresh = async () => {
-    const result = await refresh();
-    if (result?.blocked) {
-      setRefreshBlockedMessage(`Подождите ${result.remainingSeconds} сек.`);
-      setTimeout(() => setRefreshBlockedMessage(null), 3000);
-    }
-  };
-
-  const toggleGroup = async (autoId: string) => {
-    const isExpanding = !expandedGroups[autoId];
-    setExpandedGroups(prev => ({ ...prev, [autoId]: isExpanding }));
-    if (isExpanding && !autoCharges[autoId]) {
-      await loadAutoFines(autoId);
-    }
-  };
-
-  const toggleSelection = (charge: ChargeItem) => {
-    setSelectedCharges(prev => {
-      const next = new Set(prev);
-      if (next.has(charge.id)) next.delete(charge.id);
-      else next.add(charge.id);
-      return next;
-    });
-  };
-
-  const toggleGroupSelection = (charges: ChargeItem[]) => {
-    setSelectedCharges(prev => {
-      const next = new Set(prev);
-      const allSelected = charges.every(c => next.has(c.id));
-      if (allSelected) charges.forEach(c => next.delete(c.id));
-      else charges.forEach(c => next.add(c.id));
-      return next;
-    });
-  };
-
-  const selectedAmount = useMemo(() => {
-    let sum = 0;
-    Object.values(autoCharges).forEach(group => {
-      group.charges.forEach(c => { if (selectedCharges.has(c.id)) sum += parseFloat(c.sum || '0'); });
-    });
-    otherCharges.forEach(c => { if (selectedCharges.has(c.id)) sum += parseFloat(c.sum || '0'); });
-    return sum;
-  }, [selectedCharges, autoCharges, otherCharges]);
-
-  const handlePaySelected = () => {
-    if (selectedCharges.size === 0) return;
-    const chargesToPay: any[] = [];
-    Object.entries(autoCharges).forEach(([autoNumber, group]) => {
-      group.charges.forEach(c => { if (selectedCharges.has(c.id)) chargesToPay.push(enrichCharge(c, autoNumber)); });
-    });
-    otherCharges.forEach(c => { if (selectedCharges.has(c.id)) chargesToPay.push(enrichCharge(c)); });
-
-    if (chargesToPay.length === 1) {
-      router.push({ pathname: 'fine-payment-confirm' as any, params: { fine_data: JSON.stringify(chargesToPay[0]) } });
-    } else {
-      router.push({ pathname: 'fine-payment-confirm' as any, params: { charges: JSON.stringify(chargesToPay) } });
-    }
-  };
+  const {
+    activeFilter, setActiveFilter, filteredData,
+    selectedCharges, selectedAmount, toggleSelection, toggleGroupSelection,
+    expandedGroups, toggleGroup,
+    refreshBlockedMessage, handleRefresh,
+    handleChargePress, handlePaySelected, COLLAPSED_LIMIT,
+  } = useChargesSelection(chargesData);
 
   const totalCount = getTotalCount();
   const totalAmount = getTotalAmount();

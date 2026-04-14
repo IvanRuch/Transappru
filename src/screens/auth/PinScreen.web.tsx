@@ -6,7 +6,7 @@
  *  - Mobile web  (<768 px): centered card
  *  - Desktop web (≥768 px): left branding panel + right form card
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -18,34 +18,29 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 
-import api from '../../services/api';
+import { usePinConfirm } from '../../hooks/usePinConfirm';
 
 export default function PinScreen() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  const {
+    modalVisible,
+    msg,
+    canGoBack,
+    submitPin,
+    handleGoBack,
+    handleChangeNumber,
+    closeErrorModal,
+  } = usePinConfirm();
+
+  // ── Local input state ───────────────────────────────────────────────────────
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [canGoBack, setCanGoBack] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null]);
 
   const code = digits.join('');
   const disabled = !/^\d{4}$/.test(code);
-
-  // ── Check if user can go back ─────────────────────────────────────────────
-  useEffect(() => {
-    const checkCanGoBack = async () => {
-      const savedToken = await AsyncStorage.getItem('saved_token_for_return');
-      if (savedToken) setCanGoBack(true);
-    };
-    checkCanGoBack();
-  }, []);
 
   // ── PIN digit handlers ───────────────────────────────────────────────────
   const handleDigitChange = useCallback((index: number, value: string) => {
@@ -73,7 +68,6 @@ export default function PinScreen() {
   const handleDigitKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace') {
       if (!digits[index] && index > 0) {
-        // Empty field — move back and clear previous
         setDigits(prev => {
           const next = [...prev];
           next[index - 1] = '';
@@ -81,7 +75,6 @@ export default function PinScreen() {
         });
         inputRefs.current[index - 1]?.focus();
       } else {
-        // Clear current field
         setDigits(prev => {
           const next = [...prev];
           next[index] = '';
@@ -95,64 +88,8 @@ export default function PinScreen() {
     }
   }, [digits]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSubmit = async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const res = await api.post('/confirm-token', { token, code });
-      const data = res.data;
-
-      console.log('========================================');
-      console.log('PIN SCREEN (web) - confirm-token response:');
-      console.log('error:', data.error);
-      console.log('phone_inn_bind:', data.phone_inn_bind);
-      console.log('is_manager:', data.is_manager);
-      const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
-      console.log('onboarding_expired:', data.onboarding_expired,
-        needsOnboarding ? '→ should show onboarding' : '→ skip onboarding');
-      if (data.onboarding_expired === undefined) {
-        console.warn('⚠️ /confirm-token did not return onboarding_expired — defaulting to skip');
-      }
-      console.log('========================================');
-
-      if (data.error === 1) {
-        setMsg(data.msg);
-        setModalVisible(true);
-      } else {
-
-        if (
-          (data.phone_inn_bind === 1 || data.phone_inn_bind === '1') ||
-          (data.is_manager === 1 || data.is_manager === '1')
-        ) {
-          if (needsOnboarding) {
-            console.log('→ Redirecting to onboarding');
-            router.replace('/onboarding' as any);
-          } else {
-            router.replace('/(authenticated)/auto-list' as any);
-          }
-        } else {
-          router.replace('/(authenticated)/inn' as any);
-        }
-      }
-    } catch (error) {
-      console.log('Error confirming PIN:', error);
-    }
-  };
-
-  const handleGoBack = async () => {
-    const savedToken = await AsyncStorage.getItem('saved_token_for_return');
-    if (savedToken) {
-      await AsyncStorage.setItem('token', savedToken);
-      await AsyncStorage.removeItem('saved_token_for_return');
-    }
-    router.back();
-  };
-
-  const handleChangeNumber = async () => {
-    await AsyncStorage.removeItem('token');
-    router.replace('/');
+  const handleSubmit = () => {
+    submitPin(code);
   };
 
   // ── Error modal ───────────────────────────────────────────────────────────
@@ -161,18 +98,12 @@ export default function PinScreen() {
       animationType="fade"
       transparent
       visible={modalVisible}
-      onRequestClose={() => setModalVisible(false)}
+      onRequestClose={closeErrorModal}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalText}>{msg}</Text>
-          <Pressable
-            style={styles.modalBtn}
-            onPress={() => {
-              setModalVisible(false);
-              router.replace('/' as any);
-            }}
-          >
+          <Pressable style={styles.modalBtn} onPress={closeErrorModal}>
             <Text style={styles.modalBtnText}>Получить ещё раз</Text>
           </Pressable>
         </View>
@@ -180,7 +111,7 @@ export default function PinScreen() {
     </Modal>
   );
 
-  // ── Form card (inline JSX to avoid remounting) ────────────────────────────
+  // ── Form card ─────────────────────────────────────────────────────────────
   const formCard = (
     <View style={[styles.card, isDesktop && styles.cardDesktop]}>
       <Text style={styles.formTitle}>Код подтверждения</Text>
@@ -239,7 +170,6 @@ export default function PinScreen() {
 
       {isDesktop ? (
         <View style={styles.desktopRow}>
-          {/* Left branding panel */}
           <View style={styles.brandPanel}>
             {canGoBack && (
               <TouchableOpacity onPress={handleGoBack} style={styles.backBtn}>
@@ -259,7 +189,6 @@ export default function PinScreen() {
             <Text style={styles.brandSub}>Транспортные решения{'\n'}для вашего бизнеса</Text>
           </View>
 
-          {/* Right form */}
           <View style={styles.formPanel}>
             {formCard}
           </View>
@@ -294,7 +223,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F2F5',
   },
 
-  // ── Desktop layout ────────────────────────────────────────────────────────
   desktopRow: {
     flex: 1,
     flexDirection: 'row',
@@ -332,7 +260,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
 
-  // ── Mobile layout ─────────────────────────────────────────────────────────
   mobileScroll: {
     flexGrow: 1,
     alignItems: 'center',
@@ -341,7 +268,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
 
-  // ── Card ──────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -357,7 +283,6 @@ const styles = StyleSheet.create({
     maxWidth: 400,
   },
 
-  // ── Form elements ─────────────────────────────────────────────────────────
   formTitle: {
     fontSize: 22,
     fontWeight: '700',
@@ -402,7 +327,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 
-  // ── Back button ───────────────────────────────────────────────────────────
   backBtn: {
     position: 'absolute',
     top: 24,
@@ -421,7 +345,6 @@ const styles = StyleSheet.create({
     tintColor: '#FFFFFF',
   },
 
-  // ── Modal ─────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',

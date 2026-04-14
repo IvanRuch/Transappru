@@ -1,48 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, StatusBar, PermissionsAndroid } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import Api from '../../utils/Api';
 
-interface Screen {
-  msg: string;
-  src: any;
-}
-
-const screens: Screen[] = [
-  { msg: 'Добавляйте авто', src: require('../../../assets/images/onboarding1.png') },
-  { msg: 'Проверяйте штрафы, ОСАГО, диагностические карты', src: require('../../../assets/images/onboarding2.png') },
-  { msg: 'Заказывайте пропуска на транспорт', src: require('../../../assets/images/onboarding3.png') },
-  { msg: 'Добавляйте файлы', src: require('../../../assets/images/onboarding4.png') },
-];
+import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
 
 export default function OnBoardingScreen() {
-  const router = useRouter();
-  const [current, setCurrent] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    console.log('OnBoarding DidMount');
-    
-    // Проверяем токен
-    AsyncStorage.getItem('token').then(async (token) => {
-      if (!token) {
-        console.log('No token, redirect to Auth');
-        router.replace('/');
-        return;
-      }
-
-      try {
-        const res = await Api.post('/get-onboarding', { token });
-        console.log('Onboarding data:', res.data);
-      } catch (error: any) {
-        console.log('Error getting onboarding:', error);
-        if (error.response?.status === 401) {
-          router.replace('/');
-        }
-      }
-    });
-  }, []);
+  const {
+    slides,
+    current,
+    isLast,
+    isLoading,
+    markViewedAndNavigate,
+    handleNext: hookHandleNext,
+  } = useOnboardingFlow();
 
   const requestLocationPermission = async () => {
     if (Platform.OS === 'android') {
@@ -58,9 +27,9 @@ export default function OnBoardingScreen() {
           }
         );
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('✅ Location permission granted');
+          console.log('Location permission granted');
         } else {
-          console.log('⚠️ Location permission denied');
+          console.log('Location permission denied');
         }
       } catch (err) {
         console.warn('Error requesting location permission:', err);
@@ -69,84 +38,48 @@ export default function OnBoardingScreen() {
   };
 
   const handleNext = async () => {
-    if (isLoading) {
-      console.log('Already processing, ignoring tap');
-      return;
-    }
-    
-    console.log('tapNext, current:', current);
-    
-    if (current === screens.length - 1) {
-      // Последний экран - запрашиваем разрешения и помечаем онбординг как просмотренный
-      setIsLoading(true);
-      
-      try {
-        // Запрашиваем разрешение на геолокацию
-        await requestLocationPermission();
-        
-        const token = await AsyncStorage.getItem('token');
-        if (token) {
-          // Вызываем API для пометки онбординга как просмотренного
-          console.log('📤 Sending /get-onboarding request with token:', token.substring(0, 20) + '...');
-          const response = await Api.post('/get-onboarding', { token });
-          console.log('✅ Onboarding marked as viewed. Server response:', response.data);
-        }
-        
-        // Переходим к списку авто
-        router.replace('/(authenticated)/auto-list');
-      } catch (error) {
-        console.log('⚠️ Error in onboarding completion:', error);
-        setIsLoading(false);
-      }
+    if (isLast) {
+      // Mobile-specific: request location permission before completing
+      await requestLocationPermission();
+      markViewedAndNavigate();
     } else {
-      // Следующий экран
-      setCurrent(current + 1);
+      hookHandleNext();
     }
   };
 
-  const currentScreen = screens[current];
+  const slide = slides[current];
 
   return (
     <View style={styles.container}>
-      {/* Изображение */}
       <View style={styles.imageContainer}>
-        <Image 
-          style={styles.image} 
-          source={currentScreen.src} 
-          resizeMode='contain'
-        />
+        <Image style={styles.image} source={slide.src} resizeMode="contain" />
       </View>
 
-      {/* Текст описания */}
-      <Text style={styles.description}>
-        {currentScreen.msg}
-      </Text>
+      <Text style={styles.description}>{slide.msg}</Text>
 
-      {/* Индикаторы (точки) */}
       <View style={styles.indicatorsContainer}>
         <View style={styles.indicatorsRow}>
-          {screens.map((_, index) => (
-            <Image 
-              key={index} 
-              style={styles.indicator} 
+          {slides.map((_, index) => (
+            <Image
+              key={index}
+              style={styles.indicator}
               source={
-                index === current 
+                index === current
                   ? require('../../../assets/images/ellipse_active_2.png')
                   : require('../../../assets/images/ellipse_2.png')
-              } 
+              }
             />
           ))}
         </View>
       </View>
 
-      {/* Кнопка "Далее" */}
       <TouchableOpacity
         style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleNext}
         disabled={isLoading}
       >
         <Text style={styles.buttonText}>
-          {isLoading ? 'Загрузка...' : (current >= screens.length - 1 ? 'Начать' : 'Далее')}
+          {isLoading ? 'Загрузка...' : isLast ? 'Начать' : 'Далее'}
         </Text>
       </TouchableOpacity>
     </View>

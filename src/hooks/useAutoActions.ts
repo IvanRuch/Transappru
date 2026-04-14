@@ -4,23 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 import type { AutoItem } from '../types/auto';
-
-// Russian license plates use only these 12 Cyrillic letters (matching Latin lookalikes)
-const LATIN_TO_CYRILLIC: Record<string, string> = {
-  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
-  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
-};
-
-const GRZ_ALLOWED = /^[АВЕКМНОРСТУХABEKMHOPCTYX0-9]*$/i;
-const DIGITS_ONLY = /^[0-9]*$/;
-
-function normalizePlate(value: string): string {
-  return value
-    .toUpperCase()
-    .split('')
-    .map(ch => LATIN_TO_CYRILLIC[ch] || ch)
-    .join('');
-}
+import { GRZ_ALLOWED, DIGITS_ONLY, normalizePlate } from '../utils/plateHelpers';
 
 export function useAutoActions(
   refreshAutoList: () => Promise<void>,

@@ -1,93 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { View, Text, Image, TouchableHighlight, ScrollView, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, TextInput, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { ScreenHeader, InfoPopup } from '../../components/common';
-import PaymentService, { CommissionResponse, ChargeItemDTO } from '../../services/payment';
-import { ChargeItem } from '../../types/charges';
+import { usePaymentConfirm } from '../../hooks/usePaymentConfirm';
 
 export default function PaymentConfirmScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [commissionData, setCommissionData] = useState<CommissionResponse | null>(null);
-  const [calculating, setCalculating] = useState(true);
-  const [showDiscountInfo, setShowDiscountInfo] = useState(false);
-  const [showAllCharges, setShowAllCharges] = useState(false);
-  
-  const [fio, setFio] = useState('');
-  const [kvit, setKvit] = useState(false);
-  
-  // Используем useMemo для charges, чтобы объект был стабильным
-  const charges: ChargeItem[] = React.useMemo(() => {
-    if (params.charges) {
-      try {
-        const chargesStr = Array.isArray(params.charges) ? params.charges[0] : params.charges;
-        if (typeof chargesStr === 'string') {
-            return JSON.parse(chargesStr);
-        }
-      } catch (e) {
-        console.error('Error parsing charges:', e);
-        return [];
-      }
-    } else if (params.fine_data) {
-      try {
-        const fineDataStr = Array.isArray(params.fine_data) ? params.fine_data[0] : params.fine_data;
-        if (typeof fineDataStr === 'string') {
-            const singleCharge = JSON.parse(fineDataStr);
-            return [singleCharge];
-        }
-      } catch (e) {
-        console.error('Error parsing fine_data:', e);
-        return [];
-      }
-    }
-    return [];
-  }, [params.charges, params.fine_data]);
-
-  const isSingle = charges.length === 1;
-  const firstCharge = charges[0];
-
-  const totalAmount = charges.reduce((sum, charge) => sum + parseFloat(charge.sum || '0'), 0);
-  
-  const hasDiscount = isSingle && firstCharge.discount_time_left && firstCharge.discount_time_left !== '';
-  const discountPercent = hasDiscount ? parseInt(firstCharge.discount_percent || '0') : 0;
-  const fullAmount = isSingle ? parseFloat(firstCharge.full_sum || firstCharge.sum || '0') : totalAmount;
-  const discountAmount = hasDiscount ? fullAmount * (discountPercent / 100) : 0;
-  
-  const getDepType = (charge: ChargeItem) => 
-    (charge.is_platon === '1' || charge.is_platon === 1) ? 'paidRoads' : 'gibdd';
-
-  const calculateCommission = useCallback(async () => {
-    if (charges.length === 0) return;
-
-    try {
-      setCalculating(true);
-      let data;
-      
-      if (isSingle) {
-        const depType = getDepType(firstCharge);
-        data = await PaymentService.calculateCommission(totalAmount, depType);
-      } else {
-        const chargesDTO: ChargeItemDTO[] = charges.map(c => ({
-            amount: parseFloat(c.sum || '0'),
-            depType: getDepType(c)
-        }));
-        data = await PaymentService.calculateMultiCommission(chargesDTO);
-      }
-      
-      setCommissionData(data);
-    } catch (error) {
-      console.error('Error calculating commission:', error);
-      Alert.alert('Внимание', 'Не удалось рассчитать комиссию');
-    } finally {
-      setCalculating(false);
-    }
-  }, [charges, isSingle, firstCharge, totalAmount]);
-
-  useEffect(() => {
-    calculateCommission();
-  }, [calculateCommission]);
+  const {
+    charges, isSingle, firstCharge, totalAmount,
+    hasDiscount, discountPercent, fullAmount, discountAmount,
+    calculating, commissionData,
+    fio, setFio, fioError, setFioError,
+    kvit, setKvit,
+    loading,
+    showDiscountInfo, setShowDiscountInfo,
+    showAllCharges, setShowAllCharges,
+    handlePay, getTypeName,
+  } = usePaymentConfirm();
 
   if (charges.length === 0) {
     return (
@@ -101,92 +31,16 @@ export default function PaymentConfirmScreen() {
   }
 
   const handlePayment = async () => {
-    const trimmedFio = fio.trim();
-    if (!trimmedFio) {
-      Alert.alert('Внимание', 'Пожалуйста, укажите ФИО плательщика');
-      return;
-    }
-
-    const words = trimmedFio.split(/\s+/);
-    if (words.length < 2) {
-      Alert.alert('Внимание', 'Пожалуйста, укажите Фамилию и Имя (минимум два слова)');
-      return;
-    }
-    if (words.length > 6) {
-      Alert.alert('Внимание', 'ФИО слишком длинное. Пожалуйста, проверьте правильность ввода.');
-      return;
-    }
-
-    const fioRegex = /^[а-яА-ЯёЁ\s-]+$/;
-    if (!fioRegex.test(trimmedFio)) {
-      Alert.alert('Внимание', 'ФИО должно содержать только кириллицу.');
-      return;
-    }
-
-    setLoading(true);
-    
-    try {
-      let response;
-      
-      if (isSingle) {
-        response = await PaymentService.initiatePayment(
-          firstCharge.uin,
-          totalAmount,
-          `Оплата начисления ${firstCharge.uin}`,
-          trimmedFio,
-          undefined,
-          kvit
-        );
-      } else {
-        const uins = charges.map(c => c.uin);
-        // Берем тип первого штрафа как основной (для совместимости с API)
-        const depType = getDepType(firstCharge);
-        
-        response = await PaymentService.initiateMultiPayment(
-          uins,
-          totalAmount,
-          trimmedFio,
-          undefined,
-          kvit,
-          depType
-        );
-      }
-      
-      if (response && response.payment_url) {
-        router.push({
-          pathname: '/(authenticated)/fine-payment-webview' as any,
-          params: { 
-            payment_url: response.payment_url,
-            fine_data: JSON.stringify(firstCharge),
-            payment_id: response.payment_id
-          }
-        });
-      } else {
-        throw new Error('Не удалось получить ссылку на оплату');
-      }
-    } catch (error: any) {
-      console.error('Error getting payment URL:', error);
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Не удалось инициализировать оплату. Попробуйте позже.';
-      Alert.alert('Внимание', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getTypeName = (type: string) => {
-    switch (type) {
-        case 'gibdd': return 'ГИБДД';
-        case 'paidRoads': return 'Платные дороги';
-        case 'fssp': return 'ФССП';
-        case 'fns': return 'ФНС';
-        default: return 'Прочее';
+    const errorMsg = await handlePay();
+    if (errorMsg) {
+      Alert.alert('Внимание', errorMsg);
     }
   };
 
   const renderChargeItem = (charge: any, index: number) => {
     const isPlaton = charge.is_platon === '1' || charge.is_platon === 1;
     const autoNumber = charge._auto_number || charge.user_auto?.auto_number;
-    
+
     let description = '';
     if (isPlaton) {
         description = 'Платон';
@@ -196,7 +50,7 @@ export default function PaymentConfirmScreen() {
         if (charge.description) parts.push(charge.description);
         description = parts.join(' - ');
     }
-    
+
     const metaParts = [];
     if (autoNumber && autoNumber !== 'Неизвестно') metaParts.push(autoNumber);
     if (charge.dat) metaParts.push(charge.dat);
@@ -226,13 +80,13 @@ export default function PaymentConfirmScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScreenHeader 
+      <ScreenHeader
         title="Подтверждение оплаты"
         onBack={() => router.back()}
       />
 
-      <ScrollView 
-        style={styles.content} 
+      <ScrollView
+        style={styles.content}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -241,7 +95,7 @@ export default function PaymentConfirmScreen() {
           <Text style={styles.cardTitle}>
             {isSingle ? "Информация о начислении" : `Оплата ${charges.length} начислений`}
           </Text>
-          
+
           {isSingle ? (
             <>
               <View style={styles.infoRow}>
@@ -267,9 +121,9 @@ export default function PaymentConfirmScreen() {
           ) : (
             <View>
                 {charges.slice(0, showAllCharges ? undefined : 3).map(renderChargeItem)}
-                
+
                 {charges.length > 3 && (
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.showMoreButton}
                         onPress={() => setShowAllCharges(!showAllCharges)}
                     >
@@ -285,7 +139,7 @@ export default function PaymentConfirmScreen() {
         {/* Расчет стоимости */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Стоимость</Text>
-          
+
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>
                 {isSingle ? "Сумма начисления:" : "Сумма начислений:"}
@@ -301,10 +155,10 @@ export default function PaymentConfirmScreen() {
                 <Text style={styles.discountLabel}>Скидка {discountPercent}%:</Text>
                 <Text style={styles.discountValue}>-{discountAmount.toFixed(2)} ₽</Text>
               </View>
-              
+
               <View style={styles.discountBadge}>
-                <Image 
-                  source={require('../../../assets/images/whh_sale_2.png')} 
+                <Image
+                  source={require('../../../assets/images/whh_sale_2.png')}
                   style={styles.discountIcon}
                 />
                 <Text style={styles.discountText}>
@@ -354,16 +208,16 @@ export default function PaymentConfirmScreen() {
                   {(commissionData.kazna_commission + commissionData.transapp_commission).toFixed(2)} ₽
                 </Text>
               </View>
-              
+
               <View style={styles.commissionDetails}>
                 <Text style={styles.commissionText}>
-                  {commissionData.details && commissionData.details.length > 1 
+                  {commissionData.details && commissionData.details.length > 1
                     ? "Включает комиссию платежной системы и комиссию TransApp (см. детализацию выше)"
                     : `Включает комиссию платежной системы (${commissionData.kazna_percent}%) и комиссию TransApp (${commissionData.transapp_percent}%)`
                   }
                 </Text>
               </View>
-              
+
               <View style={styles.divider} />
 
               <View style={styles.totalRow}>
@@ -379,18 +233,22 @@ export default function PaymentConfirmScreen() {
         {/* Данные для оплаты */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Данные для оплаты</Text>
-          
+
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Ф.И.О. плательщика</Text>
             <TextInput
               style={styles.input}
               value={fio}
-              onChangeText={setFio}
+              onChangeText={(text) => { setFio(text); setFioError(''); }}
               placeholder="Иванов Иван Иванович"
               placeholderTextColor="#B0B0B0"
               maxLength={100}
             />
           </View>
+
+          {fioError ? (
+            <Text style={styles.fioErrorText}>{fioError}</Text>
+          ) : null}
 
           <View style={styles.switchRow}>
             <Text style={styles.switchLabel}>Заказать квитанцию</Text>
@@ -507,11 +365,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#313131',
   },
-  inputHint: {
-    fontSize: 12,
-    color: '#888888',
-    marginTop: 5,
-    fontStyle: 'italic',
+  fioErrorText: {
+    fontSize: 13,
+    color: '#C62828',
+    marginBottom: 10,
   },
   switchRow: {
     flexDirection: 'row',

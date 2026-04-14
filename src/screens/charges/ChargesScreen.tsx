@@ -1,217 +1,31 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, StyleSheet, Image, TouchableHighlight } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, StyleSheet, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
 import { ChargeCard, ChargesFilterPanel, ChargeFilterType } from '../../components/charges';
 import { useCharges } from '../../hooks/useCharges';
-import { ChargeItem } from '../../types/charges';
+import { useChargesSelection } from '../../hooks/useChargesSelection';
 import { SHOW_PAYMENT_UI } from '../../config/features';
-
-const COLLAPSED_LIMIT = 5;
 
 export default function ChargesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [filterVisible, setFilterVisible] = React.useState(false);
+
+  const chargesData = useCharges();
   const {
-    loading,
-    refreshing,
-    autoCharges,
-    otherCharges,
-    refresh,
-    getTotalAmount,
-    getTotalCount,
-    getAutosWithFines,
-    getFineTypeStats,
-    loadAutoFines,
-    loadingAutoFines,
-    backgroundLoading,
-    lastUpdateTime
-  } = useCharges();
+    loading, refreshing, autoCharges, getTotalAmount, getTotalCount,
+    getFineTypeStats, loadingAutoFines, backgroundLoading, lastUpdateTime,
+  } = chargesData;
 
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [refreshBlockedMessage, setRefreshBlockedMessage] = useState<string | null>(null);
-  
-  const [selectedCharges, setSelectedCharges] = useState<Set<string>>(new Set());
-  
-  // Фильтрация
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<ChargeFilterType>('all');
-  
-  const autosWithFines = getAutosWithFines();
-
-  const getChargeType = (charge: ChargeItem): ChargeFilterType => {
-    if (charge.is_platon === '1' || charge.is_platon === 1) return 'paidRoads';
-    if (charge.is_to_fssp === '1' || charge.is_to_fssp === 1) return 'fssp';
-    return 'gibdd';
-  };
-
-  const filteredData = useMemo(() => {
-    if (activeFilter === 'all') {
-      return { autos: autosWithFines, other: otherCharges };
-    }
-
-    const filteredAutos = autosWithFines.map(auto => {
-      const group = autoCharges[auto.auto_number];
-      if (!group) return null;
-      
-      const filteredCharges = group.charges.filter(c => getChargeType(c) === activeFilter);
-      if (filteredCharges.length === 0) return null;
-      
-      return {
-        ...auto,
-        filteredCharges
-      };
-    }).filter(Boolean) as any[];
-
-    const filteredOther = otherCharges.filter(c => getChargeType(c) === activeFilter);
-
-    return { autos: filteredAutos, other: filteredOther };
-  }, [autosWithFines, otherCharges, autoCharges, activeFilter]);
-
-  useEffect(() => {
-    if (loading || refreshing || backgroundLoading) return;
-    if (selectedCharges.size === 0) return;
-
-    const allCurrentIds = new Set<string>();
-    
-    Object.values(autoCharges).forEach(group => {
-      group.charges.forEach(c => allCurrentIds.add(c.id));
-    });
-    otherCharges.forEach(c => allCurrentIds.add(c.id));
-
-    setSelectedCharges(prev => {
-      const newSelected = new Set<string>();
-      let changed = false;
-      
-      prev.forEach(id => {
-        if (allCurrentIds.has(id)) {
-          newSelected.add(id);
-        } else {
-            changed = true;
-        }
-      });
-      
-      if (!changed) return prev;
-      return newSelected;
-    });
-  }, [autoCharges, otherCharges, loading, refreshing, backgroundLoading]);
-
-  // Вспомогательная функция для добавления номера авто
-  const enrichCharge = (charge: ChargeItem, autoNumber?: string) => {
-    return {
-        ...charge,
-        _auto_number: autoNumber // Добавляем поле для отображения
-    };
-  };
-
-  const handleChargePress = (charge: ChargeItem) => {
-    console.log('-> move to AutoFine', charge);
-    // Пытаемся найти номер авто
-    let autoNumber: string | undefined;
-    Object.entries(autoCharges).forEach(([num, group]) => {
-        if (group.charges.some(c => c.id === charge.id)) {
-            autoNumber = num;
-        }
-    });
-
-    router.push({
-      pathname: '/auto-fine' as any,
-      params: { fine_data: JSON.stringify(enrichCharge(charge, autoNumber)) }
-    });
-  };
-
-  const handleRefresh = async () => {
-    const result = await refresh();
-    if (result?.blocked) {
-      setRefreshBlockedMessage(`Подождите ${result.remainingSeconds} сек.`);
-      setTimeout(() => setRefreshBlockedMessage(null), 3000);
-    }
-  };
-
-  const toggleGroup = async (autoId: string) => {
-    const isExpanding = !expandedGroups[autoId];
-    
-    setExpandedGroups(prev => ({
-      ...prev,
-      [autoId]: isExpanding
-    }));
-    
-    if (isExpanding && !autoCharges[autoId]) {
-      await loadAutoFines(autoId);
-    }
-  };
-
-  const toggleSelection = (charge: ChargeItem) => {
-    const newSelected = new Set(selectedCharges);
-    if (newSelected.has(charge.id)) {
-      newSelected.delete(charge.id);
-    } else {
-      newSelected.add(charge.id);
-    }
-    setSelectedCharges(newSelected);
-  };
-
-  const toggleGroupSelection = (charges: ChargeItem[]) => {
-    const newSelected = new Set(selectedCharges);
-    const allSelected = charges.every(c => newSelected.has(c.id));
-
-    if (allSelected) {
-      charges.forEach(c => newSelected.delete(c.id));
-    } else {
-      charges.forEach(c => newSelected.add(c.id));
-    }
-    setSelectedCharges(newSelected);
-  };
-
-  const selectedAmount = useMemo(() => {
-    let sum = 0;
-    Object.values(autoCharges).forEach(group => {
-      group.charges.forEach(charge => {
-        if (selectedCharges.has(charge.id)) {
-          sum += parseFloat(charge.sum || '0');
-        }
-      });
-    });
-    otherCharges.forEach(charge => {
-      if (selectedCharges.has(charge.id)) {
-        sum += parseFloat(charge.sum || '0');
-      }
-    });
-    return sum;
-  }, [selectedCharges, autoCharges, otherCharges]);
-
-  const handlePaySelected = () => {
-    if (selectedCharges.size === 0) return;
-
-    const chargesToPay: any[] = [];
-    
-    Object.entries(autoCharges).forEach(([autoNumber, group]) => {
-      group.charges.forEach(c => {
-        if (selectedCharges.has(c.id)) {
-            chargesToPay.push(enrichCharge(c, autoNumber));
-        }
-      });
-    });
-    
-    otherCharges.forEach(c => {
-      if (selectedCharges.has(c.id)) {
-          chargesToPay.push(enrichCharge(c));
-      }
-    });
-
-    if (chargesToPay.length === 1) {
-      router.push({
-        pathname: 'fine-payment-confirm' as any,
-        params: { fine_data: JSON.stringify(chargesToPay[0]) }
-      });
-    } else {
-      router.push({
-        pathname: 'fine-payment-confirm' as any,
-        params: { charges: JSON.stringify(chargesToPay) }
-      });
-    }
-  };
+  const {
+    activeFilter, setActiveFilter, filteredData,
+    selectedCharges, selectedAmount, toggleSelection, toggleGroupSelection,
+    expandedGroups, toggleGroup,
+    refreshBlockedMessage, handleRefresh,
+    handleChargePress, handlePaySelected, COLLAPSED_LIMIT,
+  } = useChargesSelection(chargesData);
 
   const totalCount = getTotalCount();
   const totalAmount = getTotalAmount();
@@ -230,13 +44,13 @@ export default function ChargesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
-      <ScreenHeader 
-        title="Начисления" 
+      <ScreenHeader
+        title="Начисления"
         onBack={() => router.back()}
         rightComponent={
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity 
-                onPress={handleRefresh} 
+            <TouchableOpacity
+                onPress={handleRefresh}
                 className="p-2 mr-1"
                 disabled={refreshing}
             >
@@ -245,19 +59,19 @@ export default function ChargesScreen() {
                 </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-                onPress={() => setFilterVisible(true)} 
+            <TouchableOpacity
+                onPress={() => setFilterVisible(true)}
                 className="p-2"
             >
-                <Image 
-                    source={require('../../../assets/images/filter.png')} 
+                <Image
+                    source={require('../../../assets/images/filter.png')}
                     style={{ width: 24, height: 24, tintColor: activeFilter !== 'all' ? '#EE505A' : undefined }}
                 />
             </TouchableOpacity>
           </View>
         }
       />
-      
+
       {activeFilter !== 'all' && (
         <View style={styles.activeFilterPanel}>
             <Text style={styles.activeFilterText}>
@@ -281,7 +95,7 @@ export default function ChargesScreen() {
           </Text>
         </View>
       )}
-      
+
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingTop: 10, paddingBottom: insets.bottom + 100 }}
@@ -312,7 +126,6 @@ export default function ChargesScreen() {
               </View>
             )}
 
-            {/* Секция: Начисления по авто */}
             {filteredData.autos.length > 0 && (
               <View className="mb-5">
                 <View className="flex-row justify-between items-center px-5 py-2.5 bg-light-surface dark:bg-dark-surface">
@@ -325,27 +138,21 @@ export default function ChargesScreen() {
                 {filteredData.autos.map((auto: any) => {
                   const isExpanded = expandedGroups[auto.id];
                   const isLoading = loadingAutoFines[auto.id];
-                  
                   const loadedCharges = auto.filteredCharges || autoCharges[auto.auto_number]?.charges || [];
-                  
                   const finesCount = loadedCharges.length;
                   const finesSum = loadedCharges.reduce((sum: number, charge: any) => sum + parseFloat(charge.sum || '0'), 0);
-                  
                   const isAllSelected = loadedCharges.length > 0 && loadedCharges.every((c: any) => selectedCharges.has(c.id));
-                  
                   const selectedInGroupCount = loadedCharges.filter((c: any) => selectedCharges.has(c.id)).length;
                   const selectedInGroupSum = loadedCharges
                     .filter((c: any) => selectedCharges.has(c.id))
                     .reduce((sum: number, c: any) => sum + parseFloat(c.sum || '0'), 0);
-
                   const fineTypeStats = getFineTypeStats(auto.auto_number);
 
                   return (
                     <View key={auto.id} className="mb-2.5">
                       <View className="flex-row items-center px-5 py-2 bg-light-elevated dark:bg-dark-elevated">
-                        {/* Чекбокс группы (только если включена оплата) */}
                         {SHOW_PAYMENT_UI && (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={() => toggleGroupSelection(loadedCharges)}
                                 style={styles.groupCheckboxContainer}
                                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -373,7 +180,7 @@ export default function ChargesScreen() {
                                   <Text className="text-[11px] text-[#EE505A]"> (ПЛАТОН)</Text>
                                 )}
                               </Text>
-                              
+
                               {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count > 0 && (
                                 <View className="mt-1 gap-0.5">
                                   <Text className="text-[11px] text-[#B0B0B0]">
@@ -396,7 +203,7 @@ export default function ChargesScreen() {
                             </Text>
                         </TouchableOpacity>
                       </View>
-                      
+
                       {isExpanded && (
                         <>
                           {isLoading ? (
@@ -430,7 +237,6 @@ export default function ChargesScreen() {
               </View>
             )}
 
-            {/* Секция: Другие начисления */}
             {filteredData.other.length > 0 && (
               <View className="mb-5">
                 <View className="flex-row justify-between items-center px-5 py-2.5 bg-light-surface dark:bg-dark-surface">
@@ -440,10 +246,10 @@ export default function ChargesScreen() {
                 {(() => {
                   const isExpanded = expandedGroups['other'];
                   const hasMore = filteredData.other.length > COLLAPSED_LIMIT;
-                  const displayedCharges = isExpanded || !hasMore 
-                    ? filteredData.other 
+                  const displayedCharges = isExpanded || !hasMore
+                    ? filteredData.other
                     : filteredData.other.slice(0, COLLAPSED_LIMIT);
-                  
+
                   return (
                     <>
                       {displayedCharges.map((charge: any) => (
@@ -463,8 +269,8 @@ export default function ChargesScreen() {
                           onPress={() => toggleGroup('other')}
                         >
                           <Text className="text-sm font-semibold text-[#3A3A3A] dark:text-accent-primary">
-                            {isExpanded 
-                              ? 'Скрыть' 
+                            {isExpanded
+                              ? 'Скрыть'
                               : `Показать еще ${filteredData.other.length - COLLAPSED_LIMIT}`
                             }
                           </Text>
@@ -479,9 +285,8 @@ export default function ChargesScreen() {
         )}
       </ScrollView>
 
-      {/* Футер с оплатой (только если включена оплата) */}
       {hasCharges && SHOW_PAYMENT_UI && (
-        <View 
+        <View
           className="absolute bottom-0 left-0 right-0 border-t border-[#B8B8B8] px-5 pt-4 bg-light-surface dark:bg-dark-surface"
           style={{ paddingBottom: insets.bottom + 10 }}
         >
@@ -494,7 +299,7 @@ export default function ChargesScreen() {
                 Всего: {totalAmount.toFixed(2)} ₽ ({totalCount} шт.)
               </Text>
             </View>
-            
+
             <TouchableOpacity
               className={`py-3 px-6 rounded-lg ${selectedCharges.size > 0 ? 'bg-[#3A3A3A]' : 'bg-[#B8B8B8]'}`}
               onPress={handlePaySelected}

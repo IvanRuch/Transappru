@@ -1,78 +1,16 @@
 /**
  * Web version of NotificationListScreen.
- * Displays notification list with auto-mark-as-viewed on click.
- * On mobile, viewability tracking uses FlatList; on web we mark on click.
+ * Displays notification list with mark-as-viewed on click.
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView, StyleSheet, Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import api from '../../services/api';
 import WebAppLayout from '../../components/web/WebAppLayout';
-import { useNotification } from '../../contexts/NotificationContext';
+import { useNotificationList } from '../../hooks/useNotificationList';
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
 
-interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  registered: string;
-  viewed: string | number;
-}
-
 export default function NotificationListScreen() {
-  const router = useRouter();
-  const { addViewedCount } = useNotification();
-  const addViewedCountRef = useRef(addViewedCount);
-  addViewedCountRef.current = addViewedCount;
-
-  const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-
-  const loadNotifications = useCallback(async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) { router.replace('/'); return; }
-    setLoading(true);
-    try {
-      const res = await api.post('/get-notification-list', { token });
-      if (res.data.auth_required == 1) { router.replace('/'); return; }
-      setNotifications(res.data.notification_list || []);
-    } catch (err: any) {
-      if (err.response?.status === 401) router.replace('/');
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
-
-  useEffect(() => { loadNotifications(); }, [loadNotifications]);
-
-  const markAsViewed = useCallback(async (ids: string[]) => {
-    if (ids.length === 0) return;
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-    try {
-      const res = await api.post('/set-notification-as-viewed', {
-        token,
-        notification_ids: ids.join(','),
-      });
-      if (res.data.auth_required == 1) { router.replace('/'); return; }
-      addViewedCountRef.current(ids.length);
-    } catch (err: any) {
-      if (err.response?.status === 401) router.replace('/');
-    }
-  }, [router]);
-
-  const onPressItem = useCallback((item: NotificationItem) => {
-    if (item.viewed === '0' || item.viewed === 0) {
-      setNotifications(prev =>
-        prev.map(n => n.id === item.id ? { ...n, viewed: 1 } : n)
-      );
-      markAsViewed([item.id]);
-    }
-  }, [markAsViewed]);
-
-  const unviewedCount = notifications.filter(n => n.viewed === '0' || n.viewed === 0).length;
+  const { loading, notifications, unviewedCount, onPressItem } = useNotificationList();
 
   return (
     <WebAppLayout>

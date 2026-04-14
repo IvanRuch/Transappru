@@ -62,3 +62,34 @@ with GitHub Actions CI/CD. Architecture modeled after `tradesu-moderator` projec
 - Domain TBD — `server_name _` used for now, will be configured when DNS is set up
 - Old `deploy.yml` (payment-only SSH deploy) kept for backward compatibility
 - GitHub Secrets must be configured before first deploy
+
+---
+
+### ADR-003: Extract shared hooks to eliminate mobile/web screen duplication (2026-04-14)
+
+**Context:** 16 screens had parallel `.web.tsx` files with 60-70% duplicated business logic
+(API calls, state management, validation, navigation). Hooks (90%) and components (87%)
+were already well-shared, but screen-layer code was largely copy-pasted.
+
+**Decision:** Extract shared business logic from each screen pair into dedicated hooks
+(`src/hooks/use*.ts`). Screens become thin platform-specific UI wrappers. Hooks return
+error strings/states; mobile uses `Alert.alert`, web uses `window.alert` or inline UI.
+Platform-specific behavior passed via callbacks.
+
+**Rationale:**
+- Reference pattern already existed: `useAutoDetail.ts` (383 lines) for AutoDetailScreen.web.tsx
+- Each new feature should only require changes in one place (the hook)
+- Class components (InnScreen 585 LOC, PassScreen 861 LOC) converted to functional for hook usage
+- Shared utility `plateHelpers.ts` eliminated duplicated GRZ normalization code
+
+**New hooks (8):** useAuthFlow, usePinConfirm, useOnboardingFlow, useNotificationList,
+useChargesSelection, usePaymentConfirm, useInnBinding, usePassOrder.
+
+**Fixed:** useNotificationSettings — `Api` → `api` import, `Alert.alert` → error state.
+
+**Consequences:**
+- ~1,035 lines of new shared code, ~1,320 lines of duplication removed (~285 net reduction)
+- Screen-layer reuse increased from ~30-35% to ~65-70%
+- 8 screen pairs simplified (16 files touched)
+- InnScreen and PassScreen mobile converted from class to functional components
+- Map-related state in usePassOrder is inert on web (lon/lat always empty)

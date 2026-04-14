@@ -1,3 +1,11 @@
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  registered: string;
+  viewed: string;     // "0" | "1"
+}
+
 export interface AutoGranted {
   granted: string;       // "0" | "1"
   auto_number: string;

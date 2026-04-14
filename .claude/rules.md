@@ -50,6 +50,24 @@ When editing a component/hook that has both `.ts` and `.web.ts` variants,
 always check and update BOTH variants to maintain parity.
 Pattern: `Foo.tsx` (native) + `Foo.web.tsx` (web) in the same directory.
 
+## Mobile/Web Parity Rule (ADR-003)
+
+Business logic lives in shared hooks (`src/hooks/use*.ts`), not in screens.
+
+- **Changing business logic** (API calls, validation, state) → edit the shared hook.
+  Both platforms get the change automatically.
+- **Changing UI** in one screen → check the paired `.web.tsx` / `.tsx` and update if needed.
+- **New screen** → create a shared hook first, then both platform screens as thin wrappers.
+- **Error handling pattern:** hooks return error strings/states;
+  mobile → `Alert.alert(...)`, web → `window.alert(...)` or inline UI.
+- **Platform-specific callbacks:** hooks accept optional callbacks for platform behavior
+  (e.g. `useInnBinding(onConfirmationClose)`, `useOnboardingFlow(onComplete)`).
+- **API client:** always use `api` from `services/api`, never `Api` from `utils/Api`.
+
+Existing shared hooks: useAuthFlow, usePinConfirm, useOnboardingFlow, useNotificationList,
+useNotificationSettings, useChargesSelection, usePaymentConfirm, useInnBinding, usePassOrder.
+Shared utility: `src/utils/plateHelpers.ts` (GRZ normalization).
+
 ## Payment Security
 
 - NEVER hardcode Kazna API keys, tokens, or secrets in source code

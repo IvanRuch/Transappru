@@ -4,221 +4,40 @@
  * vehicle list, order pass via /add-address API.
  * Map unavailable on web — button navigates to pass-yamap stub.
  */
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useRef } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import WebAppLayout from '../../components/web/WebAppLayout';
-import api from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePassOrder } from '../../hooks/usePassOrder';
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
 
 export default function PassScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const addressRef = useRef<HTMLInputElement>(null);
 
-  // Parse auto_list from route params (comes pre-filled from AutoDetailScreen)
-  const paramAutoList = useMemo(() => {
-    try {
-      return params.auto_list ? JSON.parse(params.auto_list as string) : [];
-    } catch { return []; }
-  }, [params.auto_list]);
+  const {
+    vehicles,
+    locationType, toggleTab,
+    address,
+    streetList, addressList, userAddressList,
+    handleAddressChange, markStreet, markAddress, markUserAddress,
+    clearAddress, handleOrder,
+    showModal, setShowModal,
+    submitting, canOrder,
+  } = usePassOrder();
 
-  const [vehicles] = useState<any[]>(paramAutoList);
-  const [locationType, setLocationType] = useState('');
-  const [address, setAddress] = useState('');
-  const [mosRuStreet, setMosRuStreet] = useState(0);
-  const [mosRuStreetP7, setMosRuStreetP7] = useState('');
-  const [streetList, setStreetList] = useState<any[]>([]);
-  const [mosRuAddress, setMosRuAddress] = useState(0);
-  const [mosRuAddressLConcat, setMosRuAddressLConcat] = useState('');
-  const [addressList, setAddressList] = useState<any[]>([]);
-  const [userAddressList, setUserAddressList] = useState<any[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Refs to use latest state in async callbacks
-  const mosRuStreetRef = useRef(mosRuStreet);
-  const mosRuStreetP7Ref = useRef(mosRuStreetP7);
-  const locationTypeRef = useRef(locationType);
-  mosRuStreetRef.current = mosRuStreet;
-  mosRuStreetP7Ref.current = mosRuStreetP7;
-  locationTypeRef.current = locationType;
-
-  // Load user address list on mount
-  useEffect(() => {
-    AsyncStorage.getItem('token').then(token => {
-      if (!token) return;
-      api.post('/get-user-address-list', { token })
-        .then(res => {
-          if (res.data.auth_required === 1) { router.replace('/'); return; }
-          setUserAddressList(res.data.user_address_list || []);
-        })
-        .catch(err => {
-          if (err.response?.status === 401) router.replace('/');
-        });
-    });
-  }, []);
-
-  const toggleTab = (tab: string) => {
-    setLocationType(prev => prev === tab ? '' : tab);
+  const onMarkStreet = (item: any) => {
+    markStreet(item);
+    setTimeout(() => addressRef.current?.focus(), 60);
   };
 
-  const handleAddressChange = useCallback(async (value: string) => {
-    setAddress(value);
-
-    if (value.trim() === '') {
-      setLocationType('');
-      setMosRuStreet(0);
-      setMosRuStreetP7('');
-      setStreetList([]);
-      setMosRuAddress(0);
-      setMosRuAddressLConcat('');
-      setAddressList([]);
-      return;
-    }
-
-    let mode = '';
-    let searchString = '';
-    const currentStreet = mosRuStreetRef.current;
-    const currentP7 = mosRuStreetP7Ref.current;
-
-    if (currentStreet === 0) {
-      if (value.length >= 3) {
-        mode = 'street';
-        searchString = value;
-      } else {
-        setStreetList([]);
-        setAddressList([]);
-        return;
-      }
-    } else {
-      if (value.indexOf(currentP7) !== 0) {
-        mode = 'street';
-        searchString = value;
-        setMosRuStreet(0);
-        setMosRuStreetP7('');
-        setMosRuAddress(0);
-        setMosRuAddressLConcat('');
-        setAddressList([]);
-      } else {
-        if (value.indexOf(mosRuAddressLConcat) === -1) {
-          setMosRuAddress(0);
-          setMosRuAddressLConcat('');
-          setAddressList([]);
-        }
-        mode = 'address';
-        searchString = value.substring(currentP7.length);
-      }
-    }
-
-    if (!mode) return;
-
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const res = await api.post('/get-address', {
-        token,
-        mode,
-        string: searchString,
-        mos_ru_street: currentStreet,
-        location_type: locationTypeRef.current,
-      });
-      if (res.data.auth_required === 1) { router.replace('/'); return; }
-      if (mode === 'street') {
-        setStreetList(res.data.address_list || []);
-        setMosRuAddress(0);
-        setMosRuAddressLConcat('');
-        setAddressList([]);
-      } else {
-        setAddressList(res.data.address_list || []);
-      }
-    } catch (err: any) {
-      if (err.response?.status === 401) router.replace('/');
-    }
-  }, [mosRuAddressLConcat, router]);
-
-  const markStreet = (item: any) => {
-    setAddress(item.p7);
-    setMosRuStreet(item.id);
-    setMosRuStreetP7(item.p7);
-    setStreetList([]);
-
-    // Need to update refs immediately for the subsequent changeAddress call
-    mosRuStreetRef.current = item.id;
-    mosRuStreetP7Ref.current = item.p7;
-
-    // Trigger address search after street selection
-    setTimeout(() => {
-      const newVal = item.p7 + ' ';
-      setAddress(newVal);
-      handleAddressChange(newVal);
-      addressRef.current?.focus();
-    }, 50);
-  };
-
-  const markAddress = (item: any) => {
-    setAddress(mosRuStreetP7 + ' ' + item.l_concat);
-    setMosRuAddress(item.id);
-    setMosRuAddressLConcat(item.l_concat);
-    setAddressList([]);
-  };
-
-  const markUserAddress = (item: any) => {
-    const types = item.location_types || {};
-    let detected = '';
-    if (types.sk === 1) detected = 'sk';
-    else if (types.ttk === 1) detected = 'ttk';
-    else if (types.mkad === 1) detected = 'mkad';
-
-    setAddress(item.mos_ru_street_p7 + ' ' + item.mos_ru_address_l_concat);
-    setMosRuStreet(item.mos_ru_street);
-    setMosRuStreetP7(item.mos_ru_street_p7);
-    setMosRuAddress(item.mos_ru_address);
-    setMosRuAddressLConcat(item.mos_ru_address_l_concat);
-    setLocationType(detected);
-  };
-
-  const clearAddress = () => {
-    setAddress('');
-    setLocationType('');
-    setMosRuStreet(0);
-    setMosRuStreetP7('');
-    setStreetList([]);
-    setMosRuAddress(0);
-    setMosRuAddressLConcat('');
-    setAddressList([]);
-  };
-
-  const handleOrder = async () => {
-    setSubmitting(true);
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    const markedIds = vehicles.map((a: any) => a.id);
-
-    try {
-      const res = await api.post('/add-address', {
-        token,
-        mos_ru_address: mosRuAddress,
-        auto_list_ids: markedIds.join(','),
-        location_type: locationType,
-      });
-      if (res.data.auth_required === 1) { router.replace('/'); return; }
-      setUserAddressList(res.data.user_address_list || []);
-      clearAddress();
-      setShowModal(true);
-    } catch (err: any) {
-      if (err.response?.status === 401) { router.replace('/'); return; }
-      window.alert('Ошибка при заказе пропуска. Попробуйте позже.');
-    } finally {
-      setSubmitting(false);
+  const onOrder = async () => {
+    const errorMsg = await handleOrder();
+    if (errorMsg) {
+      window.alert(errorMsg);
     }
   };
-
-  const canOrder = mosRuAddress > 0 || locationType !== '';
 
   const renderLocationBadges = (types: any) => {
     const t = types || {};
@@ -304,7 +123,7 @@ export default function PassScreen() {
         {streetList.length > 0 && (
           <View style={s.suggestionsBlock}>
             {streetList.map((item, idx) => (
-              <Pressable key={item.id || idx} style={s.suggestionItem} onPress={() => markStreet(item)}>
+              <Pressable key={item.id || idx} style={s.suggestionItem} onPress={() => onMarkStreet(item)}>
                 {renderLocationBadges(item.location_types)}
                 <View style={s.suggestionText}>
                   {item.p2 ? <Text style={s.suggestionSub}>{item.p2}</Text> : null}
@@ -389,7 +208,7 @@ export default function PassScreen() {
         <View style={s.footer}>
           <Pressable
             style={[s.orderBtn, submitting && s.orderBtnDisabled]}
-            onPress={handleOrder}
+            onPress={onOrder}
             disabled={submitting}
           >
             {submitting ? (

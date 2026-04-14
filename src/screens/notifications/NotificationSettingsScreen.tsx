@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -16,7 +17,14 @@ import { useNotificationSettings } from '../../hooks/useNotificationSettings';
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
-  const { settings, loading, toggleMaster, toggleAuto } = useNotificationSettings();
+  const { settings, loading, error, clearError, toggleMaster, toggleAuto } = useNotificationSettings();
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Ошибка', error);
+      clearError();
+    }
+  }, [error, clearError]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (notificationType: string) => {

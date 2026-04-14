@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, TouchableHighlight, Image, Linking, Modal, ScrollView, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-import Api from '../../utils/Api';
-import { ApiResponse, SessionData } from '../../types/api';
-
-const maxStep = 60;
-const intervalTime = 10000;
+import { useAuthFlow } from '../../hooks/useAuthFlow';
+import { SessionData } from '../../types/api';
 
 interface AuthScreenProps {
   initialSessionData?: SessionData;
@@ -16,461 +12,192 @@ interface AuthScreenProps {
 
 export default function AuthScreen(props: AuthScreenProps) {
   const router = useRouter();
-  
-  // State
-  const [phone, setPhone] = useState('');
-  const [disabled, setDisabled] = useState(true);
-  const [checked, setChecked] = useState(false);
-  const [userAgreement, setUserAgreement] = useState('');
-  const [modalUserAgreement, setModalUserAgreement] = useState(false);
-  const [privacyPolicy, setPrivacyPolicy] = useState('');
-  const [modalPrivacyPolicy, setModalPrivacyPolicy] = useState(false);
-  const [modalWaitConfirmation, setModalWaitConfirmation] = useState(false);
-  const [sessionData, setSessionData] = useState<SessionData>(props.initialSessionData || {});
-  const [canGoBack, setCanGoBack] = useState(false);
-  const [isCheckingToken, setIsCheckingToken] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Ref для отслеживания активного интервала
-  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Handlers
+  const {
+    phoneDigits,
+    phoneValid,
+    changePhoneDigits,
+    checked,
+    setChecked,
+    userAgreement,
+    modalUserAgreement,
+    setModalUserAgreement,
+    privacyPolicy,
+    modalPrivacyPolicy,
+    setModalPrivacyPolicy,
+    modalWaitConfirmation,
+    sessionData,
+    isCheckingToken,
+    isSubmitting,
+    handleSubmit,
+    handleRelogin,
+  } = useAuthFlow(props.initialSessionData);
+
+  // ── Local phone display ─────────────────────────────────────────────────────
+  const [phoneFocused, setPhoneFocused] = useState(false);
+  const displayPhone = phoneDigits ? '+7' + phoneDigits : (phoneFocused ? '+7' : '');
+  const disabled = !phoneValid;
+
   const focusPhone = () => {
-    console.log('focusPhone');
-    if (phone === '') {
-      setPhone('+7');
-    }
+    setPhoneFocused(true);
   };
 
   const changePhone = (value: string) => {
-    console.log('changePhone. value = ' + value);
-
-    // Удаляем все нецифровые символы
     let cleaned = value.replace(/\D/g, '');
-
-    // Если поле очищено (например, удалили все), сбрасываем
     if (cleaned.length === 0) {
-      // Если пользователь ввел только "+", считаем это попыткой начать ввод
-      if (value === '+') {
-         setPhone('+7');
-      } else {
-         setPhone('');
-      }
+      changePhoneDigits('');
       return;
     }
-
-    // Если первая цифра 7 или 8, считаем это кодом страны и отбрасываем,
-    // так как +7 мы добавляем принудительно.
     if (cleaned.startsWith('7') || cleaned.startsWith('8')) {
       cleaned = cleaned.substring(1);
     }
-
-    // Ограничиваем длину 10 цифрами (после +7)
-    if (cleaned.length > 10) {
-      cleaned = cleaned.substring(0, 10);
-    }
-
-    // Формируем итоговый номер
-    setPhone('+7' + cleaned);
+    changePhoneDigits(cleaned);
   };
 
-  // Validate phone number whenever it changes
-  useEffect(() => {
-    // Check if phone matches format +7XXXXXXXXXX (exactly 12 chars)
-    if (phone.length === 12 && phone.startsWith('+7') && /^\+7\d{10}$/.test(phone)) {
-      setDisabled(false);
-    } else {
-      setDisabled(true);
-    }
-  }, [phone]);
-
-  const getButtonStyle = () => {
-    let backgroundColor = disabled || !checked || isSubmitting ? "#c0c0c0" : "#3A3A3A";
-    return { 
-      height: 50, 
-      width: 275, 
-      borderRadius: 5, 
-      alignItems: 'center' as const, 
-      justifyContent: 'center' as const, 
-      backgroundColor 
-    };
-  };
-
-  const getButtonTextStyle = () => {
-    let color = disabled || !checked ? "#FFFFFF" : "#FFFFFF";
-    return { fontSize: 20, color };
-  };
-
-  // Функция анализа данных сессии (общая для initialData и API ответа)
-  const processSessionData = (data: SessionData, token: string) => {
-    console.log('Processing session data:', data);
-
-    if (typeof data.user_data !== 'undefined') {
-      console.log('data.user_data.phone_inn_confirmed = ' + data.user_data.phone_inn_confirmed);
-      console.log('data.user_data.user_confirmed = ' + data.user_data.user_confirmed);
-
-      const phoneInnConfirmed = data.user_data.phone_inn_confirmed;
-      const userConfirmed = data.user_data.user_confirmed;
-      
-      if ((phoneInnConfirmed === 0 || phoneInnConfirmed === "0") ||
-          (userConfirmed === 0 || userConfirmed === "0")) {
-        // Пользователь не подтвержден - показываем модалку ожидания
-        setSessionData(data);
-        setModalWaitConfirmation(true);
-        setIsCheckingToken(false);
-        
-        // Запускаем периодическую проверку
-        startPolling(token);
-      } else {
-        // Пользователь подтвержден - показываем форму ввода телефона (или редиректим, если нужно)
-        // В данном контексте, если мы в AuthScreen, значит мы либо входим, либо ждем подтверждения.
-        // Если уже подтверждены - то по идее нас тут быть не должно (IndexScreen должен был отправить в AutoList)
-        // Но если мы тут, значит что-то пошло не так, или мы пришли через "Выход".
-        console.log('✅ User is confirmed, showing auth form');
-        setIsCheckingToken(false);
-      }
-    } else {
-        // Нет данных пользователя (новый пользователь)
-        setIsCheckingToken(false);
-    }
-  };
-
-  const startPolling = (token: string) => {
-    // Очищаем предыдущий интервал если он существует
-    if (intervalRef.current) {
-      console.log('⚠️ Clearing existing interval before creating new one');
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-
-    let t = 0;
-    console.log('Starting polling interval...');
-    const get_session = setInterval(async () => {
-      console.log('Polling check (t=' + t + ')...');
-
-      try {
-        const res = await Api.post<ApiResponse>('/get-session-data', { token });
-        const data = res.data;
-        
-        // Обновляем данные, если они пришли
-        if (data.session_data) {
-           setSessionData(data.session_data);
-           
-           const phoneInnConfirmedInterval = data.session_data.user_data?.phone_inn_confirmed;
-           const userConfirmedInterval = data.session_data.user_data?.user_confirmed;
-           
-           if ((phoneInnConfirmedInterval === 1 || phoneInnConfirmedInterval === "1") &&
-               (userConfirmedInterval === 1 || userConfirmedInterval === "1")) {
-             console.log('clearInterval by confirmed');
-             clearInterval(get_session);
-             intervalRef.current = null;
-             console.log('-> move to AutoList');
-             router.push('/(authenticated)/auto-list');
-           }
-        }
-      } catch (error: any) {
-        console.log('Polling error status:', error.response?.status);
-        if (error.response?.status === 401) { 
-          clearInterval(get_session);
-          intervalRef.current = null;
-        }
-      }
-
-      if (t >= maxStep * intervalTime) {
-        console.log('clearInterval by maxStep');
-        clearInterval(get_session);
-        intervalRef.current = null;
-        router.push('/(authenticated)/auto-list'); // Почему редирект? Видимо таймаут ожидания
-      }
-
-      t += intervalTime;
-    }, intervalTime);
-    
-    // Сохраняем ссылку на интервал
-    intervalRef.current = get_session;
-  };
-
-  const getSessionData = async (value: string | null) => {
-    console.log('getSessionData. value = ' + value);
-
-    if (!value) {
-      console.log('empty token');
-      return;
-    }
-
-    try {
-      const res = await Api.post<ApiResponse>('/get-session-data', { token: value });
-      const data = res.data;
-      if (data.session_data) {
-        processSessionData(data.session_data, value);
-      }
-    } catch (error) {
-      console.log('error');
-      console.log(error);
-      setIsCheckingToken(false);
-    }
-  };
-
+  // ── Platform-specific helpers ───────────────────────────────────────────────
   const contactPhone = (phoneNumber: string) => {
-    console.log('contactPhone. phone = ' + phoneNumber);
     const phoneStr = Platform.OS === 'android' ? `tel:${phoneNumber}` : `telprompt:${phoneNumber}`;
     Linking.openURL(phoneStr);
   };
 
-  const handleSubmit = async () => {
-    if (isSubmitting) {
-      console.log('⚠️ Already submitting, ignoring duplicate click');
-      return;
-    }
-
-    setIsSubmitting(true);
-    console.log('call auth-by-phone');
-    let cleanPhone = phone.replace(/\+/, '');
-    console.log('phone = ' + cleanPhone);
-
-    try {
-      const res = await Api.post('/auth-by-phone', { phone: cleanPhone });
-      const data = res.data;
-      console.log(data);
-
-      await AsyncStorage.setItem('token', data.token);
-
-      router.push('/pin');
-    } catch (error) {
-      console.log('error');
-      console.log(error);
-      setIsSubmitting(false);
-    }
+  const getButtonStyle = () => {
+    const backgroundColor = disabled || !checked || isSubmitting ? '#c0c0c0' : '#3A3A3A';
+    return {
+      height: 50,
+      width: 275,
+      borderRadius: 5,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor,
+    };
   };
 
-  // Effects
-  useEffect(() => {
-    console.log('Auth DidMount');
-
-    const init = async () => {
-      // Проверяем, есть ли токен (пользователь пришёл через "Выйти" или не подтверждён)
-      const token = await AsyncStorage.getItem('token');
-      
-      if (token) {
-        console.log('🔑 Token exists, user can go back');
-        setCanGoBack(true);
-        
-        console.log('📦 AuthScreen props.initialSessionData:', JSON.stringify(props.initialSessionData));
-        
-        if (props.initialSessionData && Object.keys(props.initialSessionData).length > 0) {
-           console.log('📦 Using initialSessionData from props');
-           processSessionData(props.initialSessionData, token);
-        } else {
-           // Проверяем статус подтверждения пользователя через API
-           console.log('🔍 Checking user confirmation status via API...');
-           await getSessionData(token);
-        }
-      } else {
-        // Нет токена - показываем экран ввода телефона
-        setIsCheckingToken(false);
-      }
-
-      // Получаем пользовательское соглашение и политику конфиденциальности
-      try {
-        const res = await Api.post('/get-user-agreement-and-privacy-policy');
-        const data = res.data;
-        setUserAgreement(data.content_data.user_agreement);
-        setPrivacyPolicy(data.content_data.privacy_policy);
-      } catch (error) {
-        console.log('error');
-        console.log(error);
-      }
-    };
-
-    init();
-  }, []);
-
-  // Показываем пустой экран пока проверяем токен
+  // ── Loading state ───────────────────────────────────────────────────────────
   if (isCheckingToken) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        {/* Можно добавить ActivityIndicator если нужно */}
-      </View>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]} />
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* модальное окно с Пользовательским соглашением */}
+      {/* User agreement modal */}
       <Modal
         animationType="slide"
         transparent={false}
         visible={modalUserAgreement}
-        onRequestClose={() => {
-          setModalUserAgreement(false);
-        }}
+        onRequestClose={() => setModalUserAgreement(false)}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-          <View style={{ 
-            flex: 1, 
-            paddingHorizontal: 20, 
-            paddingTop: 20
-          }}>
-            <Text style={{ 
-              fontSize: 20, 
-              fontWeight: 'bold', 
-              color: '#000000', 
-              marginBottom: 20,
-              textAlign: 'center'
-            }}>
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#000000', marginBottom: 20, textAlign: 'center' }}>
               Пользовательское соглашение
             </Text>
-            <ScrollView 
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingBottom: 100 }}
-              showsVerticalScrollIndicator={true}
-            >
-              <Text style={{ 
-                color: '#000000', 
-                fontSize: 14,
-                lineHeight: 22,
-                textAlign: 'left'
-              }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator>
+              <Text style={{ color: '#000000', fontSize: 14, lineHeight: 22, textAlign: 'left' }}>
                 {userAgreement}
               </Text>
             </ScrollView>
             <TouchableOpacity
-              style={{ 
-                position: 'absolute', 
-                bottom: 20, 
-                left: 20, 
-                right: 20, 
-                height: 50, 
-                borderRadius: 5, 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                backgroundColor: "#3A3A3A",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 3.84,
-                elevation: 5
+              style={{
+                position: 'absolute', bottom: 20, left: 20, right: 20, height: 50,
+                borderRadius: 5, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: '#3A3A3A',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5,
               }}
               onPress={() => setModalUserAgreement(false)}
             >
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: "#FFFFFF" }}>Закрыть</Text>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' }}>Закрыть</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* модальное окно с Политикой конфиденциальности */}
+      {/* Privacy policy modal */}
       <Modal
         animationType="slide"
         transparent={false}
         visible={modalPrivacyPolicy}
-        onRequestClose={() => {
-          setModalPrivacyPolicy(false);
-        }}
+        onRequestClose={() => setModalPrivacyPolicy(false)}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-          <View style={{ 
-            flex: 1, 
-            paddingHorizontal: 20, 
-            paddingTop: 20
-          }}>
-            <Text style={{ 
-              fontSize: 20, 
-              fontWeight: 'bold', 
-              color: '#000000', 
-              marginBottom: 20,
-              textAlign: 'center'
-            }}>
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 20 }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#000000', marginBottom: 20, textAlign: 'center' }}>
               Политика конфиденциальности
             </Text>
-            <ScrollView 
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingBottom: 100 }}
-              showsVerticalScrollIndicator={true}
-            >
-              <Text style={{ 
-                color: '#000000', 
-                fontSize: 14,
-                lineHeight: 22,
-                textAlign: 'left'
-              }}>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator>
+              <Text style={{ color: '#000000', fontSize: 14, lineHeight: 22, textAlign: 'left' }}>
                 {privacyPolicy}
               </Text>
             </ScrollView>
             <TouchableOpacity
-              style={{ 
-                position: 'absolute', 
-                bottom: 20, 
-                left: 20, 
-                right: 20, 
-                height: 50, 
-                borderRadius: 5, 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                backgroundColor: "#3A3A3A",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 3.84,
-                elevation: 5
+              style={{
+                position: 'absolute', bottom: 20, left: 20, right: 20, height: 50,
+                borderRadius: 5, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: '#3A3A3A',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5,
               }}
               onPress={() => setModalPrivacyPolicy(false)}
             >
-              <Text style={{ fontSize: 16, fontWeight: 'bold', color: "#FFFFFF" }}>Закрыть</Text>
+              <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FFFFFF' }}>Закрыть</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </Modal>
 
-      {/* Кнопка "Назад" если пользователь пришёл через "Выйти" */}
-      {canGoBack && router.canGoBack() && (
+      {/* Back button (if user came via "Выйти") */}
+      {router.canGoBack() && (
         <TouchableOpacity
           style={{
             position: 'absolute',
             top: Platform.OS === 'ios' ? 60 : 20,
-            left: 20,
-            padding: 10,
-            zIndex: 10
+            left: 20, padding: 10, zIndex: 10,
           }}
-          onPress={() => {
-            console.log('🔙 Going back to previous screen');
-            router.back();
-          }}
+          onPress={() => router.back()}
         >
           <Image source={require('../../../assets/images/back_2.png')} />
         </TouchableOpacity>
       )}
 
-      <Text style={{ fontSize: 22, fontWeight: "bold", color: '#4C4C4C' }}>Введите номер телефона</Text>
+      <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4C4C4C' }}>Введите номер телефона</Text>
       <Text style={{ color: '#4C4C4C' }}>чтобы войти или зарегистрироваться</Text>
       <TextInput
-        keyboardType='phone-pad'
-        textAlign={'center'}
-        style={{ height: 60, width: 275, color: '#4C4C4C', fontSize: 30, borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom: 10 }}
+        keyboardType="phone-pad"
+        textAlign="center"
+        style={{
+          height: 60, width: 275, color: '#4C4C4C', fontSize: 30,
+          borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom: 10,
+        }}
         maxLength={12}
-        placeholder='+70000000000'
-        placeholderTextColor='#c0c0c0'
+        placeholder="+70000000000"
+        placeholderTextColor="#c0c0c0"
         onFocus={focusPhone}
         onChangeText={changePhone}
-        value={phone}
+        value={displayPhone}
       />
       <TouchableOpacity
         disabled={disabled || !checked || isSubmitting}
         style={getButtonStyle()}
         onPress={handleSubmit}
       >
-        <Text style={getButtonTextStyle()}>{isSubmitting ? 'Отправка...' : 'Отправить'}</Text>
+        <Text style={{ fontSize: 20, color: '#FFFFFF' }}>
+          {isSubmitting ? 'Отправка...' : 'Отправить'}
+        </Text>
       </TouchableOpacity>
 
-      <View style={{ marginTop: 30, width: 300, flexDirection: "row" }}>
+      <View style={{ marginTop: 30, width: 300, flexDirection: 'row' }}>
         <View style={{ flex: 5 }}>
-          <Text style={{ fontSize: 12, fontWeight: "normal" }}>Нажимая на кнопку &quot;Отправить&quot;, я соглашаюсь с данными:</Text>
+          <Text style={{ fontSize: 12, fontWeight: 'normal' }}>
+            Нажимая на кнопку &quot;Отправить&quot;, я соглашаюсь с данными:
+          </Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <TouchableHighlight
             style={{ width: 32, height: 32 }}
             activeOpacity={1}
-            underlayColor='#FFFFFF'
+            underlayColor="#FFFFFF"
             onPress={() => setChecked(!checked)}
           >
             {checked ? (
@@ -482,51 +209,40 @@ export default function AuthScreen(props: AuthScreenProps) {
         </View>
       </View>
 
-      <Text
-        style={{ marginTop: 10, color: 'blue' }}
-        onPress={() => setModalUserAgreement(true)}>
+      <Text style={{ marginTop: 10, color: 'blue' }} onPress={() => setModalUserAgreement(true)}>
         Пользовательское соглашение
       </Text>
-      <Text
-        style={{ marginTop: 10, color: 'blue' }}
-        onPress={() => setModalPrivacyPolicy(true)}>
+      <Text style={{ marginTop: 10, color: 'blue' }} onPress={() => setModalPrivacyPolicy(true)}>
         Политика конфиденциальности
       </Text>
 
-      {/* модальное окно ожидания подтверждения */}
+      {/* Wait-for-confirmation modal */}
       <Modal
         animationType="slide"
         transparent={false}
         visible={modalWaitConfirmation}
-        onRequestClose={() => {
-          setModalWaitConfirmation(false);
-        }}
+        onRequestClose={() => {}}
       >
-        <View style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 20,
-        }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <View style={{
-            backgroundColor: '#EEEEEE',
-            borderRadius: 25,
-            alignItems: 'stretch',
-            justifyContent: 'center',
-            padding: 20,
-            borderWidth: 1,
-            borderColor: "#B8B8B8",
-            maxWidth: 350,
+            backgroundColor: '#EEEEEE', borderRadius: 25, alignItems: 'stretch',
+            justifyContent: 'center', padding: 20, borderWidth: 1, borderColor: '#B8B8B8', maxWidth: 350,
           }}>
-            <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: "bold", color: "#313131" }}>Ваша заявка зарегистрирована!</Text>
-            <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы</Text>
-            
+            <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 20, fontWeight: 'bold', color: '#313131' }}>
+              Ваша заявка зарегистрирована!
+            </Text>
+            <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: 'normal', color: '#313131' }}>
+              Наш менеджер скоро свяжется с Вами по указанному при регистрации номеру для заключения договора оказания услуг и ответит на все сопутствующие вопросы
+            </Text>
+
             {sessionData?.user_data?.manager_data?.mobile_phone && (
               <TouchableHighlight
                 onPress={() => contactPhone(sessionData.user_data?.manager_data?.mobile_phone || '')}
               >
                 <View style={{ alignItems: 'center', padding: 5 }}>
-                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: "normal", color: "#313131" }}>Вы можете связаться с менеджером</Text>
+                  <Text style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 24, fontSize: 16, fontWeight: 'normal', color: '#313131' }}>
+                    Вы можете связаться с менеджером
+                  </Text>
                   <Image style={{ margin: 15 }} source={require('../../../assets/images/contact_phone_2.png')} />
                 </View>
               </TouchableHighlight>
@@ -534,32 +250,11 @@ export default function AuthScreen(props: AuthScreenProps) {
 
             <TouchableOpacity
               style={{
-                marginTop: 24,
-                marginHorizontal: 16,
-                height: 44,
-                borderRadius: 5,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#FFFFFF',
-                borderWidth: 1,
-                borderColor: '#3A3A3A',
+                marginTop: 24, marginHorizontal: 16, height: 44, borderRadius: 5,
+                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#3A3A3A',
               }}
-              onPress={async () => {
-                // Удаляем токен и закрываем модалку для перелогина
-                await AsyncStorage.removeItem('token');
-                
-                // Очищаем интервал проверки статуса
-                if (intervalRef.current) {
-                  clearInterval(intervalRef.current);
-                  intervalRef.current = null;
-                }
-                
-                // Сбрасываем состояние
-                setSessionData({});
-                setPhone('');
-                setCanGoBack(false);
-                setModalWaitConfirmation(false);
-              }}
+              onPress={handleRelogin}
             >
               <Text style={{ fontSize: 14, color: '#3A3A3A' }}>Войти с другим номером</Text>
             </TouchableOpacity>

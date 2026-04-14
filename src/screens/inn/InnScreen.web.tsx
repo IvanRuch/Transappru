@@ -1,165 +1,34 @@
 /**
  * Web-only INN screen.
- * Renders inside WebAppLayout (sidebar already present).
- * Two modes:
- *  - INN binding (default): enter 10/12-digit INN to register
- *  - RNIS check: enter license plate to check RNIS status
+ * Uses shared useInnBinding hook for business logic.
+ * Platform-specific: native <input>, <a> for phone, web styles.
  */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Modal,
-  Pressable,
   ActivityIndicator,
   StyleSheet,
   ScrollView,
   Image,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-
-import api from '../../services/api';
-
-// Latin → Cyrillic conversion map for license plates
-const LATIN_TO_CYRILLIC: Record<string, string> = {
-  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
-  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
-};
-
-function latinToCyrillic(value: string): string {
-  return value
-    .toUpperCase()
-    .split('')
-    .map(ch => LATIN_TO_CYRILLIC[ch] || ch)
-    .join('');
-}
+import { useRouter } from 'expo-router';
+import { useInnBinding } from '../../hooks/useInnBinding';
 
 export default function InnScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
 
-  // Parse route params
-  const [userData] = useState<any>(() => {
-    try {
-      return params.user_data ? JSON.parse(params.user_data as string) : {};
-    } catch { return {}; }
-  });
-  const [checkRnis] = useState(() => params.check_rnis === '1');
-  const isExistingUser = Object.keys(userData).length > 0;
-
-  // INN state
-  const [inn, setInn] = useState('');
-  const innValid = /^(\d{10})$|^(\d{12})$/.test(inn);
-
-  // RNIS state
-  const [autoNumberBase, setAutoNumberBase] = useState('');
-  const [autoNumberRegion, setAutoNumberRegion] = useState('');
-  const [rnisLoading, setRnisLoading] = useState(false);
-  const [rnisData, setRnisData] = useState<any>(null);
-
-  const rnisButtonEnabled =
-    autoNumberBase.length === 6 &&
-    (autoNumberRegion.length === 2 || autoNumberRegion.length === 3);
-
-  // Modals
-  const [confirmationModal, setConfirmationModal] = useState(false);
-  const [errorModal, setErrorModal] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [managerPhone, setManagerPhone] = useState('');
-
-  // ── INN handlers ──────────────────────────────────────────────────────────
-
-  const changeInn = (value: string) => {
-    setInn(value.replace(/\D/g, '').substring(0, 12));
-  };
-
-  const handleBindInn = async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    try {
-      const res = await api.post('/bind-inn', { token, inn });
-      const data = res.data;
-      console.log('bindInn response:', data);
-
-      if (data.token) {
-        await AsyncStorage.setItem('token', data.token);
-      }
-
-      if (data.auth_required === 1) {
-        router.replace('/');
-        return;
-      }
-
-      if (data.error == 1) {
-        setErrorMsg(data.msg);
-        setErrorModal(true);
-      } else {
-        if (isExistingUser) {
-          const originalInn = userData.inn;
-          const currentToken = data.token || token;
-
-          try {
-            await api.post('/set-current-inn', { token: currentToken, current_inn: originalInn });
-          } catch (e) {
-            console.log('Error returning to original org:', e);
-          }
-
-          setManagerPhone(userData.manager_data?.mobile_phone || '');
-          setConfirmationModal(true);
-        } else {
-          // New user — redirect to Auth to wait for manager confirmation
-          router.replace('/');
-        }
-      }
-    } catch (error: any) {
-      console.log('Error binding INN:', error);
-      if (error.response?.status === 401) {
-        router.replace('/');
-      }
-    }
-  };
-
-  // ── RNIS handlers ─────────────────────────────────────────────────────────
-
-  const changeAutoNumberBase = (value: string) => {
-    const converted = latinToCyrillic(value);
-    if (/^[АВЕКМНОРСТУХABEKMHOPCTYX0-9]*$/i.test(converted)) {
-      setAutoNumberBase(converted.substring(0, 6));
-    }
-  };
-
-  const changeAutoNumberRegion = (value: string) => {
-    if (/^[0-9]*$/.test(value)) {
-      setAutoNumberRegion(value.substring(0, 3));
-    }
-  };
-
-  const handleCheckRnis = async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    setRnisLoading(true);
-    setRnisData(null);
-
-    try {
-      const res = await api.post('/check-rnis', {
-        token,
-        auto_number_base: autoNumberBase,
-        auto_number_region_code: autoNumberRegion,
-      });
-      setRnisData(res.data.auto_rnis_data || {});
-    } catch (error: any) {
-      console.log('Error checking RNIS:', error);
-      if (error.response?.status === 401) {
-        router.replace('/');
-      }
-    } finally {
-      setRnisLoading(false);
-    }
-  };
+  const {
+    userData, checkRnis, isExistingUser,
+    inn, innValid, changeInn,
+    autoNumberBase, autoNumberRegion, rnisButtonEnabled, rnisLoading, rnisData,
+    changeAutoNumberBase, changeAutoNumberRegion,
+    confirmationModal, errorModal, errorMsg, managerPhone,
+    closeErrorModal, closeConfirmationModal,
+    handleBindInn, handleCheckRnis,
+  } = useInnBinding(() => router.replace('/(authenticated)/auto-list' as any));
 
   // ── Confirmation modal ────────────────────────────────────────────────────
   const confirmationModalEl = (
@@ -167,7 +36,7 @@ export default function InnScreen() {
       animationType="fade"
       transparent
       visible={confirmationModal}
-      onRequestClose={() => setConfirmationModal(false)}
+      onRequestClose={closeConfirmationModal}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
@@ -193,10 +62,7 @@ export default function InnScreen() {
 
           <TouchableOpacity
             style={styles.modalBtn}
-            onPress={() => {
-              setConfirmationModal(false);
-              router.replace('/(authenticated)/auto-list' as any);
-            }}
+            onPress={closeConfirmationModal}
           >
             <Text style={styles.modalBtnText}>Закрыть</Text>
           </TouchableOpacity>
@@ -211,14 +77,14 @@ export default function InnScreen() {
       animationType="fade"
       transparent
       visible={errorModal}
-      onRequestClose={() => setErrorModal(false)}
+      onRequestClose={closeErrorModal}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
           <Text style={styles.modalText}>{errorMsg}</Text>
           <TouchableOpacity
             style={styles.modalBtn}
-            onPress={() => setErrorModal(false)}
+            onPress={closeErrorModal}
           >
             <Text style={styles.modalBtnText}>OK</Text>
           </TouchableOpacity>
@@ -404,7 +270,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
 
-  // ── Card ──────────────────────────────────────────────────────────────────
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -432,7 +297,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Inputs ────────────────────────────────────────────────────────────────
   inputRow: {
     height: 64,
     borderRadius: 8,
@@ -444,7 +308,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── License plate ─────────────────────────────────────────────────────────
   plateRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -480,7 +343,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 
-  // ── Submit button ─────────────────────────────────────────────────────────
   submitBtn: {
     height: 50,
     borderRadius: 8,
@@ -497,7 +359,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ── RNIS results ──────────────────────────────────────────────────────────
   rnisResult: {
     marginTop: 24,
     padding: 20,
@@ -517,7 +378,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // ── Modals ────────────────────────────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',

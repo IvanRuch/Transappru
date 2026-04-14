@@ -93,6 +93,28 @@ Console logs are added for key auth flow events (visible in browser DevTools):
 
 Note: `onboarding_expired` can come as string `"0"` or number `0` from API — both are handled.
 
+## Shared Hooks (ADR-003)
+
+Business logic extracted from screen pairs into shared hooks — screens are thin UI wrappers.
+See [Decision Log](decision-log.md) ADR-003.
+
+| Hook | Screens | Key exports |
+|------|---------|-------------|
+| `useAuthFlow` | AuthScreen | phone, polling, agreements, submit |
+| `usePinConfirm` | PinScreen | submitPin, error modal, navigation |
+| `useOnboardingFlow` | OnBoardingScreen | slides, current, handleNext/Skip |
+| `useNotificationList` | NotificationListScreen | notifications, loading, markAsViewed |
+| `useNotificationSettings` | NotificationSettingsScreen | settings, toggleMaster/Auto, error state |
+| `useChargesSelection` | ChargesScreen | filter, selection, grouped data, pay |
+| `usePaymentConfirm` | PaymentConfirmScreen | charges, commission, FIO, discount, pay |
+| `useInnBinding` | InnScreen | INN, RNIS check, modals, bind |
+| `usePassOrder` | PassScreen | address autocomplete, zone, vehicles, order |
+
+**Pattern:** hooks return error strings/states; mobile → `Alert.alert`, web → `window.alert` or inline UI.
+Hooks use `api` from `services/api`. Platform-specific behavior via callbacks (e.g. `useInnBinding(onConfirmationClose)`).
+
+**Utility:** `src/utils/plateHelpers.ts` — shared GRZ normalization (Latin→Cyrillic, allowed chars, digits-only).
+
 ## API Client
 
 All `.web.tsx` screens use `import api from '../../services/api'` (the unified API client).

@@ -1,14 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import Api from '../utils/Api';
+import api from '../services/api';
 import type { NotificationTypeGranted, NotificationGrantedResponse } from '../types/notifications';
 
+/**
+ * Shared notification-settings logic for mobile and web.
+ *
+ * Handles: loading settings tree, master toggle (with per-auto cascade),
+ * per-auto toggle, optimistic updates with rollback.
+ *
+ * Error reporting: sets `error` state string. Each screen decides how
+ * to display it (mobile → Alert.alert, web → inline or window.alert).
+ */
 export function useNotificationSettings() {
   const router = useRouter();
   const [settings, setSettings] = useState<NotificationTypeGranted[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const getToken = useCallback(async (): Promise<string | null> => {
     const token = await AsyncStorage.getItem('token');
@@ -19,14 +28,15 @@ export function useNotificationSettings() {
     return token;
   }, [router]);
 
-  // ── Загрузка дерева настроек ────────────────────────────────────────────
+  // ── Load settings tree ────────────────────────────────────────────────────
   const loadSettings = useCallback(async () => {
     const token = await getToken();
     if (!token) return;
 
     try {
       setLoading(true);
-      const res = await Api.post<NotificationGrantedResponse>('/get-notification-granted', { token });
+      setError(null);
+      const res = await api.post<NotificationGrantedResponse>('/get-notification-granted', { token });
 
       if (res.data.auth_required === 1) {
         router.replace('/');
@@ -34,11 +44,11 @@ export function useNotificationSettings() {
       }
 
       setSettings(res.data.notification_granted_list || []);
-    } catch (error: any) {
-      if (error.response?.status === 401) {
+    } catch (err: any) {
+      if (err.response?.status === 401) {
         router.replace('/');
       } else {
-        Alert.alert('Ошибка', 'Не удалось загрузить настройки уведомлений');
+        setError('Не удалось загрузить настройки уведомлений');
       }
     } finally {
       setLoading(false);
@@ -49,18 +59,19 @@ export function useNotificationSettings() {
     loadSettings();
   }, [loadSettings]);
 
-  // ── Master toggle (тип целиком) ─────────────────────────────────────────
-  // Серверная логика OR: уведомление отправляется если master OR per-auto.
-  // Поэтому при master OFF каскадно выставляем все per-auto в "0",
-  // при master ON — все per-auto в "1" (записи удалятся из таблицы).
+  // ── Deep clone for rollback ───────────────────────────────────────────────
+  const cloneSettings = (s: NotificationTypeGranted[]) =>
+    s.map(t => ({ ...t, auto_granted: t.auto_granted.map(a => ({ ...a })) }));
+
+  // ── Master toggle (type-level) ────────────────────────────────────────────
+  // Server logic is OR: notification fires if master OR per-auto.
+  // So on master OFF we cascade all per-auto to "0",
+  // on master ON we cascade all per-auto to "1".
   const toggleMaster = useCallback(async (notificationType: string, newValue: boolean) => {
     const grantedStr = newValue ? '1' : '0';
-    const prev = settings.map(s => ({
-      ...s,
-      auto_granted: s.auto_granted.map(a => ({ ...a })),
-    }));
+    const prev = cloneSettings(settings);
 
-    // Optimistic update: master + все per-auto
+    // Optimistic update: master + all per-auto
     setSettings(s => s.map(item =>
       item.notification_type === notificationType
         ? {
@@ -75,12 +86,12 @@ export function useNotificationSettings() {
     if (!token) return;
 
     try {
-      // Каскад per-auto СНАЧАЛА
+      // Cascade per-auto FIRST
       const targetType = settings.find(s => s.notification_type === notificationType);
       if (targetType && targetType.auto_granted.length > 0) {
         await Promise.all(
           targetType.auto_granted.map(auto =>
-            Api.post('/set-notification-granted', {
+            api.post('/set-notification-granted', {
               token,
               notification_type: notificationType,
               user_auto: auto.id,
@@ -90,29 +101,26 @@ export function useNotificationSettings() {
         );
       }
 
-      // Master ПОСЛЕДНИМ — чтобы per-auto вызовы не затёрли его на сервере
-      await Api.post('/set-notification-granted', {
+      // Master LAST — so per-auto calls don't overwrite it on the server
+      await api.post('/set-notification-granted', {
         token,
         notification_type: notificationType,
         granted: grantedStr,
       });
     } catch {
       setSettings(prev);
-      Alert.alert('Ошибка', 'Не удалось сохранить настройку');
+      setError('Не удалось сохранить настройку');
     }
   }, [settings, getToken]);
 
-  // ── Per-auto toggle ─────────────────────────────────────────────────────
+  // ── Per-auto toggle ───────────────────────────────────────────────────────
   const toggleAuto = useCallback(async (
     notificationType: string,
     userAutoId: string,
     newValue: boolean,
   ) => {
     const grantedStr = newValue ? '1' : '0';
-    const prev = settings.map(s => ({
-      ...s,
-      auto_granted: s.auto_granted.map(a => ({ ...a })),
-    }));
+    const prev = cloneSettings(settings);
 
     // Optimistic update
     setSettings(s => s.map(item =>
@@ -130,7 +138,7 @@ export function useNotificationSettings() {
     if (!token) return;
 
     try {
-      await Api.post('/set-notification-granted', {
+      await api.post('/set-notification-granted', {
         token,
         notification_type: notificationType,
         user_auto: userAutoId,
@@ -138,9 +146,11 @@ export function useNotificationSettings() {
       });
     } catch {
       setSettings(prev);
-      Alert.alert('Ошибка', 'Не удалось сохранить настройку');
+      setError('Не удалось сохранить настройку');
     }
   }, [settings, getToken]);
 
-  return { settings, loading, loadSettings, toggleMaster, toggleAuto };
+  const clearError = useCallback(() => setError(null), []);
+
+  return { settings, loading, error, clearError, loadSettings, toggleMaster, toggleAuto };
 }

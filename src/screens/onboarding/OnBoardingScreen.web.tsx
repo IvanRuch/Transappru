@@ -4,7 +4,7 @@
  * Mobile web: stacked — image above, text + nav below.
  * No location permission request on web.
  */
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,67 +13,25 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import api from '../../services/api';
 
-interface Slide {
-  msg: string;
-  src: any;
-}
-
-const slides: Slide[] = [
-  { msg: 'Добавляйте авто', src: require('../../../assets/images/onboarding1.png') },
-  { msg: 'Проверяйте штрафы, ОСАГО, диагностические карты', src: require('../../../assets/images/onboarding2.png') },
-  { msg: 'Заказывайте пропуска на транспорт', src: require('../../../assets/images/onboarding3.png') },
-  { msg: 'Добавляйте файлы', src: require('../../../assets/images/onboarding4.png') },
-];
+import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
 
 export default function OnBoardingScreen() {
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
-  const [current, setCurrent] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const isLast = current === slides.length - 1;
-
-  // Mark onboarding as viewed and navigate to auto-list.
-  // Same pattern as mobile: await the API call before navigating,
-  // so the server has time to persist the flag.
-  const markViewedAndNavigate = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) { router.replace('/'); return; }
-
-      await api.post('/get-onboarding', { token });
-      console.log('Onboarding: marked as viewed, navigating to auto-list');
-
-      // Backup flag in localStorage so other tabs won't redirect again
-      try { localStorage.setItem('ta_onboarding_done', '1'); } catch {}
-    } catch (error: any) {
-      console.log('Error marking onboarding:', error);
-      if (error.response?.status === 401) { router.replace('/'); return; }
-      // Even if API fails, save locally to avoid infinite loop
-      try { localStorage.setItem('ta_onboarding_done', '1'); } catch {}
-    }
-    router.replace('/(authenticated)/auto-list');
-  };
-
-  const handleNext = () => {
-    if (isLast) {
-      markViewedAndNavigate();
-    } else {
-      setCurrent(current + 1);
-    }
-  };
-
-  const handleSkip = () => {
-    markViewedAndNavigate();
-  };
+  const {
+    slides,
+    current,
+    setCurrent,
+    isLast,
+    isLoading,
+    handleNext,
+    handleSkip,
+  } = useOnboardingFlow(() => {
+    // Web-specific: backup flag in localStorage so other tabs won't redirect
+    try { localStorage.setItem('ta_onboarding_done', '1'); } catch {}
+  });
 
   const slide = slides[current];
 
@@ -88,7 +46,7 @@ export default function OnBoardingScreen() {
     </View>
   );
 
-  // ── Right panel content ───────────────────────────────────────────────────
+  // ── Text panel ────────────────────────────────────────────────────────────
   const textPanel = (
     <View style={styles.textPanel}>
       <Text style={styles.slideTitle}>{slide.msg}</Text>
@@ -115,11 +73,9 @@ export default function OnBoardingScreen() {
     <View style={styles.root}>
       {isDesktop ? (
         <View style={styles.desktopRow}>
-          {/* Left: image */}
           <View style={styles.imagePanel}>
             <Image source={slide.src} style={styles.slideImage} resizeMode="contain" />
           </View>
-          {/* Right: text + nav */}
           <View style={styles.rightPanel}>
             {textPanel}
           </View>
@@ -144,7 +100,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F2F5',
   },
 
-  // ── Desktop ───────────────────────────────────────────────────────────────
   desktopRow: {
     flex: 1,
     flexDirection: 'row',
@@ -170,7 +125,6 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
 
-  // ── Mobile ────────────────────────────────────────────────────────────────
   mobileCol: {
     flex: 1,
     paddingHorizontal: 20,
@@ -190,7 +144,6 @@ const styles = StyleSheet.create({
     height: '90%',
   },
 
-  // ── Text panel ────────────────────────────────────────────────────────────
   textPanel: {
     alignItems: 'center',
     width: '100%',
@@ -206,7 +159,6 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
 
-  // ── Dots ──────────────────────────────────────────────────────────────────
   dotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,7 +179,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 
-  // ── Buttons ───────────────────────────────────────────────────────────────
   nextBtn: {
     width: '100%',
     height: 50,
