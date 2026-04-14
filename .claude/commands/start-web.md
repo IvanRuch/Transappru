@@ -3,55 +3,60 @@ This command MUST NOT modify files — only read and report.
 
 ## Context
 
-This session focuses on `transappweb/` — the React 19 web version.
-The goal is adapting mobile app features to the web.
+Web version uses **Expo Web** from the shared `/src/` codebase (ADR-001).
+Platform-specific screens use `.web.tsx` overrides. Layout: `_layout.web.tsx` wraps in `WebAppLayout`.
 
 ## Sources to read (in parallel)
 
-1. `transappweb/CLAUDE.md` — web coding conventions
-2. `Writerside/topics/dev-web.md` — web documentation
-3. `Writerside/topics/project-dashboard.md` — overall progress
-4. Web project structure:
+1. `Writerside/topics/dev-web.md` — feature parity checklist, shared hooks, Yandex Maps, CI/CD
+2. `Writerside/topics/project-dashboard.md` — overall progress
+3. `Writerside/topics/decision-log.md` — architectural decisions (ADR-001 through ADR-004)
+4. `.claude/rules.md` — session management, WebAppLayout rule, mobile/web parity
+5. Recent git activity:
 
 ```bash
-ls transappweb/src/
+git log -5 --oneline
 ```
 
-5. Recent web-related changes:
+6. Uncommitted work:
 
 ```bash
-git log -20 --oneline -- transappweb/
+git diff --stat
 ```
 
-6. Uncommitted web work:
+7. Active plan files:
 
 ```bash
-git diff --stat -- transappweb/
+ls -la .claude/plans/*.md 2>/dev/null && echo "---" && head -30 .claude/plans/*.md 2>/dev/null || echo "No active plans"
 ```
 
-7. Compare mobile screens vs web — find gaps:
+8. List web-specific screen files:
 
 ```bash
-echo "=== Mobile screens ===" && ls src/screens/*/ 2>/dev/null | head -30 && echo "=== Web pages ===" && ls transappweb/src/*.js 2>/dev/null
+echo "=== .web.tsx screens ===" && find src/screens -name "*.web.tsx" | sort && echo "=== .web.tsx routes ===" && find app -name "*.web.tsx" | sort
 ```
 
-## Output format (under 20 lines)
+## Output format (under 25 lines)
 
 ```
 ## Web Session Start
 
-**Stack:** React 19, JS, no router
-**Last web commit:** [date + message or "no web commits yet"]
+**Stack:** Expo Web (React Native Web), TypeScript, Expo Router
+**Last commit:** [date + message]
 **Uncommitted:** [file count or "clean"]
+**Active plan:** [plan name + summary or "none"]
 
-### Mobile → Web Parity
-| Mobile Screen | Web Equivalent | Status |
-|...|...|...|
-(list key screens, mark: done / partial / missing)
+### Feature Parity
+[Summary from dev-web.md checklist — what's done, what's missing]
+
+### Web-Specific Files
+[count] .web.tsx screens, [count] .web.tsx routes
+
+### Shared Hooks
+[list from dev-web.md — useAuthFlow, usePinConfirm, etc.]
 
 ### Next Task
-[Suggest the highest-priority missing screen or feature]
+[From plan file, dashboard, or user's direction]
 **What to do:** [1 sentence]
-**Reference mobile:** [path to mobile screen to port]
-**Reference web:** [closest existing web file to extend]
+**Key files:** [paths to start from]
 ```

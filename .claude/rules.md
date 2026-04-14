@@ -81,4 +81,16 @@ Shared utility: `src/utils/plateHelpers.ts` (GRZ normalization).
 - Payment DB (PostgreSQL): localhost:5433 (container 5432)
 - Main app dev server: localhost:8081 (Expo)
 
+## Session Management
+
+- **Commit often:** after each logical unit of work (feature, fix, refactor), suggest a commit.
+  This ensures nothing is lost if the session is restarted.
+- **Prefer `browser_snapshot` over `browser_take_screenshot`** for testing — text snapshots
+  consume far less context than screenshots. Use screenshots only when visual appearance matters.
+- **Proactive session restart:** when the conversation has been long (many tool calls,
+  large file reads, multiple screenshots), proactively suggest starting a fresh session.
+  Before suggesting, ensure all changes are committed.
+- **WebAppLayout rule:** All `.web.tsx` screen components must NOT wrap in `<WebAppLayout>`.
+  The authenticated layout (`_layout.web.tsx`) already provides it. Use `<View style={{flex:1}}>` instead.
+
 ## Corrections (accumulated)
