@@ -12,13 +12,13 @@ const getMainApiUrl = (): string => {
   return `https://${hostname}/api/`;
 };
 
-// Платёжный микросервис.
-// На localhost — напрямую к внешнему серверу.
+// Платёжный микросервис (Litestar/Python, принимает JSON).
+// На localhost — docker-compose exposes port 8001.
 // В продакшене — через nginx-прокси на том же домене (/payment-api/).
 const getPaymentApiUrl = (): string => {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'https://payment.transapp.ru/api';
+    return 'http://localhost:8001/api';
   }
   return `https://${hostname}/payment-api`;
 };
@@ -52,11 +52,12 @@ class ApiService {
       ...FORM_CONFIG,
     });
 
+    // Payment service (Litestar) expects JSON, not form-urlencoded
     this.paymentApi = axios.create({
       baseURL: getPaymentApiUrl(),
       responseType: 'json',
       timeout: 30000,
-      ...FORM_CONFIG,
+      headers: { 'Content-Type': 'application/json' },
     });
 
     this.setupInterceptors(this.api);

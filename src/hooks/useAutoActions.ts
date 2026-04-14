@@ -5,6 +5,23 @@ import { useRouter } from 'expo-router';
 import api from '../services/api';
 import type { AutoItem } from '../types/auto';
 
+// Russian license plates use only these 12 Cyrillic letters (matching Latin lookalikes)
+const LATIN_TO_CYRILLIC: Record<string, string> = {
+  A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
+  O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
+};
+
+const GRZ_ALLOWED = /^[АВЕКМНОРСТУХABEKMHOPCTYX0-9]*$/i;
+const DIGITS_ONLY = /^[0-9]*$/;
+
+function normalizePlate(value: string): string {
+  return value
+    .toUpperCase()
+    .split('')
+    .map(ch => LATIN_TO_CYRILLIC[ch] || ch)
+    .join('');
+}
+
 export function useAutoActions(
   refreshAutoList: () => Promise<void>,
   invalidateCache?: () => void
@@ -234,22 +251,30 @@ export function useAutoActions(
   }, []);
 
   const changeAutoNumberBase = useCallback((value: string) => {
-    setAutoNumberBase(value);
-    const isValid = value.length === 6;
+    const converted = normalizePlate(value);
+    if (!GRZ_ALLOWED.test(converted)) return;
+    const clamped = converted.substring(0, 6);
+    setAutoNumberBase(clamped);
+    const isValid = clamped.length === 6;
     setAutoNumberBaseOk(isValid);
     checkAddAutoEnabled(isValid, autoNumberRegionCodeOk, stsOk);
   }, [autoNumberRegionCodeOk, stsOk, checkAddAutoEnabled]);
 
   const changeAutoNumberRegionCode = useCallback((value: string) => {
-    setAutoNumberRegionCode(value);
-    const isValid = value.match(/^[0-9]{2,3}$/);
-    setAutoNumberRegionCodeOk(!!isValid);
-    checkAddAutoEnabled(autoNumberBaseOk, !!isValid, stsOk);
+    if (!DIGITS_ONLY.test(value)) return;
+    const clamped = value.substring(0, 3);
+    setAutoNumberRegionCode(clamped);
+    const isValid = clamped.length >= 2 && clamped.length <= 3;
+    setAutoNumberRegionCodeOk(isValid);
+    checkAddAutoEnabled(autoNumberBaseOk, isValid, stsOk);
   }, [autoNumberBaseOk, stsOk, checkAddAutoEnabled]);
 
   const changeSts = useCallback((value: string) => {
-    setSts(value);
-    const isValid = value.length === 10;
+    const converted = normalizePlate(value);
+    if (!GRZ_ALLOWED.test(converted)) return;
+    const clamped = converted.substring(0, 10);
+    setSts(clamped);
+    const isValid = clamped.length === 10;
     setStsOk(isValid);
     checkAddAutoEnabled(autoNumberBaseOk, autoNumberRegionCodeOk, isValid);
   }, [autoNumberBaseOk, autoNumberRegionCodeOk, checkAddAutoEnabled]);

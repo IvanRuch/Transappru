@@ -1,5 +1,5 @@
-import React from 'react';
-import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 
 interface AddAutoModalProps {
   visible: boolean;
@@ -34,9 +34,53 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const plateBaseRef = useRef<any>(null);
+  const plateRegionRef = useRef<any>(null);
+  const stsRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible) return;
+
+    // Hide Safari autofill icon via CSS pseudo-elements
+    const style = document.createElement('style');
+    style.textContent = `
+      input::-webkit-contacts-auto-fill-button,
+      input::-webkit-credentials-auto-fill-button {
+        visibility: hidden !important;
+        display: none !important;
+        pointer-events: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Strip RN-generated attributes that trigger Safari autofill heuristics.
+    // The search input ("Поиск по номеру...") has only 4 bare attrs and no autofill —
+    // we match that minimal signature by removing extra attrs Safari uses as signals.
+    const timer = setTimeout(() => {
+      [plateBaseRef, plateRegionRef, stsRef].forEach(ref => {
+        const node = ref.current;
+        if (!node) return;
+        const input = node.tagName === 'INPUT' ? node : node.querySelector?.('input');
+        if (!input) return;
+        for (const attr of ['autocomplete', 'autocorrect', 'autocapitalize',
+          'spellcheck', 'rows', 'virtualkeyboardpolicy', 'inputmode']) {
+          input.removeAttribute(attr);
+        }
+      });
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      document.head.removeChild(style);
+    };
+  }, [visible]);
+
   return (
     <Modal
-      animationType="slide"
+      animationType="fade"
       transparent={true}
       visible={visible}
       onRequestClose={onCancel}
@@ -45,13 +89,13 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-      <View style={styles.overlay}>
+      <Pressable style={styles.overlay} onPress={onCancel}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            <View style={styles.modalContent}>
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             {/* Заголовок с кнопкой закрытия */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
@@ -84,9 +128,11 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
                     {/* Основная часть номера */}
                     <View style={styles.plateBase}>
                       <TextInput
+                        ref={plateBaseRef}
                         style={styles.plateBaseInput}
                         maxLength={6}
                         placeholder='А000АА'
+                        placeholderTextColor={'#B8B8B8'}
                         onChangeText={onChangeAutoNumberBase}
                         value={autoNumberBase}
                       />
@@ -96,10 +142,12 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
                     {/* Регион */}
                     <View style={styles.plateRegion}>
                       <TextInput
+                        ref={plateRegionRef}
                         keyboardType='numeric'
                         style={styles.plateRegionInput}
                         maxLength={3}
                         placeholder='777'
+                        placeholderTextColor={'#B8B8B8'}
                         onChangeText={onChangeAutoNumberRegionCode}
                         value={autoNumberRegionCode}
                       />
@@ -126,6 +174,7 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
                         style={styles.stsBackground}
                       >
                         <TextInput
+                          ref={stsRef}
                           style={styles.stsInput}
                           maxLength={10}
                           placeholder='0000000000'
@@ -162,10 +211,10 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
                 </View>
               </View>
             </View>
-          </View>
+          </Pressable>
         </View>
         </ScrollView>
-      </View>
+      </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -174,7 +223,7 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(29, 29, 29, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   scrollContent: {
     flexGrow: 1,
@@ -195,6 +244,18 @@ const styles = StyleSheet.create({
     borderColor: '#B8B8B8',
     width: '100%',
     maxWidth: 400,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+        elevation: 12,
+      },
+    }),
   },
   header: {
     flexDirection: 'row',
@@ -264,12 +325,17 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#B8B8B8',
   },
   plateBaseInput: {
-    paddingTop: 5,
     fontSize: 34,
+    textAlign: 'center',
+    ...Platform.select({
+      web: { padding: 0, width: '100%', height: '100%' },
+      default: { paddingTop: 5 },
+    }),
   },
   plateSeparator: {
     flex: 1,
@@ -284,13 +350,18 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
     borderTopRightRadius: 8,
     alignItems: 'center',
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#B8B8B8',
   },
   plateRegionInput: {
-    paddingBottom: -10,
     height: 55,
     fontSize: 34,
+    textAlign: 'center',
+    ...Platform.select({
+      web: { padding: 0, width: '100%' },
+      default: { paddingBottom: -10 },
+    }),
   },
   plateRegionBottom: {
     flexDirection: 'row',
@@ -321,10 +392,15 @@ const styles = StyleSheet.create({
     height: 80,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   stsInput: {
-    paddingTop: 5,
     fontSize: 37,
+    textAlign: 'center',
+    ...Platform.select({
+      web: { padding: 0, width: '100%', height: '100%' },
+      default: { paddingTop: 5 },
+    }),
   },
   buttonContainer: {
     flexDirection: 'row',

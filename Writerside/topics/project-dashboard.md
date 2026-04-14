@@ -10,13 +10,16 @@
 |------|--------|-------|
 | Mobile App | 🔄 Active development | v2.0.17, Expo 54 |
 | Payment Service | ✅ Deployed | Kazna API integration |
-| Web Version | 🔄 Active development | Expo Web, all screens done, CI/CD configured |
+| Web Version | 🔄 Active development | Expo Web, all screens + payment flow + pass ordering done, CI/CD configured |
 | Legacy Web | ⚠️ In production | `/transappweb/` — to be replaced |
 | Legacy Mobile | 📦 Archive | `/Transappru/` — reference only |
 | Documentation | 🔄 Migration to Writerside | From /docs/ markdown |
 
 ## Recent Changes
 
+- **2026-04-14**: AddAutoModal: GRZ input validation in useAutoActions.ts — Cyrillic-only letter filter (АВЕКМНОРСТУХ), Latin→Cyrillic auto-conversion, digits-only region code, uppercase normalization; Safari autofill fix (strip RN-generated attributes + CSS pseudo-element hiding); placeholder alignment (Platform.select); click-outside-to-close overlay; gray placeholders
+- **2026-04-14**: Web: pass ordering flow — sidebar "Пропуск" now matches mobile behavior: AutoListScreen?mode=pass (auto-opens AddAutoModal, card click marks vehicles, footer "Заказать пропуск (N)") → PassScreen with selected vehicles. Removed self-loading fallback, added empty state redirect
+- **2026-04-14**: Web: in-app navigation screens — AutoFineScreen.web.tsx (fine details, payment button), PaymentConfirmScreen.web.tsx (commission calc, FIO validation, custom toggle, inline errors), FinePaymentSuccessScreen.web.tsx (success + navigation), PassScreen.web.tsx (2-stage address autocomplete, zone tabs МКАД/ТТК/СК, vehicle list, /add-address order)
 - **2026-04-14**: CI/CD: Docker deploy pipeline for Web + Payment to Yandex Cloud COI VM — nginx/Dockerfile.prod (multi-stage Expo Web build), payment-service/Dockerfile.prod (gunicorn), docker-compose.yc.yaml, GitHub Actions workflow (deploy-web.yml), SSL via Yandex Certificate Manager, api.web.ts payment URL made dynamic
 - **2026-04-14**: Web: all sidebar-linked screens now have `.web.tsx` versions — DriverListScreen (wraps DriversTab), NotificationListScreen (click-to-mark-viewed), NotificationSettingsScreen (two-level toggle tree with optimistic updates), ChargesScreen (grouped fines by auto, filter pills, SHOW_PAYMENT_UI selection+footer), UserScreen (profile: org data, contact CRUD, logout, delete profile). AutoDetailScreen.web.tsx — 8-tab vehicle detail screen, 13 sub-components. Fix: onboarding redirect loop — localStorage+sessionStorage persistence
 - **2026-04-13**: Web: logout fix (token removal), first-login flow (onboarding redirect + "Наши услуги" modal from /get-auto-list), anti-loop guards. Phone input cursor fix, OTP-style PIN fields. Unified API client, InnScreen.web.tsx, inline search, sidebar fixes

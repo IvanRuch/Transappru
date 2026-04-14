@@ -53,7 +53,11 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | Charges | `screens/charges/ChargesScreen.tsx` | ✅ Done | `.web.tsx`: grouped fines, filter pills, selection, payment footer |
 | Notifications | `screens/notifications/NotificationListScreen.tsx` | ✅ Done | `.web.tsx`: click-to-mark-viewed, blue indicator |
 | Notification settings | `screens/notifications/NotificationSettingsScreen.tsx` | ✅ Done | `.web.tsx`: two-level toggle tree, optimistic updates |
-| Fine payment | `screens/fine-payment/*` | — | Not in legacy web |
+| Fine detail | `screens/auto/AutoFineScreen.tsx` | ✅ Done | `.web.tsx`: display-only, route params, SHOW_PAYMENT_UI payment button |
+| Payment confirm | `screens/fine-payment/PaymentConfirmScreen.tsx` | ✅ Done | `.web.tsx`: commission calc, FIO validation, custom toggle, inline errors |
+| Payment webview | `screens/fine-payment/FinePaymentWebViewScreen.tsx` | ✅ Done | `.web.tsx`: iframe-based payment page |
+| Payment success | `screens/fine-payment/FinePaymentSuccessScreen.tsx` | ✅ Done | `.web.tsx`: success message, navigation back |
+| Pass ordering | `screens/pass/PassScreen.tsx` | ✅ Done | `.web.tsx`: 2-stage autocomplete, zone tabs, vehicle list, /add-address. Sidebar "Пропуск" → AutoListScreen?mode=pass (auto-opens AddAutoModal, card click marks vehicles, footer "Заказать пропуск") → PassScreen |
 | Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
 | Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
 
@@ -120,6 +124,27 @@ The mobile version is a single 2400-line class component. The web version is spl
 - `Alert.alert` → `window.alert()` / `window.confirm()`
 - `Api` (utils/) → `api` (services/) — CORS-friendly
 - Tabs lazy-load data on first visit
+
+## Shared Components — Web Fixes
+
+**AddAutoModal** (`components/auto/modals/AddAutoModal.tsx`) — shared between mobile and web, no `.web.tsx` override.
+
+Input validation (`hooks/useAutoActions.ts`):
+- GRZ base: only Cyrillic АВЕКМНОРСТУХ + digits 0-9; Latin ABEKMHOPCTYX auto-converted to Cyrillic; auto-uppercase
+- Region code: digits only (`/^[0-9]*$/`), max 3 chars
+- STS: same Cyrillic/Latin/digit filter as GRZ base, max 10 chars
+- Validation logic matches `InnScreen.web.tsx` / `InnScreen.tsx`
+
+Safari autofill prevention (web only):
+- `useEffect` strips RN-generated HTML attributes (`autocomplete`, `autocorrect`, `autocapitalize`, `spellcheck`, `rows`, `virtualkeyboardpolicy`, `inputmode`) via refs — matches minimal attribute signature of search input (no autofill)
+- CSS pseudo-element hiding for `::-webkit-contacts-auto-fill-button` / `::-webkit-credentials-auto-fill-button`
+
+Layout fixes:
+- `Platform.select` for three TextInput styles (`plateBaseInput`, `plateRegionInput`, `stsInput`) — web: `padding: 0`, native: original values
+- `overflow: 'hidden'` + explicit `width/height: '100%'` on web inputs — prevents click/cursor mismatch
+- Click-outside-to-close: `Pressable` overlay with `onPress={onCancel}`, `stopPropagation` on modal content
+- Lighter overlay: `rgba(0,0,0,0.2)`, `boxShadow` on web for floating card effect
+- `animationType="fade"` instead of `"slide"`
 
 ## Sidebar (WebSidebar.tsx)
 

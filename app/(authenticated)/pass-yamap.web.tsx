@@ -4,6 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../src/components/common';
 
+// No-op stub — map is not available on web, so no pending data is ever produced.
+export function getPendingMapData() {
+  return null;
+}
+
 export default function PassYaMapWebRoute() {
   const router = useRouter();
 

@@ -8,7 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, usePathname } from 'expo-router';
+import { useRouter, usePathname, useGlobalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 import {
@@ -115,6 +115,8 @@ function Divider({ expanded }: { expanded: boolean }) {
 export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const router     = useRouter();
   const pathname   = usePathname();
+  const globalParams = useGlobalSearchParams();
+  const passMode   = globalParams.mode === 'pass';
 
   const [userData,       setUserData]       = useState<UserData>({});
   const [otherUserList,  setOtherUserList]  = useState<OtherUser[]>([]);
@@ -196,14 +198,14 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           icon={require('../../../assets/images/sel_menu_pass_2.png')}
           label="Мой автопарк"
           path="/(authenticated)/auto-list"
-          active={isActive('/(authenticated)/auto-list') || isActive('/(authenticated)/auto/')}
+          active={(isActive('/(authenticated)/auto-list') && !passMode) || isActive('/(authenticated)/auto/')}
           expanded={expanded}
         />
         <NavItem
           icon={require('../../../assets/images/tab_passes_2.png')}
           label="Пропуск"
-          path="/(authenticated)/pass"
-          active={isActive('/(authenticated)/pass')}
+          onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
+          active={(isActive('/(authenticated)/auto-list') && passMode) || isActive('/(authenticated)/pass')}
           expanded={expanded}
         />
         <NavItem

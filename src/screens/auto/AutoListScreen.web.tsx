@@ -15,13 +15,14 @@ import {
   FlatList,
   TouchableHighlight,
   TouchableOpacity,
+  Pressable,
   ActivityIndicator,
   StyleSheet,
   Image,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 
 import { useAutoList }    from '../../hooks/useAutoList';
 import { useAutoActions } from '../../hooks/useAutoActions';
@@ -40,6 +41,8 @@ import api from '../../services/api';
 
 export default function AutoListScreen() {
   const router       = useRouter();
+  const params       = useLocalSearchParams();
+  const isPassMode   = params.mode === 'pass';
   const autoListHook = useAutoList();
   const autoActions  = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
   const { resetViewedCount } = useNotification();
@@ -59,9 +62,23 @@ export default function AutoListScreen() {
     autoListHook.loadData();
   }, []);
 
+  // Pass-mode: auto-open AddAutoModal on entry (matches mobile behavior)
+  useEffect(() => {
+    if (isPassMode) {
+      autoActions.setModalAddAutoVisible(true);
+    } else {
+      autoListHook.undoSelect();
+    }
+  }, [isPassMode]);
+
   const handleItemPress = useCallback((item: any) => {
-    autoActions.navigateToAuto(item);
-  }, [autoActions]);
+    if (isPassMode) {
+      const idx = autoListHook.autoList.findIndex((a: any) => a.id === item.id);
+      autoListHook.markItem(item, idx);
+    } else {
+      autoActions.navigateToAuto(item);
+    }
+  }, [autoActions, isPassMode, autoListHook]);
 
   const handleItemMark = useCallback((item: any, index: number) => {
     autoListHook.markItem(item, index);
@@ -112,7 +129,9 @@ export default function AutoListScreen() {
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Мой автопарк</Text>
+        <Text style={styles.headerTitle}>
+          {isPassMode ? 'Выберите автомобили для пропуска' : 'Мой автопарк'}
+        </Text>
 
         {/* Inline search — desktop only */}
         {columns >= 2 && (autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters()) && (
@@ -287,6 +306,23 @@ export default function AutoListScreen() {
             ) : null
           }
         />
+      )}
+
+      {/* ── Pass-mode footer ────────────────────────────────────────── */}
+      {isPassMode && autoListHook.markedCnt > 0 && (
+        <View style={styles.passFooter}>
+          <Pressable
+            style={styles.passFooterBtn}
+            onPress={() => {
+              const marked = autoListHook.autoList.filter((i: any) => i.marked);
+              autoActions.navigateToPass(marked);
+            }}
+          >
+            <Text style={styles.passFooterBtnText}>
+              Заказать пропуск ({autoListHook.markedCnt})
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {/* ── Modals ──────────────────────────────────────────────────── */}
@@ -523,5 +559,24 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginTop: 10,
+  },
+
+  // ── Pass-mode footer ───────────────────────────────────────────────────────
+  passFooter: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E8E8',
+  },
+  passFooterBtn: {
+    backgroundColor: '#3A3A3A',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  passFooterBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
