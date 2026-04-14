@@ -50,6 +50,17 @@ old-project
 # Claude Code local settings (machine-specific paths)
 .claude/settings.local.json
 
+# Playwright MCP (test artifacts)
+.playwright-mcp/
+
+# Test screenshots (from Playwright browser testing)
+*.screenshot.png
+pass-*.png
+add-auto-*.png
+current-auto-list.png
+improved-auto-list.png
+inn-screen-web.png
+
 # Symlinks to external repos
 backend_reference
 /Transappru/
