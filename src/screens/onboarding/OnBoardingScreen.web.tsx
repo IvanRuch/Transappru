@@ -39,40 +39,40 @@ export default function OnBoardingScreen() {
 
   const isLast = current === slides.length - 1;
 
-  // Mark onboarding as viewed on mount (same as mobile OnBoardingScreen.tsx)
-  React.useEffect(() => {
-    AsyncStorage.getItem('token').then(async (token) => {
-      if (!token) {
-        router.replace('/');
-        return;
-      }
-      try {
-        await api.post('/get-onboarding', { token });
-        console.log('Onboarding: marked as viewed on mount');
-      } catch (error: any) {
-        console.log('Error marking onboarding:', error);
-        if (error.response?.status === 401) router.replace('/');
-      }
-    });
-  }, []);
+  // Mark onboarding as viewed and navigate to auto-list.
+  // Same pattern as mobile: await the API call before navigating,
+  // so the server has time to persist the flag.
+  const markViewedAndNavigate = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) { router.replace('/'); return; }
 
-  const navigateToAutoList = () => {
+      await api.post('/get-onboarding', { token });
+      console.log('Onboarding: marked as viewed, navigating to auto-list');
+
+      // Backup flag in localStorage so other tabs won't redirect again
+      try { localStorage.setItem('ta_onboarding_done', '1'); } catch {}
+    } catch (error: any) {
+      console.log('Error marking onboarding:', error);
+      if (error.response?.status === 401) { router.replace('/'); return; }
+      // Even if API fails, save locally to avoid infinite loop
+      try { localStorage.setItem('ta_onboarding_done', '1'); } catch {}
+    }
     router.replace('/(authenticated)/auto-list');
   };
 
   const handleNext = () => {
-    if (isLoading) return;
-
     if (isLast) {
-      navigateToAutoList();
+      markViewedAndNavigate();
     } else {
       setCurrent(current + 1);
     }
   };
 
   const handleSkip = () => {
-    if (isLoading) return;
-    navigateToAutoList();
+    markViewedAndNavigate();
   };
 
   const slide = slides[current];

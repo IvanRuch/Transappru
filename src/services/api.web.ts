@@ -69,6 +69,7 @@ class ApiService {
           if (status === 401) {
             console.log('API Web: 401 Unauthorized - clearing token');
             await AsyncStorage.removeItem('token');
+            try { localStorage.removeItem('ta_onboarding_done'); } catch {}
             router.replace('/');
           }
           console.log('API Web Error:', { url: error.config?.url, status, data });

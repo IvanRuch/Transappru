@@ -17,7 +17,7 @@
 
 ## Recent Changes
 
-- **2026-04-14**: Web: AutoDetailScreen.web.tsx — 8-tab vehicle detail screen (passes, fines, toll roads, OSAGO, diagnostic card, RNIS, files, drivers), split into 13 sub-component files under `web/`, HTML file upload, browser download, responsive tab bar
+- **2026-04-14**: Web: AutoDetailScreen.web.tsx — 8-tab vehicle detail screen (passes, fines, toll roads, OSAGO, diagnostic card, RNIS, files, drivers), split into 13 sub-component files under `web/`, HTML file upload, browser download, responsive tab bar. Fix: onboarding redirect loop on web — await `/get-onboarding` before navigation (matching mobile pattern), localStorage backup flag for cross-tab persistence, sessionStorage for in-tab HMR resilience
 - **2026-04-13**: Web: logout fix (token removal), first-login flow (onboarding redirect + "Наши услуги" modal from /get-auto-list), anti-loop guards. Phone input cursor fix, OTP-style PIN fields. Unified API client, InnScreen.web.tsx, inline search, sidebar fixes
 - **2026-04-09**: Claude Code configuration setup — CLAUDE.md (4 files), 3 PostToolUse hooks, 7 slash commands, 2 custom skills, 46 external skills, 3 MCP servers (PostgreSQL + Playwright + Context7), Writerside structure (16 topics), agnix validation
 

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
@@ -7,13 +8,32 @@ import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto'
 const AUTO_LIST_LIMIT = 10;
 const CACHE_LIFETIME_MS = 5 * 60 * 1000; // 5 минут
 
-// Module-level flag to prevent onboarding redirect loop.
-// When onboarding screen navigates to auto-list, this flag is set
-// so that fetchAutoList doesn't redirect back to onboarding even
-// if the server still returns onboarding_expired=0 (e.g. due to
-// multiple session records or race condition).
-let _onboardingRedirectDone = false;
-let _announceShown = false;
+// Session flags to prevent onboarding redirect loop and duplicate announce.
+// On web, use sessionStorage so flags survive HMR and page refreshes
+// but reset on new browser session (closing tab). On native, module-level
+// variables persist for the entire app lifecycle.
+function getSessionFlag(key: string): boolean {
+  if (Platform.OS === 'web') {
+    try { return sessionStorage.getItem(key) === '1'; } catch { return false; }
+  }
+  return false;
+}
+function setSessionFlag(key: string): void {
+  if (Platform.OS === 'web') {
+    try { sessionStorage.setItem(key, '1'); } catch {}
+  }
+}
+// Persistent flag (localStorage) — survives across tabs and browser restarts.
+// Set by OnBoardingScreen after /get-onboarding call succeeds, cleared on logout.
+function getLocalFlag(key: string): boolean {
+  if (Platform.OS === 'web') {
+    try { return localStorage.getItem(key) === '1'; } catch { return false; }
+  }
+  return false;
+}
+
+let _onboardingRedirectDone = getSessionFlag('ta_onboarding_redirect_done') || getLocalFlag('ta_onboarding_done');
+let _announceShown = getSessionFlag('ta_announce_shown');
 
 export function useAutoData() {
   const router = useRouter();
@@ -142,6 +162,7 @@ export function useAutoData() {
           if (needsOnboarding && requestOffset === 0 && !_onboardingRedirectDone) {
             console.log('📋 Redirecting to onboarding from auto-list');
             _onboardingRedirectDone = true;
+            setSessionFlag('ta_onboarding_redirect_done');
             router.replace('/onboarding' as any);
             return null;
           }
@@ -152,6 +173,7 @@ export function useAutoData() {
       if ((data.announce_our_services_viewed === '0' || data.announce_our_services_viewed === 0) && !_announceShown) {
         console.log('📋 announce_our_services_viewed: 0 → showing services announcement');
         _announceShown = true;
+        setSessionFlag('ta_announce_shown');
         setAnnounceOurServicesVisible(true);
       }
 

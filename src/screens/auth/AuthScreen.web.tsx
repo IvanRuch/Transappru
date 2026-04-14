@@ -340,6 +340,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
             style={styles.waitReloginBtn}
             onPress={async () => {
               await AsyncStorage.removeItem('token');
+              try { localStorage.removeItem('ta_onboarding_done'); } catch {}
               if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
               setSessionData({});
               setPhoneDigits('');
