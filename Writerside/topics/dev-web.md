@@ -3,7 +3,8 @@
 ## Current State (as of 2026-04-14)
 
 Web version is **in active development** using Expo Web from the shared `/src/` codebase.
-Auth flow, onboarding, INN registration, auto-list, auto detail (8 tabs), and driver management are working.
+Auth flow, onboarding, INN registration, auto-list, auto detail (8 tabs), driver management, charges,
+notifications, notification settings, and user profile are working.
 
 ## Legacy Web App (reference only)
 
@@ -46,10 +47,12 @@ Use legacy apps as reference to ensure nothing useful is missed.
 | PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: 4 separate OTP-style digit fields, auto-advance, backspace, paste support |
 | Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar |
 | Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | ✅ Done | `.web.tsx`: functional component, 8 tabs split into `web/` sub-components, HTML file upload, browser download, responsive tab bar |
-| Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | — | |
+| Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | ✅ Done | `.web.tsx`: wraps DriversTab in WebAppLayout |
 | INN (`Inn.js`) | `screens/inn/InnScreen.tsx` | ✅ Done | `.web.tsx`: INN binding + RNIS check, latin→cyrillic |
-| User (`User.js`) | — | — | Check if needed |
-| Charges | `screens/charges/ChargesScreen.tsx` | — | Not in legacy web |
+| User (`User.js`) | `app/user.tsx` | ✅ Done | `user.web.tsx`: org info, contact CRUD, logout, delete profile |
+| Charges | `screens/charges/ChargesScreen.tsx` | ✅ Done | `.web.tsx`: grouped fines, filter pills, selection, payment footer |
+| Notifications | `screens/notifications/NotificationListScreen.tsx` | ✅ Done | `.web.tsx`: click-to-mark-viewed, blue indicator |
+| Notification settings | `screens/notifications/NotificationSettingsScreen.tsx` | ✅ Done | `.web.tsx`: two-level toggle tree, optimistic updates |
 | Fine payment | `screens/fine-payment/*` | — | Not in legacy web |
 | Onboarding | `screens/onboarding/OnBoardingScreen.tsx` | ✅ Done | `.web.tsx`: image left, text+nav right, skip button |
 | Services | `screens/services/OurServicesScreen.tsx` | ✅ Works | No `.web.tsx` needed — renders well inside WebAppLayout |
@@ -125,14 +128,64 @@ The mobile version is a single 2400-line class component. The web version is spl
 - Services dropdown (expandable)
 - Responsive: collapses below 900px viewport width
 
-## Deployment Checklist (TODO)
+## CI/CD Pipeline (Docker + Yandex Cloud)
 
-Before deploying web to production:
+Production deployment uses GitHub Actions → Docker → Yandex Cloud COI VM.
+Architecture based on `tradesu-moderator` project pattern.
+
+### Architecture
+
+```
+GitHub Actions (deploy-web.yml)
+├── build-nginx   → cr.yandex/.../transapp-web:{sha}-nginx
+│   (multi-stage: npx expo export --platform web → nginx:alpine)
+├── build-payment → cr.yandex/.../transapp-web:{sha}-payment
+│   (multi-stage: python:3.11-slim → gunicorn + uvicorn workers)
+└── deploy → yc-coi-deploy (docker-compose.yc.yaml)
+
+Yandex Cloud COI VM (2 core, 4GB, ru-central1-d)
+├── nginx (443/SSL via Yandex Certificate Manager, 80→redirect)
+│   ├── /              → Expo Web static files (SPA)
+│   ├── /api/          → proxy → ivan.trans-konsalt.ru (main API)
+│   └── /payment-api/  → proxy → payment-service:8000
+├── payment-service (gunicorn, 2 workers, port 8000)
+└── payment-db (PostgreSQL 15, persistent volume)
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `nginx/Dockerfile.prod` | Multi-stage: Node builds Expo Web → nginx serves static |
+| `nginx/nginx.prod.conf` | HTTP fallback nginx config |
+| `nginx/docker/entrypoint.sh` | Fetches SSL cert from Yandex Certificate Manager at startup |
+| `payment-service/Dockerfile.prod` | Multi-stage: builds deps → slim runtime with gunicorn |
+| `payment-service/docker/start.sh` | Gunicorn with uvicorn workers |
+| `yandex-cloud/docker-compose.yc.yaml` | Production compose (nginx + payment-service + payment-db) |
+| `yandex-cloud/user-data.yaml` | Cloud-init for VM user setup |
+| `.github/workflows/deploy-web.yml` | GitHub Actions workflow |
+| `.env.production.example` | Documents all required GitHub Secrets |
+
+### Trigger
+
+Workflow triggers on **GitHub Release** or **manual dispatch** (`workflow_dispatch`).
+
+### Required GitHub Secrets
+
+See `.env.production.example` for the full list. Key secrets:
+`YC_SA_JSON_CREDENTIALS`, `YC_REGISTRY_ID`, `YC_FOLDER_ID`, `YC_CERT_ID`,
+`PG_USER`, `PG_PASSWORD`, `KAZNA_API_URL`, `KAZNA_SECRET_KEY`, `KAZNA_TOKEN`.
+
+## Deployment Checklist
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | **SPA fallback** — configure nginx `try_files $uri /index.html` (or use Vercel/Netlify which handle it automatically) | Pending |
-| 2 | **Build script** — add `"build:web": "expo export --platform web"` to package.json | Pending |
-| 3 | **Payment API URL** — hardcoded `https://payment.transapp.ru/api` in `api.web.ts`, make dynamic or env-based | Pending |
-| 4 | **Same-domain deployment** — `api.web.ts` builds URL as `https://{hostname}/api/`; web must be on same domain as API, otherwise add CORS headers on server | Pending |
-| 5 | **Test production build** — run `expo export --platform web`, serve `dist/` locally, verify full auth flow | Pending |
+| 1 | **SPA fallback** — nginx `try_files $uri /index.html` | ✅ Done (`nginx.prod.conf`) |
+| 2 | **Build script** — `npx expo export --platform web` in Docker | ✅ Done (`nginx/Dockerfile.prod`) |
+| 3 | **Payment API URL** — dynamic via `getPaymentApiUrl()` in `api.web.ts` | ✅ Done |
+| 4 | **Same-domain deployment** — nginx proxies `/api/` to trans-konsalt.ru | ✅ Done (`nginx.prod.conf`) |
+| 5 | **Test production build** — run `expo export --platform web`, serve `dist/` locally | Pending |
+| 6 | **SSL certificate** — create cert in Yandex Certificate Manager, set `YC_CERT_ID` | Pending |
+| 7 | **GitHub Secrets** — configure all secrets listed in `.env.production.example` | Pending |
+| 8 | **DNS** — point domain to VM public IP | Pending |
+| 9 | **First deploy** — trigger workflow, verify full auth flow via browser | Pending |

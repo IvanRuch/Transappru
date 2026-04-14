@@ -12,8 +12,16 @@ const getMainApiUrl = (): string => {
   return `https://${hostname}/api/`;
 };
 
-// Платёжный микросервис — всегда фиксированный URL
-const PAYMENT_API_URL = 'https://payment.transapp.ru/api';
+// Платёжный микросервис.
+// На localhost — напрямую к внешнему серверу.
+// В продакшене — через nginx-прокси на том же домене (/payment-api/).
+const getPaymentApiUrl = (): string => {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'https://payment.transapp.ru/api';
+  }
+  return `https://${hostname}/payment-api`;
+};
 
 // "Simple request" по стандарту CORS — браузер не делает preflight.
 // Сервер принимает application/x-www-form-urlencoded.
@@ -45,7 +53,7 @@ class ApiService {
     });
 
     this.paymentApi = axios.create({
-      baseURL: PAYMENT_API_URL,
+      baseURL: getPaymentApiUrl(),
       responseType: 'json',
       timeout: 30000,
       ...FORM_CONFIG,

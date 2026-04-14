@@ -1,0 +1,48 @@
+services:
+  payment-db:
+    image: postgres:15-alpine
+    container_name: transapp_payment_db
+    restart: always
+    environment:
+      POSTGRES_USER: {{ env.PG_USER }}
+      POSTGRES_PASSWORD: {{ env.PG_PASSWORD }}
+      POSTGRES_DB: {{ env.PG_NAME }}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payment-service:
+    image: {{ env.PAYMENT_IMAGE }}
+    container_name: transapp_payment
+    environment:
+      DB_URL: postgres://{{ env.PG_USER }}:{{ env.PG_PASSWORD }}@payment-db:5432/{{ env.PG_NAME }}
+      KAZNA_API_URL: {{ env.KAZNA_API_URL }}
+      KAZNA_SECRET_KEY: {{ env.KAZNA_SECRET_KEY }}
+      KAZNA_TOKEN: {{ env.KAZNA_TOKEN }}
+    expose:
+      - "8000"
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    restart: always
+
+  nginx:
+    image: {{ env.NGINX_IMAGE }}
+    container_name: transapp_nginx
+    environment:
+      YC_CERT_ID: {{ env.YC_CERT_ID }}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - payment-service
+    restart: always
+
+volumes:
+  pg_data:

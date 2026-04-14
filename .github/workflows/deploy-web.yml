@@ -1,0 +1,108 @@
+name: Deploy Web + Payment to Yandex Cloud
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+# Required GitHub Secrets:
+# ─────────────────────────────────────────────────────
+# YC_SA_JSON_CREDENTIALS  — Yandex Cloud service account JSON key
+# YC_FOLDER_ID            — Yandex Cloud folder ID
+# YC_REGISTRY_ID          — Container Registry ID
+# YC_SERVICE_ACCOUNT_ID   — Service account ID for VM
+# YC_SUBNET_ID            — Subnet ID (ru-central1-d)
+# YC_VM_NAME              — VM name (e.g. transapp-web)
+# YC_VM_SSH               — Public SSH key for VM access
+# YC_VM_USERNAME           — VM username (e.g. deploy)
+# YC_VM_PUBLIC_IP         — Static public IP for the VM
+# YC_CERT_ID              — Yandex Certificate Manager cert ID (for SSL)
+# PG_USER                 — PostgreSQL username for payment-db
+# PG_PASSWORD             — PostgreSQL password
+# PG_NAME                 — PostgreSQL database name (e.g. payment_db)
+# KAZNA_API_URL           — Kazna payment gateway URL
+# KAZNA_SECRET_KEY        — Kazna API secret key
+# KAZNA_TOKEN             — Kazna API token
+
+env:
+  CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
+  CR_REPO: transapp-web
+  NGINX_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/transapp-web:${{ github.sha }}-nginx
+  PAYMENT_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/transapp-web:${{ github.sha }}-payment
+
+  # Passed to docker-compose.yc.yaml template
+  PG_USER: ${{ secrets.PG_USER }}
+  PG_PASSWORD: ${{ secrets.PG_PASSWORD }}
+  PG_NAME: ${{ secrets.PG_NAME }}
+  KAZNA_API_URL: ${{ secrets.KAZNA_API_URL }}
+  KAZNA_SECRET_KEY: ${{ secrets.KAZNA_SECRET_KEY }}
+  KAZNA_TOKEN: ${{ secrets.KAZNA_TOKEN }}
+  YC_CERT_ID: ${{ secrets.YC_CERT_ID }}
+
+jobs:
+  build-nginx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Yandex Cloud Container Registry
+        uses: yc-actions/yc-cr-login@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+
+      - name: Build and push nginx image (includes Expo Web build)
+        run: |
+          docker build \
+            -f nginx/Dockerfile.prod \
+            -t ${{ env.NGINX_IMAGE }} \
+            .
+          docker push ${{ env.NGINX_IMAGE }}
+
+  build-payment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Yandex Cloud Container Registry
+        uses: yc-actions/yc-cr-login@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+
+      - name: Build and push payment-service image
+        run: |
+          docker build \
+            -f payment-service/Dockerfile.prod \
+            -t ${{ env.PAYMENT_IMAGE }} \
+            ./payment-service
+          docker push ${{ env.PAYMENT_IMAGE }}
+
+  deploy:
+    needs: [build-nginx, build-payment]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy COI VM
+        uses: yc-actions/yc-coi-deploy@v2
+        env:
+          YC_VM_SSH: ${{ secrets.YC_VM_SSH }}
+          YC_VM_USERNAME: ${{ secrets.YC_VM_USERNAME }}
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          folder-id: ${{ secrets.YC_FOLDER_ID }}
+          vm-name: ${{ secrets.YC_VM_NAME }}
+          vm-service-account-id: ${{ secrets.YC_SERVICE_ACCOUNT_ID }}
+          vm-cores: 2
+          vm-memory: 4GB
+          vm-core-fraction: 50
+          vm-disk-type: network-hdd
+          vm-disk-size: 20GB
+          vm-zone-id: ru-central1-d
+          vm-platform-id: standard-v3
+          vm-subnet-id: ${{ secrets.YC_SUBNET_ID }}
+          vm-public-ip: ${{ secrets.YC_VM_PUBLIC_IP }}
+          user-data-path: './yandex-cloud/user-data.yaml'
+          docker-compose-path: './yandex-cloud/docker-compose.yc.yaml'
