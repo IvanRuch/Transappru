@@ -8,9 +8,10 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter, usePathname, useGlobalSearchParams } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
+import { openAddAutoModalIfMounted } from '../../screens/auto/AutoListScreen.web';
 import {
   WEB_SIDEBAR_WIDTH_COLLAPSED,
   WEB_SIDEBAR_WIDTH_EXPANDED,
@@ -115,8 +116,6 @@ function Divider({ expanded }: { expanded: boolean }) {
 export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const router     = useRouter();
   const pathname   = usePathname();
-  const globalParams = useGlobalSearchParams();
-  const passMode   = globalParams.mode === 'pass';
 
   const [userData,       setUserData]       = useState<UserData>({});
   const [otherUserList,  setOtherUserList]  = useState<OtherUser[]>([]);
@@ -198,14 +197,20 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           icon={require('../../../assets/images/sel_menu_pass_2.png')}
           label="Мой автопарк"
           path="/(authenticated)/auto-list"
-          active={(isActive('/(authenticated)/auto-list') && !passMode) || isActive('/(authenticated)/auto/')}
+          active={isActive('/(authenticated)/auto-list') || isActive('/(authenticated)/auto/')}
           expanded={expanded}
         />
         <NavItem
           icon={require('../../../assets/images/tab_passes_2.png')}
           label="Пропуск"
-          onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
-          active={(isActive('/(authenticated)/auto-list') && passMode) || isActive('/(authenticated)/pass')}
+          onPress={() => {
+            // Matches mobile: "Пропуск в Москву" in bottom bar opens AddAutoModal
+            if (!openAddAutoModalIfMounted()) {
+              // Not on auto-list yet — navigate there, modal will open via param
+              router.push('/(authenticated)/auto-list' as any);
+            }
+          }}
+          active={isActive('/(authenticated)/pass')}
           expanded={expanded}
         />
         <NavItem

@@ -22,7 +22,7 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAutoList }    from '../../hooks/useAutoList';
 import { useAutoActions } from '../../hooks/useAutoActions';
@@ -39,14 +39,26 @@ import { FindAutoPanel }  from '../../components/auto/FindAutoPanel';
 import { useNotification } from '../../contexts/NotificationContext';
 import api from '../../services/api';
 
+// Module-level callback so sidebar can open AddAutoModal without navigation.
+// Matches mobile: bottom-bar "Пропуск в Москву" at markedCnt===0 opens AddAutoModal.
+let _openAddAutoModal: (() => void) | null = null;
+export function openAddAutoModalIfMounted(): boolean {
+  if (_openAddAutoModal) { _openAddAutoModal(); return true; }
+  return false;
+}
+
 export default function AutoListScreen() {
   const router       = useRouter();
-  const params       = useLocalSearchParams();
-  const isPassMode   = params.mode === 'pass';
   const autoListHook = useAutoList();
   const autoActions  = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
   const { resetViewedCount } = useNotification();
   const { columns }  = useWebLayout();
+
+  // Register module-level callback so sidebar "Пропуск" can open the modal in-place
+  useEffect(() => {
+    _openAddAutoModal = () => autoActions.setModalAddAutoVisible(true);
+    return () => { _openAddAutoModal = null; };
+  }, [autoActions]);
 
   useFocusEffect(
     useCallback(() => {
@@ -62,23 +74,9 @@ export default function AutoListScreen() {
     autoListHook.loadData();
   }, []);
 
-  // Pass-mode: auto-open AddAutoModal on entry (matches mobile behavior)
-  useEffect(() => {
-    if (isPassMode) {
-      autoActions.setModalAddAutoVisible(true);
-    } else {
-      autoListHook.undoSelect();
-    }
-  }, [isPassMode]);
-
   const handleItemPress = useCallback((item: any) => {
-    if (isPassMode) {
-      const idx = autoListHook.autoList.findIndex((a: any) => a.id === item.id);
-      autoListHook.markItem(item, idx);
-    } else {
-      autoActions.navigateToAuto(item);
-    }
-  }, [autoActions, isPassMode, autoListHook]);
+    autoActions.navigateToAuto(item);
+  }, [autoActions]);
 
   const handleItemMark = useCallback((item: any, index: number) => {
     autoListHook.markItem(item, index);
@@ -129,9 +127,7 @@ export default function AutoListScreen() {
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {isPassMode ? 'Выберите автомобили для пропуска' : 'Мой автопарк'}
-        </Text>
+        <Text style={styles.headerTitle}>Мой автопарк</Text>
 
         {/* Inline search — desktop only */}
         {columns >= 2 && (autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters()) && (
@@ -308,20 +304,26 @@ export default function AutoListScreen() {
         />
       )}
 
-      {/* ── Pass-mode footer ────────────────────────────────────────── */}
-      {isPassMode && autoListHook.markedCnt > 0 && (
+      {/* ── Selection footer (matches mobile bottom menu when markedCnt > 0) ── */}
+      {autoListHook.markedCnt > 0 && (
         <View style={styles.passFooter}>
-          <Pressable
-            style={styles.passFooterBtn}
-            onPress={() => {
-              const marked = autoListHook.autoList.filter((i: any) => i.marked);
-              autoActions.navigateToPass(marked);
-            }}
-          >
-            <Text style={styles.passFooterBtnText}>
-              Заказать пропуск ({autoListHook.markedCnt})
-            </Text>
-          </Pressable>
+          <View style={styles.passFooterRow}>
+            <Pressable
+              style={styles.passFooterBtnSecondary}
+              onPress={autoListHook.undoSelect}
+            >
+              <Text style={styles.passFooterBtnSecondaryText}>Сбросить</Text>
+            </Pressable>
+            <Pressable
+              style={styles.passFooterBtn}
+              onPress={() => {
+                const marked = autoListHook.autoList.filter((i: any) => i.marked);
+                autoActions.navigateToPass(marked);
+              }}
+            >
+              <Text style={styles.passFooterBtnText}>Пропуск в Москву</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -568,15 +570,35 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E8E8E8',
   },
+  passFooterRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   passFooterBtn: {
+    flex: 1,
     backgroundColor: '#3A3A3A',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
   passFooterBtnText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  passFooterBtnSecondary: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B8B8B8',
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  passFooterBtnSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#656565',
   },
 });
