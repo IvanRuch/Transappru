@@ -41,6 +41,12 @@ interface PassYaMapState {
   ttk_polygon_inner_ring: any[][];
   sk_polygon: any[];
   isLoadingAddress: boolean;
+  /**
+   * True when the user has tapped a new point on the map during this visit.
+   * In edit mode (opened with an existing address), this flag distinguishes
+   * "commit a new selection" from "just go back without changes".
+   */
+  hasNewPick: boolean;
 }
 
 class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
@@ -63,22 +69,34 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
       ttk_polygon_inner_ring: [ sk_polygon_coordinates ],
       sk_polygon: sk_polygon_coordinates,
       isLoadingAddress: false,
+      hasNewPick: false,
     };
   }
 
+  /**
+   * True when we are re-visiting an address that's already selected on
+   * PassScreen. In this mode: all zones are shown, API call is unfiltered,
+   * and the "Добавить" tap without a new pick is a no-op (just goes back).
+   */
+  get isEditMode(): boolean {
+    return !!this.props.route.params.address;
+  }
+
   yaMapLongPress = (point: any) => {
-    console.log('yaMapLongPress')
-    console.log('point:', point)
-    console.log('current location_type:', this.state.location_type)
+    // In edit mode the zone filter is lifted — user may pick in any zone.
+    const apiLocationType = this.isEditMode ? '' : this.state.location_type;
 
-    this.setState({ lon: point.lon, lat: point.lat, wrong_location: false, isLoadingAddress: true })
+    this.setState({
+      lon: point.lon,
+      lat: point.lat,
+      wrong_location: false,
+      isLoadingAddress: true,
+      hasNewPick: true,
+    })
 
-    Api.post('/get-address-map', { lon: point.lon, lat: point.lat, location_type: this.state.location_type })
+    Api.post('/get-address-map', { lon: point.lon, lat: point.lat, location_type: apiLocationType })
        .then(res => {
-
           const data = res.data;
-          console.log(data);
-
           if(data.auth_required === 1)
           {
             this.setState({ isLoadingAddress: false });
@@ -92,18 +110,26 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
             }
             else
             {
-              // Показываем "вне зоны" только если зона была выбрана
-              // Если зона не выбрана (location_type пустой) - просто не показываем адрес
-              const showWrongLocation = this.state.location_type !== '';
+              // "Out of zone" warning only when a zone filter was actually applied.
+              const showWrongLocation = apiLocationType !== '';
               this.setState({address_map_data: { address: '' }, wrong_location: showWrongLocation, isLoadingAddress: false})
             }
           }
         })
         .catch(error => {
-          console.log('error.response.status = ' + error.response.status);
           this.setState({ isLoadingAddress: false });
-          if(error.response.status === 401) { this.props.navigation.navigate('Auth') }
+          if(error.response?.status === 401) { this.props.navigation.navigate('Auth') }
         });
+  }
+
+  /** Commits the current selection back to PassScreen. The button is hidden
+   *  in edit mode until the user taps a new point, so a stale-data commit is
+   *  not reachable from the UI. */
+  handleAdd = () => {
+    this.props.navigation.navigate('Pass', {
+      address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
+      auto_list: this.props.route.params.auto_list,
+    });
   }
 
   setMarkerPos = () => {
@@ -275,7 +301,9 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
           initialRegion={{
               lat: 55.74954,
               lon: 37.621587,
-              zoom: this.state.location_type === 'sk' ? 12.4 : 
+              // In edit mode we show all 3 zones, so use the default (zoomed-out) level.
+              zoom: this.isEditMode ? 10 :
+                    this.state.location_type === 'sk' ? 12.4 :
                     this.state.location_type === 'ttk' ? 11.4 : 10
           }}
           onMapLongPress={(point) => this.yaMapLongPress(point.nativeEvent)}
@@ -295,29 +323,41 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
             }
 
             {
-              this.state.location_type === 'mkad' ? (
+              // In edit mode — or when no zone was pre-selected — show all three zones.
+              // Otherwise show only the pre-selected zone to emphasise the filter.
+              (this.isEditMode || this.state.location_type === '') ? (
+                <>
+                  <Polygon
+                    strokeColor="#FF0000"
+                    fillColor="rgba(0, 0, 255, 0.15)"
+                    points={this.state.mkad_polygon}
+                  />
+                  <Polygon
+                    strokeColor="#FF0000"
+                    fillColor="rgba(0, 255, 0, 0.15)"
+                    points={this.state.ttk_polygon}
+                  />
+                  <Polygon
+                    strokeColor="#FF0000"
+                    fillColor="rgba(255, 0, 0, 0.15)"
+                    points={this.state.sk_polygon}
+                  />
+                </>
+              ) : this.state.location_type === 'mkad' ? (
                 <Polygon
                   strokeColor="#FF0000"
                   fillColor="rgba(0, 0, 255, 0.15)"
                   points={this.state.mkad_polygon}
                   innerRings={this.state.mkad_polygon_inner_ring}
                 />
-              ) : null
-            }
-
-            {
-              this.state.location_type === 'ttk' ? (
+              ) : this.state.location_type === 'ttk' ? (
                 <Polygon
                   strokeColor="#FF0000"
                   fillColor="rgba(0, 255, 0, 0.15)"
                   points={this.state.ttk_polygon}
                   innerRings={this.state.ttk_polygon_inner_ring}
                 />
-              ) : null
-            }
-
-            {
-              this.state.location_type === 'sk' ? (
+              ) : this.state.location_type === 'sk' ? (
                 <Polygon
                   strokeColor="#FF0000"
                   fillColor="rgba(255, 0, 0, 0.15)"
@@ -326,59 +366,40 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
               ) : null
             }
 
-            {
-              this.state.location_type === '' ? (
-                <>
-                  <Polygon 
-                    strokeColor="#FF0000" 
-                    fillColor="rgba(0, 0, 255, 0.15)" 
-                    points={this.state.mkad_polygon}
-                  />
-                  <Polygon 
-                    strokeColor="#FF0000" 
-                    fillColor="rgba(0, 255, 0, 0.15)" 
-                    points={this.state.ttk_polygon}
-                  />
-                  <Polygon 
-                    strokeColor="#FF0000" 
-                    fillColor="rgba(255, 0, 0, 0.15)" 
-                    points={this.state.sk_polygon}
-                  />
-                </>
-              ) : null
-            }
-
         </YaMap>
 
         <SafeAreaInsetsContext.Consumer>
-          {(insets) => (
-            this.state.address_map_data.address !== '' ? (
+          {(insets) => {
+            // Add button is shown when there's an address to commit.
+            // In edit mode it's additionally gated on hasNewPick — nothing to
+            // commit when the user didn't make a new pick (they can just go back).
+            const canAdd = this.state.address_map_data.address !== ''
+              && (!this.isEditMode || this.state.hasNewPick);
+            if (!canAdd) return null;
+
+            return (
               <TouchableHighlight
-                style={{ 
-                  position: 'absolute', 
-                  zIndex: 3, 
-                  elevation: 3, 
-                  left: 10, 
-                  bottom: Math.max(insets?.bottom || 0, 20), 
-                  right: 10, 
-                  height: 50, 
-                  margin: 25, 
-                  borderRadius: 5, 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  backgroundColor: "#3A3A3A"
+                style={{
+                  position: 'absolute',
+                  zIndex: 3,
+                  elevation: 3,
+                  left: 10,
+                  bottom: Math.max(insets?.bottom || 0, 20),
+                  right: 10,
+                  height: 50,
+                  margin: 25,
+                  borderRadius: 5,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#3A3A3A',
                 }}
-                onPress={() => {
-                  console.log('call add_address')
-                  this.props.navigation.navigate('Pass', { 
-                    address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
-                    auto_list: this.props.route.params.auto_list 
-                  })
-                }}>
-                <Text style={{ fontSize: 24, color: "#FFFFFF" }}>Добавить</Text>
+                underlayColor="#555555"
+                onPress={this.handleAdd}
+              >
+                <Text style={{ fontSize: 24, color: '#FFFFFF' }}>Добавить</Text>
               </TouchableHighlight>
-            ) : null
-          )}
+            );
+          }}
         </SafeAreaInsetsContext.Consumer>
 
       </SafeAreaView>

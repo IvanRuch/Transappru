@@ -1,16 +1,31 @@
 /**
  * Web version of PassScreen.
- * Two-stage autocomplete (street → address), zone tabs (МКАД/ТТК/СК),
- * vehicle list, order pass via /add-address API.
- * Map unavailable on web — button navigates to pass-yamap stub.
+ *
+ * Shares all business logic with mobile via usePassOrder (ADR-003) and all
+ * sub-components via src/components/pass (ADR-005). Web-specific concerns:
+ *  - Responsive max-width via WebScreenContainer
+ *  - ARIA combobox pattern over the address <input> and suggestion lists
+ *  - Keyboard navigation (ArrowUp/Down/Enter/Escape) through suggestions
+ *  - Inline loading indicator on the autocomplete
+ *  - safeBack for direct URL entries (router.back when possible, else /main)
  */
-import React, { useRef } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import React, { useMemo, useRef, useState, useCallback } from 'react';
+import {
+  View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Image,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { usePassOrder } from '../../hooks/usePassOrder';
+import { showAlert } from '../../utils/alert';
+import { ScreenHeader } from '../../components/common';
+import WebScreenContainer from '../../components/web/WebScreenContainer';
+import {
+  ZoneTabs,
+  SuggestionItem,
+  VehicleCard,
+  ManualZoneBanner,
+  SuccessModal,
+} from '../../components/pass';
 // WebAppLayout is provided by _layout.web.tsx — do NOT wrap again here.
-
-const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
 
 export default function PassScreen() {
   const router = useRouter();
@@ -19,7 +34,7 @@ export default function PassScreen() {
   const {
     vehicles,
     locationType, toggleTab,
-    lon, lat,
+    lon, lat, isLocationTypeManual,
     address,
     streetList, addressList, userAddressList,
     handleAddressChange, markStreet, markAddress, markUserAddress,
@@ -28,265 +43,285 @@ export default function PassScreen() {
     submitting, canOrder,
   } = usePassOrder();
 
-  const onMarkStreet = (item: any) => {
-    markStreet(item);
-    setTimeout(() => addressRef.current?.focus(), 60);
-  };
+  // Loading indicator for address autocomplete.
+  const [isSearching, setIsSearching] = useState(false);
+  // Keyboard-focused index across concatenated street + address + user lists.
+  const [focusedIdx, setFocusedIdx] = useState(-1);
 
-  const onOrder = async () => {
-    const errorMsg = await handleOrder();
-    if (errorMsg) {
-      window.alert(errorMsg);
+  /** Combined list used for keyboard navigation. Streets and addresses are
+   *  mutually exclusive in practice (see usePassOrder), but we combine them
+   *  defensively to keep the indexing uniform.
+   */
+  const combined = useMemo(() => {
+    const s = streetList.map((x: any) => ({ kind: 'street' as const, item: x }));
+    const a = addressList.map((x: any) => ({ kind: 'address' as const, item: x }));
+    const u = userAddressList.map((x: any) => ({ kind: 'user' as const, item: x }));
+    return [...s, ...a, ...u];
+  }, [streetList, addressList, userAddressList]);
+
+  const onAddressChange = useCallback(async (value: string) => {
+    setIsSearching(true);
+    setFocusedIdx(-1);
+    try {
+      await handleAddressChange(value);
+    } finally {
+      setIsSearching(false);
     }
-  };
+  }, [handleAddressChange]);
 
-  const renderLocationBadges = (types: any) => {
-    const t = types || {};
-    return (
-      <View style={s.badges}>
-        <View style={[s.badge, t.mkad === 1 ? s.badgeMkad : s.badgeInactive]}>
-          <Text style={s.badgeText}>МКАД</Text>
-        </View>
-        <View style={[s.badge, t.ttk === 1 ? s.badgeTtk : s.badgeInactive]}>
-          <Text style={s.badgeText}>ТТК</Text>
-        </View>
-        <View style={[s.badge, t.sk === 1 ? s.badgeSk : s.badgeInactive]}>
-          <Text style={s.badgeText}>СК</Text>
-        </View>
-      </View>
-    );
-  };
+  const onMarkStreet = useCallback((item: any) => {
+    markStreet(item);
+    setFocusedIdx(-1);
+    setTimeout(() => addressRef.current?.focus(), 60);
+  }, [markStreet]);
 
-  const inputStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '12px',
-    fontSize: '14px',
-    borderRadius: '8px',
-    border: `1px solid ${address ? '#656565' : '#B8B8B8'}`,
-    backgroundColor: address ? '#FFFFFF' : '#F9FAF9',
-    outline: 'none',
-    fontFamily: 'inherit',
-    color: '#313131',
-    boxSizing: 'border-box',
-    resize: 'none',
-    minHeight: '45px',
-  };
+  const onPickCombined = useCallback((idx: number) => {
+    const entry = combined[idx];
+    if (!entry) return;
+    if (entry.kind === 'street') onMarkStreet(entry.item);
+    else if (entry.kind === 'address') markAddress(entry.item);
+    else markUserAddress(entry.item);
+  }, [combined, markAddress, markUserAddress, onMarkStreet]);
+
+  const onInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (combined.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIdx(i => (i + 1) % combined.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIdx(i => (i <= 0 ? combined.length - 1 : i - 1));
+    } else if (e.key === 'Enter' && focusedIdx >= 0) {
+      e.preventDefault();
+      onPickCombined(focusedIdx);
+    } else if (e.key === 'Escape') {
+      if (address) {
+        e.preventDefault();
+        clearAddress();
+        setFocusedIdx(-1);
+      }
+    }
+  }, [combined, focusedIdx, onPickCombined, address, clearAddress]);
+
+  const onOrder = useCallback(async () => {
+    const errorMsg = await handleOrder();
+    if (errorMsg) showAlert('Ошибка', errorMsg);
+  }, [handleOrder]);
+
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/main' as any);
+  }, [router]);
+
+  const hasSuggestions = combined.length > 0;
+  const activeDescendantId =
+    focusedIdx >= 0 && focusedIdx < combined.length
+      ? `pass-suggestion-${focusedIdx}`
+      : undefined;
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>←</Text>
-        </Pressable>
-        <Text style={[s.headerTitle, noSelect]}>Добавить адрес</Text>
-      </View>
+      <ScreenHeader title="Добавить адрес" onBack={safeBack} />
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
-        {/* Zone tabs */}
-        <Text style={[s.sectionLabel, noSelect]}>Вы можете указать зону</Text>
-        <View style={s.tabRow}>
-          {(['mkad', 'ttk', 'sk'] as const).map(tab => (
-            <Pressable
-              key={tab}
-              style={[s.tabBtn, locationType === tab && s.tabBtnActive]}
-              onPress={() => toggleTab(tab)}
-            >
-              <Text style={[s.tabBtnText, noSelect]}>
-                {tab === 'mkad' ? 'МКАД' : tab === 'ttk' ? 'ТТК' : 'СК'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+      <WebScreenContainer maxWidth={820}>
+        <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+          <Text style={s.sectionHint} selectable={false}>Вы можете указать зону</Text>
 
-        {/* Address input */}
-        <View style={s.addressHeader}>
-          <Text style={[s.sectionLabel, noSelect]}>Куда едем?</Text>
-          {address !== '' && (
-            <Pressable style={s.clearBtn} onPress={clearAddress}>
-              <Text style={[s.clearBtnText, noSelect]}>Очистить</Text>
-            </Pressable>
-          )}
-        </View>
+          <View style={{ marginTop: 20, marginBottom: 5 }}>
+            <ZoneTabs value={locationType as any} onToggle={toggleTab} />
+          </View>
 
-        <View style={s.addressRow}>
-          <input
-            ref={addressRef}
-            type="text"
-            value={address}
-            onChange={(e: any) => handleAddressChange(e.target.value)}
-            placeholder="Начните вводить улицу..."
-            style={inputStyle}
-          />
-          <Pressable
-            style={s.mapBtn}
-            onPress={() => {
-              router.push({
-                pathname: '/(authenticated)/pass-yamap' as any,
-                params: {
-                  location_type: locationType,
-                  auto_list: JSON.stringify(vehicles),
-                  lon: String(lon),
-                  lat: String(lat),
-                  address: address,
-                },
-              });
-            }}
-          >
-            <Text style={s.mapBtnIcon}>📍</Text>
-          </Pressable>
-        </View>
+          <ManualZoneBanner visible={isLocationTypeManual} />
 
-        {/* Street suggestions */}
-        {streetList.length > 0 && (
-          <View style={s.suggestionsBlock}>
-            {streetList.map((item, idx) => (
-              <Pressable key={item.id || idx} style={s.suggestionItem} onPress={() => onMarkStreet(item)}>
-                {renderLocationBadges(item.location_types)}
-                <View style={s.suggestionText}>
-                  {item.p2 ? <Text style={s.suggestionSub}>{item.p2}</Text> : null}
-                  {item.p3 ? <Text style={s.suggestionSub}>{item.p3}</Text> : null}
-                  {item.p4 ? <Text style={s.suggestionSub}>{item.p4}</Text> : null}
-                  {item.p5 ? <Text style={s.suggestionSub}>{item.p5}</Text> : null}
-                  {item.p6 ? <Text style={s.suggestionSub}>{item.p6}</Text> : null}
-                  {item.p7 ? <Text style={s.suggestionMain}>{item.p7}</Text> : null}
-                </View>
+          <View style={s.addressHeader}>
+            <Text style={s.sectionLabel} selectable={false}>Куда едем?</Text>
+            {address !== '' && (
+              <Pressable style={s.clearBtn} onPress={clearAddress}>
+                <Text style={s.clearBtnText} selectable={false}>Очистить</Text>
               </Pressable>
-            ))}
-          </View>
-        )}
-
-        {/* Address suggestions */}
-        {addressList.length > 0 && (
-          <View style={s.suggestionsBlock}>
-            {addressList.map((item, idx) => (
-              <Pressable key={item.id || idx} style={s.suggestionItem} onPress={() => markAddress(item)}>
-                {renderLocationBadges(item.location_types)}
-                <View style={s.suggestionText}>
-                  <Text style={s.suggestionMain}>{item.l_concat}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {/* Previously entered addresses */}
-        {userAddressList.length > 0 && (
-          <>
-            <Text style={[s.sectionLabel, { marginTop: 20 }, noSelect]}>Ранее введён:</Text>
-            <View style={s.suggestionsBlock}>
-              {userAddressList.map((item, idx) => (
-                <Pressable key={item.id || idx} style={s.suggestionItem} onPress={() => markUserAddress(item)}>
-                  {renderLocationBadges(item.location_types)}
-                  <View style={s.suggestionText}>
-                    <Text style={s.suggestionMain}>
-                      {item.mos_ru_street_p7} {item.mos_ru_address_l_concat}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          </>
-        )}
-
-        {/* Vehicle list */}
-        <Text style={[s.sectionLabel, { marginTop: 20 }, noSelect]}>Автомобили на маршрут:</Text>
-        {vehicles.length === 0 ? (
-          <View style={s.emptyVehicles}>
-            <Text style={s.emptyVehiclesText}>Автомобили не выбраны</Text>
-            <Pressable
-              style={s.emptyVehiclesBtn}
-              onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
-            >
-              <Text style={[s.emptyVehiclesBtnText, noSelect]}>Выбрать автомобили</Text>
-            </Pressable>
-          </View>
-        ) : (
-          vehicles.map((item: any) => (
-            <View key={item.id} style={s.vehicleCard}>
-              <View style={s.vehicleLeft}>
-                <Text style={s.vehicleIcon}>🚛</Text>
-                <Text style={s.vehicleNumber}>
-                  {item.auto_number_base}{item.auto_number_region_code}
-                </Text>
-              </View>
-              <View style={s.vehicleRight}>
-                <Text style={s.vehiclePass}>Пропуск — {item.check_passes_string}</Text>
-              </View>
-            </View>
-          ))
-        )}
-
-        {/* Spacer for fixed button */}
-        <View style={{ height: 80 }} />
-      </ScrollView>
-
-      {/* Order button */}
-      {canOrder && (
-        <View style={s.footer}>
-          <Pressable
-            style={[s.orderBtn, submitting && s.orderBtnDisabled]}
-            onPress={onOrder}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={[s.orderBtnText, noSelect]}>Заказать пропуск</Text>
             )}
-          </Pressable>
-        </View>
-      )}
+          </View>
 
-      {/* Success modal */}
-      {showModal && (
-        <View style={s.modalOverlay}>
-          <View style={s.modalContent}>
-            <Text style={s.modalText}>В ближайшее время с Вами свяжется наш менеджер!</Text>
-            <Pressable style={s.modalBtn} onPress={() => setShowModal(false)}>
-              <Text style={[s.modalBtnText, noSelect]}>ОК</Text>
+          <View style={s.addressRow}>
+            <View style={s.inputWrap}>
+              <input
+                ref={addressRef}
+                type="text"
+                value={address}
+                onChange={(e) => onAddressChange(e.target.value)}
+                onKeyDown={onInputKeyDown}
+                placeholder="Начните вводить улицу..."
+                style={inputStyle(address !== '')}
+                // ARIA combobox pattern
+                role="combobox"
+                aria-expanded={hasSuggestions}
+                aria-controls="pass-suggestions-auto pass-suggestions-user"
+                aria-autocomplete="list"
+                aria-activedescendant={activeDescendantId}
+                autoComplete="off"
+                aria-label="Адрес доставки"
+              />
+              {isSearching && (
+                <View style={s.inputSpinner} pointerEvents="none">
+                  <ActivityIndicator size="small" color="#3A3A3A" />
+                </View>
+              )}
+            </View>
+            <Pressable
+              style={s.mapBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Выбрать адрес на карте"
+              onPress={() => {
+                router.push({
+                  pathname: '/(authenticated)/pass-yamap' as any,
+                  params: {
+                    location_type: locationType,
+                    auto_list: JSON.stringify(vehicles),
+                    lon: String(lon),
+                    lat: String(lat),
+                    address,
+                  },
+                });
+              }}
+            >
+              <Image source={require('../../../assets/images/pass_yamap_2.png')} />
             </Pressable>
           </View>
-        </View>
-      )}
+
+          {/* Autocomplete results — street and address suggestions */}
+          {(streetList.length > 0 || addressList.length > 0) && (
+            <View nativeID="pass-suggestions-auto" accessibilityRole={'list' as any}>
+              {streetList.map((item: any, idx: number) => (
+                <SuggestionItem
+                  key={`street-${item.id ?? idx}`}
+                  nativeID={`pass-suggestion-${idx}`}
+                  item={item}
+                  variant="street"
+                  focused={idx === focusedIdx}
+                  onPress={() => onPickCombined(idx)}
+                />
+              ))}
+              {addressList.map((item: any, idx: number) => {
+                const combinedIdx = streetList.length + idx;
+                return (
+                  <SuggestionItem
+                    key={`address-${item.id ?? idx}`}
+                    nativeID={`pass-suggestion-${combinedIdx}`}
+                    item={item}
+                    variant="address"
+                    focused={combinedIdx === focusedIdx}
+                    onPress={() => onPickCombined(combinedIdx)}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {/* Previously entered addresses — separate block with its own header */}
+          {userAddressList.length > 0 && (
+            <>
+              <Text style={s.sectionLabelSpaced} selectable={false}>Ранее введён:</Text>
+              <View nativeID="pass-suggestions-user" accessibilityRole={'list' as any}>
+                {userAddressList.map((item: any, idx: number) => {
+                  const combinedIdx = streetList.length + addressList.length + idx;
+                  return (
+                    <SuggestionItem
+                      key={`user-${item.id ?? idx}`}
+                      nativeID={`pass-suggestion-${combinedIdx}`}
+                      item={item}
+                      variant="user"
+                      focused={combinedIdx === focusedIdx}
+                      onPress={() => onPickCombined(combinedIdx)}
+                    />
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          <Text style={s.sectionLabelSpaced} selectable={false}>Автомобили на маршрут:</Text>
+          {vehicles.length === 0 ? (
+            <View style={s.emptyVehicles}>
+              <Text style={s.emptyText}>Автомобили не выбраны</Text>
+              <Pressable
+                style={s.emptyBtn}
+                onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
+              >
+                <Text style={s.emptyBtnText} selectable={false}>Выбрать автомобили</Text>
+              </Pressable>
+            </View>
+          ) : (
+            vehicles.map((v: any) => <VehicleCard key={v.id} vehicle={v} />)
+          )}
+
+          <View style={{ height: 80 }} />
+        </ScrollView>
+
+        {canOrder && (
+          <View style={s.footer}>
+            <Pressable
+              style={[s.orderBtn, submitting && s.orderBtnDisabled]}
+              onPress={onOrder}
+              disabled={submitting}
+              accessibilityRole="button"
+              accessibilityLabel="Заказать пропуск"
+              accessibilityState={{ disabled: submitting, busy: submitting }}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={s.orderBtnText} selectable={false}>Заказать пропуск</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </WebScreenContainer>
+
+      <SuccessModal
+        visible={showModal}
+        message="В ближайшее время с Вами свяжется наш менеджер!"
+        onClose={() => setShowModal(false)}
+      />
     </View>
   );
 }
 
+function inputStyle(filled: boolean): React.CSSProperties {
+  return {
+    flex: 1,
+    padding: '12px 12px',
+    paddingRight: 40, // room for spinner
+    fontSize: 14,
+    borderRadius: 8,
+    border: `1px solid ${filled ? '#656565' : '#B8B8B8'}`,
+    backgroundColor: filled ? '#FFFFFF' : '#F9FAF9',
+    outline: 'none',
+    fontFamily: 'inherit',
+    color: '#313131',
+    boxSizing: 'border-box',
+    width: '100%',
+  };
+}
+
 const s = StyleSheet.create({
-  header: {
+  scroll: { flex: 1 },
+  scrollContent: { paddingVertical: 20, paddingBottom: 40 },
+
+  sectionHint: { fontSize: 15, color: '#313131', paddingHorizontal: 20 },
+  sectionLabel: { fontSize: 15, color: '#313131' },
+  sectionLabelSpaced: {
+    fontSize: 15,
+    color: '#313131',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+
+  addressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  backBtn: { width: 40, height: 40, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  backBtnText: { fontSize: 22, color: '#3A3A3A' },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#1A1A1A' },
-
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 40 },
-
-  sectionLabel: { fontSize: 15, color: '#313131', marginBottom: 10 },
-
-  // Zone tabs
-  tabRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  tabBtn: {
-    flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-  },
-  tabBtnActive: { backgroundColor: '#D7D7D7' },
-  tabBtnText: { fontSize: 15, fontWeight: '700', color: '#313131' },
-
-  // Address input
-  addressHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   clearBtn: {
     marginLeft: 12,
     paddingHorizontal: 12,
@@ -297,75 +332,32 @@ const s = StyleSheet.create({
     backgroundColor: '#F9FAF9',
   },
   clearBtnText: { fontSize: 13, color: '#656565' },
-  addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  mapBtn: { padding: 10, marginLeft: 10 },
-  mapBtnIcon: { fontSize: 22 },
 
-  // Suggestions
-  suggestionsBlock: { marginBottom: 10 },
-  suggestionItem: {
+  addressRow: {
     flexDirection: 'row',
-    padding: 10,
-    marginBottom: 8,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-  },
-  suggestionText: { flex: 5, paddingLeft: 10 },
-  suggestionMain: { fontSize: 16, fontWeight: '700', color: '#313131' },
-  suggestionSub: { fontSize: 11, color: '#313131' },
-
-  // Location badges
-  badges: { width: 40 },
-  badge: { alignItems: 'center', margin: 1, borderRadius: 2, paddingVertical: 1 },
-  badgeMkad: { backgroundColor: '#57B6ED' },
-  badgeTtk: { backgroundColor: '#19B28D' },
-  badgeSk: { backgroundColor: '#EE505A' },
-  badgeInactive: { backgroundColor: '#8C8C8C' },
-  badgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
-
-  // Vehicle cards
-  vehicleCard: {
-    flexDirection: 'row',
-    padding: 12,
-    marginBottom: 8,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  vehicleLeft: { alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  vehicleIcon: { fontSize: 28 },
-  vehicleNumber: { fontSize: 14, fontWeight: '700', color: '#313131', marginTop: 4 },
-  vehicleRight: { flex: 1, justifyContent: 'center' },
-  vehiclePass: { fontSize: 14, color: '#313131' },
+  inputWrap: { flex: 1, position: 'relative' },
+  inputSpinner: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
+  mapBtn: { padding: 10, marginLeft: 10 },
 
-  // Empty vehicle state
   emptyVehicles: {
     alignItems: 'center',
     paddingVertical: 24,
-    marginBottom: 12,
+    marginHorizontal: 20,
   },
-  emptyVehiclesText: {
-    fontSize: 14,
-    color: '#999',
-    marginBottom: 16,
-  },
-  emptyVehiclesBtn: {
+  emptyText: { fontSize: 14, color: '#999', marginBottom: 16 },
+  emptyBtn: {
     backgroundColor: '#3A3A3A',
     borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  emptyVehiclesBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 
-  // Footer order button
   footer: {
     padding: 16,
     borderTopWidth: 1,
@@ -380,33 +372,4 @@ const s = StyleSheet.create({
   },
   orderBtnDisabled: { opacity: 0.6 },
   orderBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-
-  // Modal overlay
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
-    maxWidth: 400,
-    width: '90%',
-    alignItems: 'center',
-  },
-  modalText: { fontSize: 16, color: '#313131', textAlign: 'center', marginBottom: 20 },
-  modalBtn: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 8,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-  },
-  modalBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 });

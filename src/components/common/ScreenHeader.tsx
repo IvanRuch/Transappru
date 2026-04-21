@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableHighlight, Image, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Image, StyleSheet, Platform } from 'react-native';
 
 interface ScreenHeaderProps {
   title: string;
@@ -7,20 +7,31 @@ interface ScreenHeaderProps {
   rightComponent?: React.ReactNode;
 }
 
+/**
+ * Standard screen header: back button on the left, centered title, optional
+ * right slot. Works identically on mobile and web; on web adds cursor:pointer
+ * on the back button and disables text selection on the title.
+ */
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, rightComponent }) => {
   return (
     <View style={styles.headerRow}>
-      <TouchableHighlight
+      <Pressable
         style={styles.headerBackButton}
-        activeOpacity={0.7}
-        underlayColor="transparent"
         onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Назад"
+        hitSlop={8}
       >
-        <Image source={require('../../../assets/images/back_2.png')} />
-      </TouchableHighlight>
-      
-      <Text style={styles.header}>{title}</Text>
-      
+        <Image
+          source={require('../../../assets/images/back_2.png')}
+          accessibilityIgnoresInvertColors
+        />
+      </Pressable>
+
+      <Text style={styles.header} numberOfLines={1} selectable={false}>
+        {title}
+      </Text>
+
       {rightComponent && (
         <View style={styles.headerRightContainer}>
           {rightComponent}
@@ -39,12 +50,15 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: '#fff',
   },
-  
+
   headerBackButton: {
     padding: 8,
     marginRight: 10,
+    ...Platform.select({
+      web: { cursor: 'pointer' as any },
+    }),
   },
-  
+
   header: {
     flex: 1,
     textAlign: 'center',
@@ -53,7 +67,7 @@ const styles = StyleSheet.create({
     color: '#313131',
     marginRight: 40, // Компенсация для центрирования
   },
-  
+
   headerRightContainer: {
     position: 'absolute',
     right: 15,

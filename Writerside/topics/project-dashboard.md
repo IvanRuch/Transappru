@@ -1,6 +1,6 @@
 # Project Dashboard
 
-> Last updated: 2026-04-14
+> Last updated: 2026-04-21
 
 ## Current Focus
 
@@ -17,6 +17,10 @@
 
 ## Recent Changes
 
+- **2026-04-21**: PassYaMapScreen UX: edit-mode — when opening the map with an already-selected address, zone filter is lifted. All 3 zones visible, `/get-address-map` called without `location_type`, user can pick any zone. "Добавить" button is hidden in edit mode until the user taps a new point (`hasNewPick` flag), so a stale-data commit is not reachable from the UI — guarantees no overwrite of mos_ru_* fields on PassScreen. Edit mode detected via presence of `address` in route params. Applied symmetrically on mobile (`PassYaMapScreen.tsx`) and web (`PassYaMapScreen.web.tsx` + `MapInner.showAllZones` prop). To fully clear the address, user uses "Очистить" on PassScreen — single entry point for clearing.
+- **2026-04-21**: PassScreen UX: unified manual-zone banner — now fires when user overrides a zone that was auto-detected from any source (map OR previously entered user-address). Internal rename in usePassOrder: `originalLocationTypeFromMap` → `detectedLocationType`. Banner no longer gated by lon/lat.
+- **2026-04-21**: Bugfix: restore mobile map-data flow after pilot refactor — `app/(authenticated)/pass.tsx` wrapper reduced from 100 LOC synthetic-navigation bridge to 39 LOC `useFocusEffect` that syncs `pendingMapData` into URL via `router.setParams`. `usePassOrder` no longer Platform.OS-guarded — identical URL-driven code path on mobile and web.
+- **2026-04-21**: Refactor (ADR-005): PassScreen pilot — extracted 6 shared sub-components to `src/components/pass/` (ZoneTabs, LocationBadges, SuggestionItem, VehicleCard, ManualZoneBanner, SuccessModal). Added `src/utils/alert.{ts,web.ts}` (`showAlert`), `src/components/web/WebScreenContainer.tsx`. Upgraded `ScreenHeader` to cross-platform with a11y. Web prod-ready polish: ARIA combobox + keyboard nav (↑/↓/Enter/Esc) on address autocomplete, inline loading spinner, focus trap + ESC + overlay-click on SuccessModal, desktop max-width 820px, safeBack, ManualZoneBanner parity fix. PassScreen.tsx 336→269 LOC, PassScreen.web.tsx 412→343 LOC. Pattern ready to scale to 15 remaining screen pairs.
 - **2026-04-14**: Web: Yandex Maps JS API v3 for address selection on map (ADR-004) — PassYaMapScreen.web.tsx with zone polygons (МКАД/ТТК/СК), click-to-select address, shared polygon data extracted to src/data/moscowZonePolygons.ts. PassScreen.web.tsx: map button (📍), WebAppLayout double-sidebar fix
 - **2026-04-14**: Refactoring: 8 shared hooks extracted from 16 screen pairs (ADR-003) — useAuthFlow, usePinConfirm, useOnboardingFlow, useNotificationList, useChargesSelection, usePaymentConfirm, useInnBinding, usePassOrder + plateHelpers utility + useNotificationSettings fix. InnScreen and PassScreen converted from class to functional components. Screen-layer reuse ~65-70%
 - **2026-04-14**: AddAutoModal: GRZ input validation in useAutoActions.ts — Cyrillic-only letter filter (АВЕКМНОРСТУХ), Latin→Cyrillic auto-conversion, digits-only region code, uppercase normalization; Safari autofill fix (strip RN-generated attributes + CSS pseudo-element hiding); placeholder alignment (Platform.select); click-outside-to-close overlay; gray placeholders

@@ -63,8 +63,11 @@ function loadYandexMapsScript(): Promise<void> {
   return _loadPromise;
 }
 
-// Cache reactified components
-let _reactComponents: {
+// Reactified Yandex Maps v3 component bundle. Runtime components come from
+// the Yandex CDN via `ymaps3.import('@yandex/ymaps3-reactify')` — there is
+// no npm package, so we keep these typed as `any` and expose a named alias
+// so consumers (MapInner props, useState generics) reference a stable type.
+type YmapsReactComponents = {
   YMap: any;
   YMapDefaultSchemeLayer: any;
   YMapDefaultFeaturesLayer: any;
@@ -72,7 +75,10 @@ let _reactComponents: {
   YMapMarker: any;
   YMapListener: any;
   reactify: any;
-} | null = null;
+};
+
+// Cache of the reactified components — populated on first successful load.
+let _reactComponents: YmapsReactComponents | null = null;
 
 async function getReactComponents() {
   if (_reactComponents) return _reactComponents;
@@ -151,12 +157,14 @@ function getZonePolygons(locationType: string): ZonePolygon[] {
 // ─── Inner map component (rendered only after API is loaded) ────────────────
 
 interface MapInnerProps {
-  components: NonNullable<typeof _reactComponents>;
+  components: YmapsReactComponents;
   locationType: string;
   initialLon: number | '';
   initialLat: number | '';
   onSelectAddress: (data: any) => void;
   isLoadingAddress: boolean;
+  /** When true, ignore locationType and render all three zones. */
+  showAllZones?: boolean;
 }
 
 function MapInner({
@@ -166,6 +174,7 @@ function MapInner({
   initialLat,
   onSelectAddress,
   isLoadingAddress,
+  showAllZones,
 }: MapInnerProps) {
   const {
     YMap,
@@ -183,11 +192,12 @@ function MapInner({
       : null
   );
 
-  const zoom = ZONE_ZOOM[locationType] || 10;
+  // When showing all zones we always start from the default (zoomed-out) level.
+  const zoom = showAllZones ? 10 : (ZONE_ZOOM[locationType] || 10);
   const center = markerCoords || MOSCOW_CENTER;
   const location = reactify.useDefault({ center, zoom });
 
-  const polygons = getZonePolygons(locationType);
+  const polygons = getZonePolygons(showAllZones ? '' : locationType);
 
   const handleClick = useCallback((_object: any, event: any) => {
     if (isLoadingAddress) return;
@@ -258,7 +268,15 @@ export default function PassYaMapScreen() {
   const initialAddress = (params.address as string) || '';
   const autoListParam = (params.auto_list as string) || '[]';
 
-  const [components, setComponents] = useState<typeof _reactComponents>(null);
+  /**
+   * True when we are re-visiting a pass address that's already selected on
+   * PassScreen. In this mode: all zones are shown, `/get-address-map` is
+   * called without a zone filter, and "Добавить" without a new pick is a
+   * no-op (just goes back).
+   */
+  const isEditMode = initialAddress !== '';
+
+  const [components, setComponents] = useState<YmapsReactComponents | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const [addressData, setAddressData] = useState<any>(
@@ -270,9 +288,14 @@ export default function PassYaMapScreen() {
       ? { lon: Number(initialLon), lat: Number(initialLat) }
       : null
   );
+  /** True after the user has tapped a new point on the map during this visit. */
+  const [hasNewPick, setHasNewPick] = useState(false);
 
-  const locationTypeRef = useRef(locationType);
-  locationTypeRef.current = locationType;
+  // In edit mode the zone filter is lifted — the hook reference always points
+  // at '' so every tap resolves any address, not only those inside `locationType`.
+  const effectiveFilterType = isEditMode ? '' : locationType;
+  const locationTypeRef = useRef(effectiveFilterType);
+  locationTypeRef.current = effectiveFilterType;
 
   // Load Yandex Maps API
   useEffect(() => {
@@ -287,6 +310,7 @@ export default function PassYaMapScreen() {
     setWrongLocation(false);
     setIsLoadingAddress(true);
     setAddressData(null);
+    setHasNewPick(true);
 
     try {
       const token = await AsyncStorage.getItem('token');
@@ -319,7 +343,9 @@ export default function PassYaMapScreen() {
     }
   }, [router]);
 
-  // "Добавить" — return data to PassScreen
+  // "Добавить" — commit the current pin back to PassScreen. The button is
+  // hidden in edit mode until the user taps a new point, so a stale-data
+  // commit is not reachable from the UI.
   const handleAdd = useCallback(() => {
     if (!addressData || !selectedCoords) return;
 
@@ -391,6 +417,7 @@ export default function PassYaMapScreen() {
             initialLat={initialLat}
             onSelectAddress={handleSelectOnMap}
             isLoadingAddress={isLoadingAddress}
+            showAllZones={isEditMode}
           />
         )}
       </View>
@@ -423,10 +450,17 @@ export default function PassYaMapScreen() {
         </View>
       )}
 
-      {/* "Добавить" button */}
-      {addressData?.address && !isLoadingAddress && (
+      {/* "Добавить" — shown when there's an address to commit.
+          In edit mode additionally gated on hasNewPick: nothing to commit
+          when the user has not picked anything new (they can just go back). */}
+      {addressData?.address && !isLoadingAddress && (!isEditMode || hasNewPick) && (
         <View style={s.footer}>
-          <Pressable style={s.addBtn} onPress={handleAdd}>
+          <Pressable
+            style={s.addBtn}
+            onPress={handleAdd}
+            accessibilityRole="button"
+            accessibilityLabel="Добавить адрес"
+          >
             <Text style={[s.addBtnText, noSelect]}>Добавить</Text>
           </Pressable>
         </View>

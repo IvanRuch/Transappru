@@ -121,3 +121,54 @@ for React component wrappers. Extract shared polygon coordinates to `src/data/mo
 - `usePassOrder.ts` enhanced with `address_map_data` URL param handling for web return flow
 - `PassScreen.web.tsx` gets map button (📍) matching mobile's map icon
 - All `.web.tsx` screens must NOT wrap in `WebAppLayout` (provided by `_layout.web.tsx`)
+
+---
+
+### ADR-005: Extract shared UI sub-components from screen pairs (2026-04-21)
+
+**Context:** After ADR-003 extracted business logic into shared hooks, the **UI layer** still
+duplicated ~70% of markup between mobile (`.tsx`) and web (`.web.tsx`) screen pairs. Zone tabs,
+badges, suggestion cards, vehicle cards, success modals, and manual-zone banners were reimplemented
+inline in each file, even though they are structurally identical. This caused visual drift
+(mobile and web diverged on copy, missing banners, empty-states), and made it impossible for
+web screens to match production-grade quality (no a11y, no desktop max-width, no loading states).
+
+**Decision:** For every `/src/screens/<feature>/<Name>Screen.*` pair, extract shared sub-components
+into `src/components/<feature>/` (one file per component + barrel `index.ts`). Screens become
+thin orchestrators that compose shared components with platform-specific layout. Platform-specific
+polish (focus trap, ARIA, keyboard navigation, responsive max-width) lives in the sub-components
+themselves (guarded by `Platform.OS === 'web'`) or in web-only wrappers like `WebScreenContainer`.
+
+Add two cross-cutting utilities:
+- `src/utils/alert.{ts,web.ts}` — `showAlert(title, message)` wrapper (mobile `Alert.alert` / web `window.alert`).
+- `src/components/web/WebScreenContainer.tsx` — max-width + centering wrapper for desktop.
+
+`ScreenHeader` (`src/components/common/`) upgraded to cross-platform (added `accessibilityRole`,
+`cursor:pointer` on web, replaced `TouchableHighlight` with `Pressable`).
+
+**Rationale:**
+- Shared UI in one place ensures pixel parity between platforms — no more copy/empty-state/banner drift
+- Each component can be prod-hardened once (focus trap, ARIA combobox, keyboard nav, loading indicator)
+- Future new screens start from shared primitives — faster development, consistent UX
+- Pattern scales: same structure applies to `charges/`, `notifications/`, `payment/`, `inn/`, `user/`, `auto-detail/`, `auth/`
+
+**Pilot (PassScreen):**
+- New: `src/components/pass/` with `ZoneTabs`, `LocationBadges`, `SuggestionItem`, `VehicleCard`, `ManualZoneBanner`, `SuccessModal` + `index.ts`
+- New: `src/components/web/WebScreenContainer.tsx`, `src/utils/alert.{ts,web.ts}`
+- Updated: `src/components/common/ScreenHeader.tsx` (a11y + Pressable)
+- Migrated: `src/screens/pass/PassScreen.tsx` (336 → 269 LOC) and `PassScreen.web.tsx` (412 → 343 LOC)
+- Prod-ready web features added: ARIA combobox over address autocomplete, keyboard navigation
+  (ArrowUp/Down/Enter/Escape), inline loading spinner during search, focus trap + ESC + overlay
+  click on SuccessModal, desktop max-width (820px), `safeBack` (router.canGoBack fallback to /main),
+  missing `ManualZoneBanner` parity restored on web.
+
+**Consequences:**
+- Any visual/behaviour change to pass-screens is now a single-file edit in `src/components/pass/`
+- `ScreenHeader` can now be used uniformly; each web screen should drop its inline header
+- `WebScreenContainer` and `showAlert()` are available for all 15 remaining screen pairs
+- Migration path for other screens: (1) extract sub-components into `src/components/<feature>/`,
+  (2) replace inline markup in both screens, (3) wrap web in `WebScreenContainer`, (4) add a11y polish
+- Emojis (🚛/📍) removed from web in favor of existing PNG assets — consistent look across platforms
+- Next screens in queue: `NotificationListScreen` → `DriverListScreen` → `NotificationSettingsScreen`
+  → `ChargesScreen` → `UserScreen` → `PaymentConfirmScreen` → `InnScreen` → `AutoListScreen`
+  → `AuthScreen`/`PinScreen` (special 2-col layout) → `PassYaMapScreen` (special: map)

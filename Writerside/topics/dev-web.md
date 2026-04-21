@@ -1,6 +1,6 @@
 # Web Version
 
-## Current State (as of 2026-04-14)
+## Current State (as of 2026-04-21)
 
 Web version is **in active development** using Expo Web from the shared `/src/` codebase.
 Auth flow, onboarding, INN registration, auto-list, auto detail (8 tabs), driver management, charges,
@@ -115,6 +115,43 @@ See [Decision Log](decision-log.md) ADR-003.
 Hooks use `api` from `services/api`. Platform-specific behavior via callbacks (e.g. `useInnBinding(onConfirmationClose)`).
 
 **Utility:** `src/utils/plateHelpers.ts` — shared GRZ normalization (Latin→Cyrillic, allowed chars, digits-only).
+
+## Shared UI Sub-components (ADR-005)
+
+After shared hooks (ADR-003), the UI layer was still duplicated ~70% between `.tsx` and `.web.tsx`
+screen pairs. ADR-005 introduces per-feature shared sub-components in `src/components/<feature>/`
+plus cross-cutting helpers. Screens become thin orchestrators. Visual parity between platforms is enforced.
+
+| Feature dir | Components | Status |
+|---|---|---|
+| `src/components/pass/` | `ZoneTabs`, `LocationBadges`, `SuggestionItem`, `VehicleCard`, `ManualZoneBanner`, `SuccessModal` | ✅ Pilot done (PassScreen) |
+| `src/components/charges/` | (pre-existing) `ChargeCard`, `ChargesFilterPanel` | ✅ Already shared |
+| `src/components/auto/` | (pre-existing) `AutoListItem`, `AutoListMenu`, `FindAutoPanel`, `modals/*` | ✅ Already shared |
+| `src/components/notifications/` | TBD | ⏳ Next |
+| `src/components/inn/`, `user/`, `payment/`, `auth/` | TBD | ⏳ Planned |
+
+**Cross-cutting helpers:**
+
+| File | Purpose |
+|------|---------|
+| `src/utils/alert.ts` + `.web.ts` | `showAlert(title, message?)` — `Alert.alert` on mobile, `window.alert` on web |
+| `src/components/web/WebScreenContainer.tsx` | Desktop max-width + centering wrapper (default 820px), used inside authenticated web screens |
+| `src/components/common/ScreenHeader.tsx` | Cross-platform header (Pressable + accessibilityRole + cursor:pointer on web). Replaces inline web headers |
+
+**Prod-ready web features layered on top (pilot on PassScreen):**
+- ARIA combobox over the address `<input>` + suggestion list
+- Keyboard navigation: ArrowUp/ArrowDown/Enter/Escape through suggestions
+- Inline loading indicator during autocomplete
+- `SuccessModal` with focus trap, ESC close, overlay-click close, focus restore
+- `safeBack` pattern: `router.canGoBack() ? router.back() : router.replace('/main')` for direct-URL entries
+
+**Pattern for new screens:**
+1. Extract shared sub-components into `src/components/<feature>/*.tsx` + `index.ts` barrel
+2. Migrate both `.tsx` and `.web.tsx` to use them (delete inline markup)
+3. Wrap web screen content in `<WebScreenContainer maxWidth={...}>` if it lives inside authenticated layout
+4. Replace `Alert.alert` / `window.alert` with `showAlert()`
+5. Replace inline headers with `<ScreenHeader>`
+6. Add web a11y polish (ARIA where applicable, keyboard nav, loading states)
 
 ## Yandex Maps (Web — ADR-004)
 

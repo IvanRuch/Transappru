@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
@@ -36,7 +35,7 @@ export function usePassOrder() {
   const [lon, setLon] = useState<string | number>('');
   const [lat, setLat] = useState<string | number>('');
   const [isLocationTypeManual, setIsLocationTypeManual] = useState(false);
-  const [originalLocationTypeFromMap, setOriginalLocationTypeFromMap] = useState('');
+  const [detectedLocationType, setDetectedLocationType] = useState('');
 
   // ── Address search state ──────────────────────────────────────────────────
   const [address, setAddress] = useState('');
@@ -75,12 +74,15 @@ export function usePassOrder() {
     });
   }, []);
 
-  // ── Apply map data from URL params (web: returning from map screen) ──────
+  // ── Apply map data from URL params (returning from map screen) ───────────
+  // Cross-platform: web pushes address_map_data via router.push params; mobile
+  // uses router.setParams from app/(authenticated)/pass.tsx wrapper after
+  // receiving pendingMapData from pass-yamap.tsx on focus.
   const mapDataParam = params.address_map_data;
   const appliedMapDataRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !mapDataParam) return;
+    if (!mapDataParam) return;
     const raw = Array.isArray(mapDataParam) ? mapDataParam[0] : mapDataParam;
     if (typeof raw !== 'string' || raw === appliedMapDataRef.current) return;
     try {
@@ -92,17 +94,20 @@ export function usePassOrder() {
     } catch { /* ignore malformed data */ }
   }, [mapDataParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Toggle zone tab (aware of map coordinates) ────────────────────────────
+  // ── Toggle zone tab ───────────────────────────────────────────────────────
+  // Manual-override banner fires whenever the user switches to a zone that
+  // differs from the one that was auto-detected for the current address
+  // — regardless of whether detection came from the map or from a saved
+  // user-address (both paths populate `detectedLocationType`).
   const toggleTab = useCallback((tab: string) => {
-    const hasMapAddress = lon !== '' && lat !== '';
     if (locationType === tab) {
       setLocationType('');
       setIsLocationTypeManual(false);
     } else {
-      setIsLocationTypeManual(hasMapAddress && tab !== originalLocationTypeFromMap);
+      setIsLocationTypeManual(detectedLocationType !== '' && tab !== detectedLocationType);
       setLocationType(tab);
     }
-  }, [locationType, lon, lat, originalLocationTypeFromMap]);
+  }, [locationType, detectedLocationType]);
 
   // ── Address change handler (two-stage autocomplete) ───────────────────────
   const handleAddressChange = useCallback(async (value: string) => {
@@ -118,6 +123,8 @@ export function usePassOrder() {
       setMosRuAddress(0);
       setMosRuAddressLConcat('');
       setAddressList([]);
+      setDetectedLocationType('');
+      setIsLocationTypeManual(false);
       return;
     }
 
@@ -190,6 +197,10 @@ export function usePassOrder() {
     setStreetList([]);
     setLon('');
     setLat('');
+    // New address is being built — any zone pre-detected for a previous
+    // selection (map pick or user-address) no longer applies.
+    setDetectedLocationType('');
+    setIsLocationTypeManual(false);
 
     mosRuStreetRef.current = item.id;
     mosRuStreetP7Ref.current = item.p7;
@@ -225,10 +236,15 @@ export function usePassOrder() {
     setMosRuAddress(item.mos_ru_address);
     setMosRuAddressLConcat(item.mos_ru_address_l_concat);
     setLocationType(detected);
-    setLon('');
-    setLat('');
+    // If the backend returns coordinates for a previously saved address,
+    // preserve them so the map can show a pin on edit. If not present,
+    // the map still opens in edit mode (all zones, no filter) without a pin.
+    setLon(item.lon ?? '');
+    setLat(item.lat ?? '');
     setIsLocationTypeManual(false);
-    setOriginalLocationTypeFromMap('');
+    // Remember detected zone so that subsequent manual zone toggles raise
+    // the "zone changed manually" banner — same behaviour as for map picks.
+    setDetectedLocationType(detected);
   }, []);
 
   // ── Clear address and related state ───────────────────────────────────────
@@ -244,7 +260,7 @@ export function usePassOrder() {
     setLon('');
     setLat('');
     setIsLocationTypeManual(false);
-    setOriginalLocationTypeFromMap('');
+    setDetectedLocationType('');
   }, []);
 
   // ── Apply map data (mobile-only, called from screen focus listener) ───────
@@ -262,7 +278,7 @@ export function usePassOrder() {
     setLon(mapData.lon || '');
     setLat(mapData.lat || '');
     setLocationType(newLocationType);
-    setOriginalLocationTypeFromMap(mapLocationType);
+    setDetectedLocationType(mapLocationType);
   }, [isLocationTypeManual, locationType]);
 
   // ── Submit order ──────────────────────────────────────────────────────────
