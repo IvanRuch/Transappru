@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
 
 interface WebScreenContainerProps {
   children: React.ReactNode;
@@ -15,6 +15,10 @@ interface WebScreenContainerProps {
  * Centers screen content on desktop with a max-width constraint, collapses to
  * full-width on narrow viewports. Intended for web-only screens that live inside
  * WebAppLayout. On mobile (React Native), this file is not used.
+ *
+ * maxWidth/paddingHorizontal are numeric props (not class names) because they
+ * vary per screen — we pass them through `style` rather than creating a
+ * class for each possible width.
  */
 export default function WebScreenContainer({
   children,
@@ -24,22 +28,13 @@ export default function WebScreenContainer({
   contentStyle,
 }: WebScreenContainerProps) {
   return (
-    <View style={[styles.outer, style]}>
-      <View style={[styles.inner, { maxWidth, paddingHorizontal }, contentStyle]}>
+    <View className="flex-1 items-center bg-light-bg dark:bg-dark-bg" style={style}>
+      <View
+        className="flex-1 w-full"
+        style={[{ maxWidth, paddingHorizontal }, contentStyle]}
+      >
         {children}
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  outer: {
-    flex: 1,
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-  },
-  inner: {
-    flex: 1,
-    width: '100%',
-  },
-});

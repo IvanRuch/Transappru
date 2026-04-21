@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image } from 'react-native';
 
 export interface VehicleCardData {
   id: number | string;
@@ -19,36 +19,20 @@ export default function VehicleCard({ vehicle }: VehicleCardProps) {
   const plate = `${vehicle.auto_number_base ?? ''}${vehicle.auto_number_region_code ?? ''}`;
   return (
     <View
-      style={styles.card}
+      className="flex-row p-3 mx-5 mb-2 rounded-lg border items-center bg-bg-secondary border-border-primary"
       accessibilityRole="text"
       accessibilityLabel={`${plate}. Пропуск ${vehicle.check_passes_string ?? ''}`}
     >
-      <View style={styles.left}>
-        <Image source={require('../../../assets/images/truck.png')} style={styles.icon} />
-        <Text style={styles.plate}>{plate}</Text>
+      <View className="items-center justify-center mr-3">
+        <Image
+          source={require('../../../assets/images/truck.png')}
+          style={{ width: 47, height: 36 }}
+        />
+        <Text className="mt-1 text-sm font-bold text-text-primary">{plate}</Text>
       </View>
-      <View style={styles.right}>
-        <Text style={styles.pass}>Пропуск — {vehicle.check_passes_string ?? ''}</Text>
+      <View className="flex-1 justify-center">
+        <Text className="text-sm text-text-primary">Пропуск — {vehicle.check_passes_string ?? ''}</Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    padding: 12,
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    alignItems: 'center',
-  },
-  left:  { alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  icon:  { width: 47, height: 36 },
-  plate: { marginTop: 4, fontSize: 14, fontWeight: '700', color: '#313131' },
-  right: { flex: 1, justifyContent: 'center' },
-  pass:  { fontSize: 14, color: '#313131' },
-});

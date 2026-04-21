@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, Image, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 
 interface ScreenHeaderProps {
   title: string;
@@ -9,14 +9,15 @@ interface ScreenHeaderProps {
 
 /**
  * Standard screen header: back button on the left, centered title, optional
- * right slot. Works identically on mobile and web; on web adds cursor:pointer
- * on the back button and disables text selection on the title.
+ * right slot. Works identically on mobile and web.
+ * - On web, back button gains `cursor-pointer`; title is non-selectable.
+ * - Styling uses design tokens (light/dark text & bg) from tailwind.config.js.
  */
 export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, rightComponent }) => {
   return (
-    <View style={styles.headerRow}>
+    <View className="flex-row items-center px-[15px] py-2.5 bg-light-bg dark:bg-dark-bg">
       <Pressable
-        style={styles.headerBackButton}
+        className="p-2 mr-2.5 cursor-pointer"
         onPress={onBack}
         accessibilityRole="button"
         accessibilityLabel="Назад"
@@ -28,48 +29,19 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, right
         />
       </Pressable>
 
-      <Text style={styles.header} numberOfLines={1} selectable={false}>
+      <Text
+        className="flex-1 text-center text-2xl font-bold text-light-text dark:text-dark-text mr-10"
+        numberOfLines={1}
+        selectable={false}
+      >
         {title}
       </Text>
 
       {rightComponent && (
-        <View style={styles.headerRightContainer}>
+        <View className="absolute right-[15px]">
           {rightComponent}
         </View>
       )}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-  },
-
-  headerBackButton: {
-    padding: 8,
-    marginRight: 10,
-    ...Platform.select({
-      web: { cursor: 'pointer' as any },
-    }),
-  },
-
-  header: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#313131',
-    marginRight: 40, // Компенсация для центрирования
-  },
-
-  headerRightContainer: {
-    position: 'absolute',
-    right: 15,
-  },
-});

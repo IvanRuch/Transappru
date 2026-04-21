@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 
 export type ZoneTab = 'mkad' | 'ttk' | 'sk' | '';
 
@@ -17,10 +17,11 @@ const TABS: { key: Exclude<ZoneTab, ''>; label: string }[] = [
 /**
  * Three zone tabs for pass ordering. Selecting the active tab unsets it.
  * Equal-width buttons in a row with gap. Works identically on mobile and web.
+ * On web adds `cursor-pointer` and `select-none` (no-op on native).
  */
 export default function ZoneTabs({ value, onToggle }: ZoneTabsProps) {
   return (
-    <View style={styles.row}>
+    <View className="flex-row gap-2.5">
       {TABS.map(tab => {
         const active = value === tab.key;
         return (
@@ -29,33 +30,15 @@ export default function ZoneTabs({ value, onToggle }: ZoneTabsProps) {
             accessibilityRole="button"
             accessibilityLabel={`Зона ${tab.label}`}
             accessibilityState={{ selected: active }}
-            style={[styles.tab, active && styles.tabActive]}
+            className={`flex-1 h-[50px] items-center justify-center rounded-lg cursor-pointer select-none ${
+              active ? 'bg-bg-elevated' : 'bg-bg-secondary'
+            }`}
             onPress={() => onToggle(tab.key)}
           >
-            <Text style={styles.label} selectable={false}>{tab.label}</Text>
+            <Text className="text-[15px] font-bold text-text-primary select-none">{tab.label}</Text>
           </Pressable>
         );
       })}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  tab: {
-    flex: 1,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    ...Platform.select({
-      web: { cursor: 'pointer' as any, userSelect: 'none' as any },
-    }),
-  },
-  tabActive: { backgroundColor: '#D7D7D7' },
-  label: { fontSize: 15, fontWeight: '700', color: '#313131' },
-});

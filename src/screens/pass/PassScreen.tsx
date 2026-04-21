@@ -1,14 +1,13 @@
 import React, { useRef } from 'react';
 import {
   View, Text, TouchableHighlight, TouchableOpacity, TextInput, Image,
-  Pressable, StatusBar, Platform,
+  StatusBar, Platform,
 } from 'react-native';
 import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import { useRouter } from 'expo-router';
 
-import styles from '../../styles/Styles.js';
 import { usePassOrder } from '../../hooks/usePassOrder';
 import { showAlert } from '../../utils/alert';
 import {
@@ -48,7 +47,7 @@ export default function PassScreen() {
   const safeBack = () => (router.canGoBack() ? router.back() : router.replace('/main' as any));
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
 
       <ScreenHeader title="Добавить адрес" onBack={safeBack} />
@@ -67,39 +66,40 @@ export default function PassScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 120 + Math.max(insets?.bottom || 0, 20) }}
           >
-            <Text style={sheet.sectionHint}>Вы можете указать зону</Text>
+            <Text className="pt-[15px] px-5 text-[15px] text-text-primary">Вы можете указать зону</Text>
 
-            <View style={sheet.tabsWrapper}>
+            <View className="mt-5 mb-[5px] mx-5">
               <ZoneTabs value={locationType as any} onToggle={toggleTab} />
             </View>
 
             <ManualZoneBanner visible={isLocationTypeManual} />
 
-            <View style={sheet.addressHeaderRow}>
-              <Text style={sheet.sectionLabel}>Куда едем?</Text>
+            <View className="flex-row items-center px-5 pt-2.5">
+              <Text className="text-[15px] text-text-primary">Куда едем?</Text>
               {address !== '' && (
-                <TouchableOpacity style={sheet.clearBtn} onPress={clearAddress}>
-                  <Text style={sheet.clearBtnText}>Очистить</Text>
+                <TouchableOpacity
+                  className="ml-3 px-3 py-1.5 rounded-md border bg-white border-border-primary"
+                  onPress={clearAddress}
+                >
+                  <Text className="text-[13px] text-text-secondary">Очистить</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <View style={sheet.addressInputRow}>
+            <View className="flex-row items-start px-[30px] pt-5">
               <TextInput
                 ref={addressInputRef}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
-                style={[
-                  sheet.addressInput,
-                  { backgroundColor: address !== '' ? '#FFFFFF' : '#F9FAF9' },
-                  { borderColor: address !== '' ? '#656565' : '#B8B8B8' },
-                ]}
+                className={`flex-1 min-h-[45px] max-h-[90px] text-sm px-2.5 py-3 border rounded-lg text-text-primary ${
+                  address !== '' ? 'bg-white border-text-secondary' : 'bg-white border-border-primary'
+                }`}
                 onChangeText={handleAddressChange}
                 value={address}
               />
               <TouchableHighlight
-                style={sheet.mapBtn}
+                className="p-2.5 ml-2.5"
                 activeOpacity={1}
                 underlayColor="#FFFFFF"
                 onPress={() => {
@@ -138,7 +138,7 @@ export default function PassScreen() {
             ))}
 
             {userAddressList.length > 0 && (
-              <Text style={sheet.sectionLabel}>Ранее введён:</Text>
+              <Text className="px-5 pt-5 text-[15px] text-text-primary">Ранее введён:</Text>
             )}
             {userAddressList.map((item, idx) => (
               <SuggestionItem
@@ -149,15 +149,15 @@ export default function PassScreen() {
               />
             ))}
 
-            <Text style={sheet.sectionLabel}>Автомобили на маршрут:</Text>
+            <Text className="px-5 pt-5 text-[15px] text-text-primary">Автомобили на маршрут:</Text>
             {vehicles.length === 0 ? (
-              <View style={sheet.emptyVehicles}>
-                <Text style={sheet.emptyText}>Автомобили не выбраны</Text>
+              <View className="items-center py-6 mx-5">
+                <Text className="text-sm text-text-muted mb-4">Автомобили не выбраны</Text>
                 <TouchableOpacity
-                  style={sheet.emptyBtn}
+                  className="bg-accent-secondary rounded-lg px-6 py-3"
                   onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
                 >
-                  <Text style={sheet.emptyBtnText}>Выбрать автомобили</Text>
+                  <Text className="text-[15px] font-bold text-white">Выбрать автомобили</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -171,14 +171,12 @@ export default function PassScreen() {
         {(insets) => (
           canOrder ? (
             <TouchableHighlight
-              style={[
-                sheet.orderBtn,
-                { bottom: Math.max(insets?.bottom || 0, 10) },
-              ]}
+              className="absolute left-2.5 right-2.5 h-[50px] m-6 rounded items-center justify-center bg-accent-secondary"
+              style={{ bottom: Math.max(insets?.bottom || 0, 10) }}
               onPress={onOrder}
               disabled={submitting}
             >
-              <Text style={sheet.orderBtnText}>Заказать пропуск</Text>
+              <Text className="text-2xl text-white">Заказать пропуск</Text>
             </TouchableHighlight>
           ) : null
         )}
@@ -186,84 +184,3 @@ export default function PassScreen() {
     </SafeAreaView>
   );
 }
-
-import { StyleSheet } from 'react-native';
-
-const sheet = StyleSheet.create({
-  sectionHint: {
-    paddingTop: 15,
-    paddingHorizontal: 20,
-    fontSize: 15,
-    color: '#313131',
-  },
-  tabsWrapper: {
-    marginTop: 20,
-    marginBottom: 5,
-    marginHorizontal: 20,
-  },
-  addressHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  sectionLabel: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    fontSize: 15,
-    color: '#313131',
-  },
-  clearBtn: {
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    backgroundColor: '#F9FAF9',
-  },
-  clearBtnText: { fontSize: 13, color: '#656565' },
-  addressInputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 30,
-    paddingTop: 20,
-  },
-  addressInput: {
-    flex: 1,
-    minHeight: 45,
-    maxHeight: 90,
-    fontSize: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-    color: '#313131',
-  },
-  mapBtn: { padding: 10, marginLeft: 10 },
-  emptyVehicles: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginHorizontal: 20,
-  },
-  emptyText: { fontSize: 14, color: '#999', marginBottom: 16 },
-  emptyBtn: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  orderBtn: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    height: 50,
-    margin: 25,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3A3A3A',
-  },
-  orderBtnText: { fontSize: 24, color: '#FFFFFF' },
-});

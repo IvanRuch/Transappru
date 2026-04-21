@@ -38,6 +38,19 @@ module.exports = {
           warning: '#FFA500',      // Orange
           platon: '#EE505A',       // Platon red
         },
+        // Moscow zone colors (used on PassScreen badges/tabs and on the map)
+        zone: {
+          mkad:     '#57B6ED',     // Blue  (МКАД outer)
+          ttk:      '#19B28D',     // Green (ТТК  middle)
+          sk:       '#EE505A',     // Red   (СК   inner)
+          inactive: '#8C8C8C',     // Grey  (zone not applicable)
+        },
+        // Warning banner palette (inline alerts like "Zone changed manually")
+        warning: {
+          bg:     '#FFF3CD',
+          border: '#FFE69C',
+          text:   '#856404',
+        },
         // Theme-specific colors for manual use
         light: {
           bg: '#ffffff',

@@ -2,7 +2,8 @@
  * Web version of PassScreen.
  *
  * Shares all business logic with mobile via usePassOrder (ADR-003) and all
- * sub-components via src/components/pass (ADR-005). Web-specific concerns:
+ * sub-components via src/components/pass (ADR-005). Styling uses NativeWind
+ * classNames + shared tailwind design tokens. Web-specific concerns:
  *  - Responsive max-width via WebScreenContainer
  *  - ARIA combobox pattern over the address <input> and suggestion lists
  *  - Keyboard navigation (ArrowUp/Down/Enter/Escape) through suggestions
@@ -10,9 +11,7 @@
  *  - safeBack for direct URL entries (router.back when possible, else /main)
  */
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import {
-  View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Image,
-} from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { usePassOrder } from '../../hooks/usePassOrder';
 import { showAlert } from '../../utils/alert';
@@ -43,15 +42,10 @@ export default function PassScreen() {
     submitting, canOrder,
   } = usePassOrder();
 
-  // Loading indicator for address autocomplete.
   const [isSearching, setIsSearching] = useState(false);
-  // Keyboard-focused index across concatenated street + address + user lists.
   const [focusedIdx, setFocusedIdx] = useState(-1);
 
-  /** Combined list used for keyboard navigation. Streets and addresses are
-   *  mutually exclusive in practice (see usePassOrder), but we combine them
-   *  defensively to keep the indexing uniform.
-   */
+  /** Combined list used for keyboard navigation (across street + address + user). */
   const combined = useMemo(() => {
     const s = streetList.map((x: any) => ({ kind: 'street' as const, item: x }));
     const a = addressList.map((x: any) => ({ kind: 'address' as const, item: x }));
@@ -120,30 +114,35 @@ export default function PassScreen() {
       : undefined;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View className="flex-1">
       <ScreenHeader title="Добавить адрес" onBack={safeBack} />
 
       <WebScreenContainer maxWidth={820}>
-        <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
-          <Text style={s.sectionHint} selectable={false}>Вы можете указать зону</Text>
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingVertical: 20, paddingBottom: 40 }}>
+          <Text className="px-5 text-[15px] text-text-primary select-none">
+            Вы можете указать зону
+          </Text>
 
-          <View style={{ marginTop: 20, marginBottom: 5 }}>
+          <View className="mt-5 mb-[5px] px-5">
             <ZoneTabs value={locationType as any} onToggle={toggleTab} />
           </View>
 
           <ManualZoneBanner visible={isLocationTypeManual} />
 
-          <View style={s.addressHeader}>
-            <Text style={s.sectionLabel} selectable={false}>Куда едем?</Text>
+          <View className="flex-row items-center px-5 pt-2.5">
+            <Text className="text-[15px] text-text-primary select-none">Куда едем?</Text>
             {address !== '' && (
-              <Pressable style={s.clearBtn} onPress={clearAddress}>
-                <Text style={s.clearBtnText} selectable={false}>Очистить</Text>
+              <Pressable
+                className="ml-3 px-3 py-1.5 rounded-md border bg-white border-border-primary cursor-pointer"
+                onPress={clearAddress}
+              >
+                <Text className="text-[13px] text-text-secondary select-none">Очистить</Text>
               </Pressable>
             )}
           </View>
 
-          <View style={s.addressRow}>
-            <View style={s.inputWrap}>
+          <View className="flex-row items-center px-5 pt-3 pb-2">
+            <View className="flex-1 relative">
               <input
                 ref={addressRef}
                 type="text"
@@ -152,7 +151,6 @@ export default function PassScreen() {
                 onKeyDown={onInputKeyDown}
                 placeholder="Начните вводить улицу..."
                 style={inputStyle(address !== '')}
-                // ARIA combobox pattern
                 role="combobox"
                 aria-expanded={hasSuggestions}
                 aria-controls="pass-suggestions-auto pass-suggestions-user"
@@ -162,13 +160,13 @@ export default function PassScreen() {
                 aria-label="Адрес доставки"
               />
               {isSearching && (
-                <View style={s.inputSpinner} pointerEvents="none">
+                <View className="absolute right-3 top-0 bottom-0 justify-center" pointerEvents="none">
                   <ActivityIndicator size="small" color="#3A3A3A" />
                 </View>
               )}
             </View>
             <Pressable
-              style={s.mapBtn}
+              className="p-2.5 ml-2.5 cursor-pointer"
               accessibilityRole="button"
               accessibilityLabel="Выбрать адрес на карте"
               onPress={() => {
@@ -188,7 +186,7 @@ export default function PassScreen() {
             </Pressable>
           </View>
 
-          {/* Autocomplete results — street and address suggestions */}
+          {/* Autocomplete: street + address suggestions */}
           {(streetList.length > 0 || addressList.length > 0) && (
             <View nativeID="pass-suggestions-auto" accessibilityRole={'list' as any}>
               {streetList.map((item: any, idx: number) => (
@@ -217,10 +215,10 @@ export default function PassScreen() {
             </View>
           )}
 
-          {/* Previously entered addresses — separate block with its own header */}
+          {/* Previously entered addresses */}
           {userAddressList.length > 0 && (
             <>
-              <Text style={s.sectionLabelSpaced} selectable={false}>Ранее введён:</Text>
+              <Text className="px-5 pt-5 text-[15px] text-text-primary select-none">Ранее введён:</Text>
               <View nativeID="pass-suggestions-user" accessibilityRole={'list' as any}>
                 {userAddressList.map((item: any, idx: number) => {
                   const combinedIdx = streetList.length + addressList.length + idx;
@@ -239,28 +237,28 @@ export default function PassScreen() {
             </>
           )}
 
-          <Text style={s.sectionLabelSpaced} selectable={false}>Автомобили на маршрут:</Text>
+          <Text className="px-5 pt-5 text-[15px] text-text-primary select-none">Автомобили на маршрут:</Text>
           {vehicles.length === 0 ? (
-            <View style={s.emptyVehicles}>
-              <Text style={s.emptyText}>Автомобили не выбраны</Text>
+            <View className="items-center py-6 mx-5">
+              <Text className="text-sm text-text-muted mb-4">Автомобили не выбраны</Text>
               <Pressable
-                style={s.emptyBtn}
+                className="bg-accent-secondary rounded-lg px-6 py-3 cursor-pointer"
                 onPress={() => router.push({ pathname: '/(authenticated)/auto-list' as any, params: { mode: 'pass' } })}
               >
-                <Text style={s.emptyBtnText} selectable={false}>Выбрать автомобили</Text>
+                <Text className="text-[15px] font-bold text-white select-none">Выбрать автомобили</Text>
               </Pressable>
             </View>
           ) : (
             vehicles.map((v: any) => <VehicleCard key={v.id} vehicle={v} />)
           )}
 
-          <View style={{ height: 80 }} />
+          <View className="h-20" />
         </ScrollView>
 
         {canOrder && (
-          <View style={s.footer}>
+          <View className="p-4 border-t border-border-secondary bg-white">
             <Pressable
-              style={[s.orderBtn, submitting && s.orderBtnDisabled]}
+              className={`rounded-[10px] py-4 items-center cursor-pointer bg-accent-secondary ${submitting ? 'opacity-60' : ''}`}
               onPress={onOrder}
               disabled={submitting}
               accessibilityRole="button"
@@ -270,7 +268,7 @@ export default function PassScreen() {
               {submitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={s.orderBtnText} selectable={false}>Заказать пропуск</Text>
+                <Text className="text-lg font-bold text-white select-none">Заказать пропуск</Text>
               )}
             </Pressable>
           </View>
@@ -286,6 +284,11 @@ export default function PassScreen() {
   );
 }
 
+/**
+ * Raw HTML <input> cannot be styled via NativeWind className (RN Web doesn't
+ * bridge it as a RN component). So we keep a minimal inline CSS object that
+ * uses the same visual tokens where possible.
+ */
 function inputStyle(filled: boolean): React.CSSProperties {
   return {
     flex: 1,
@@ -294,7 +297,7 @@ function inputStyle(filled: boolean): React.CSSProperties {
     fontSize: 14,
     borderRadius: 8,
     border: `1px solid ${filled ? '#656565' : '#B8B8B8'}`,
-    backgroundColor: filled ? '#FFFFFF' : '#F9FAF9',
+    backgroundColor: '#FFFFFF',
     outline: 'none',
     fontFamily: 'inherit',
     color: '#313131',
@@ -302,74 +305,3 @@ function inputStyle(filled: boolean): React.CSSProperties {
     width: '100%',
   };
 }
-
-const s = StyleSheet.create({
-  scroll: { flex: 1 },
-  scrollContent: { paddingVertical: 20, paddingBottom: 40 },
-
-  sectionHint: { fontSize: 15, color: '#313131', paddingHorizontal: 20 },
-  sectionLabel: { fontSize: 15, color: '#313131' },
-  sectionLabelSpaced: {
-    fontSize: 15,
-    color: '#313131',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-
-  addressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  clearBtn: {
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    backgroundColor: '#F9FAF9',
-  },
-  clearBtnText: { fontSize: 13, color: '#656565' },
-
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  inputWrap: { flex: 1, position: 'relative' },
-  inputSpinner: { position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' },
-  mapBtn: { padding: 10, marginLeft: 10 },
-
-  emptyVehicles: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginHorizontal: 20,
-  },
-  emptyText: { fontSize: 14, color: '#999', marginBottom: 16 },
-  emptyBtn: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  emptyBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-
-  footer: {
-    padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
-  },
-  orderBtn: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 10,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  orderBtnDisabled: { opacity: 0.6 },
-  orderBtnText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-});

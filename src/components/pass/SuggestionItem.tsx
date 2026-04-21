@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import LocationBadges, { LocationTypes } from './LocationBadges';
 
 export type SuggestionVariant = 'street' | 'address' | 'user';
@@ -50,26 +50,30 @@ export default function SuggestionItem({
       nativeID={nativeID}
       accessibilityRole="button"
       accessibilityLabel={buildAccessibilityLabel(item, variant)}
-      style={[styles.card, focused && styles.cardFocused]}
+      className={`flex-row p-2.5 mx-5 mb-2 rounded-lg border cursor-pointer ${
+        focused
+          ? 'bg-[#E4E4E4] border-[#3A3A3A]'
+          : 'bg-bg-secondary border-border-primary'
+      }`}
       onPress={onPress}
     >
       <LocationBadges types={item.location_types} />
-      <View style={styles.textBlock}>
+      <View className="flex-1 pl-2.5">
         {variant === 'street' && (
           <>
-            {item.p2 ? <Text style={styles.sub}>{item.p2}</Text> : null}
-            {item.p3 ? <Text style={styles.sub}>{item.p3}</Text> : null}
-            {item.p4 ? <Text style={styles.sub}>{item.p4}</Text> : null}
-            {item.p5 ? <Text style={styles.sub}>{item.p5}</Text> : null}
-            {item.p6 ? <Text style={styles.sub}>{item.p6}</Text> : null}
-            {item.p7 ? <Text style={styles.main}>{item.p7}</Text> : null}
+            {item.p2 ? <Text className="text-[11px] text-text-primary">{item.p2}</Text> : null}
+            {item.p3 ? <Text className="text-[11px] text-text-primary">{item.p3}</Text> : null}
+            {item.p4 ? <Text className="text-[11px] text-text-primary">{item.p4}</Text> : null}
+            {item.p5 ? <Text className="text-[11px] text-text-primary">{item.p5}</Text> : null}
+            {item.p6 ? <Text className="text-[11px] text-text-primary">{item.p6}</Text> : null}
+            {item.p7 ? <Text className="text-base font-bold text-text-primary">{item.p7}</Text> : null}
           </>
         )}
         {variant === 'address' && (
-          <Text style={styles.main}>{item.l_concat}</Text>
+          <Text className="text-base font-bold text-text-primary">{item.l_concat}</Text>
         )}
         {variant === 'user' && (
-          <Text style={styles.main}>
+          <Text className="text-base font-bold text-text-primary">
             {item.mos_ru_street_p7} {item.mos_ru_address_l_concat}
           </Text>
         )}
@@ -87,26 +91,3 @@ function buildAccessibilityLabel(item: SuggestionData, variant: SuggestionVarian
   }
   return `${item.mos_ru_street_p7 ?? ''} ${item.mos_ru_address_l_concat ?? ''}`.trim();
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    padding: 10,
-    marginHorizontal: 20,
-    marginBottom: 8,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    ...Platform.select({
-      web: { cursor: 'pointer' as any },
-    }),
-  },
-  cardFocused: {
-    borderColor: '#3A3A3A',
-    backgroundColor: '#E4E4E4',
-  },
-  textBlock: { flex: 1, paddingLeft: 10 },
-  sub:  { fontSize: 11, color: '#313131' },
-  main: { fontSize: 16, fontWeight: '700', color: '#313131' },
-});

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
   Platform,
   findNodeHandle,
 } from 'react-native';
@@ -46,7 +45,6 @@ export default function SuccessModal({
     const focusButton = () => {
       const node = buttonRef.current;
       if (!node) return;
-      // react-native-web returns a DOM node via findNodeHandle
       const dom = (node.focus ? node : findNodeHandle(node)) as HTMLElement | null;
       if (dom && typeof (dom as HTMLElement).focus === 'function') {
         (dom as HTMLElement).focus();
@@ -59,7 +57,6 @@ export default function SuccessModal({
         e.preventDefault();
         onClose();
       } else if (e.key === 'Tab') {
-        // Trap focus on the single button
         e.preventDefault();
         focusButton();
       }
@@ -83,74 +80,28 @@ export default function SuccessModal({
       accessibilityViewIsModal
     >
       <Pressable
-        style={styles.overlay}
+        className="flex-1 items-center justify-center p-5 bg-black/45"
         onPress={onClose}
         accessibilityLabel="Закрыть окно"
       >
         <Pressable
-          // Stop propagation so clicks on the dialog don't close via overlay.
           onPress={(e: any) => e.stopPropagation && e.stopPropagation()}
-          style={styles.dialog}
+          className="bg-white rounded-2xl py-6 px-6 w-full max-w-[420px] items-center web:shadow-2xl"
           accessibilityRole={Platform.OS === 'web' ? ('dialog' as any) : undefined}
           accessibilityLabel="Успешно"
         >
-          <Text style={styles.message}>{message}</Text>
+          <Text className="text-base text-text-primary text-center mb-5 leading-[22px]">{message}</Text>
           <Pressable
             ref={buttonRef}
             onPress={onClose}
-            style={styles.button}
+            className="bg-accent-secondary rounded-lg px-10 py-3 cursor-pointer"
             accessibilityRole="button"
             accessibilityLabel={dismissLabel}
           >
-            <Text style={styles.buttonText}>{dismissLabel}</Text>
+            <Text className="text-base font-bold text-white">{dismissLabel}</Text>
           </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    padding: 20,
-  },
-  dialog: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 24,
-    maxWidth: 420,
-    width: '100%',
-    alignItems: 'center',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 10px 30px rgba(0,0,0,0.25)' as any,
-      },
-    }),
-  },
-  message: {
-    fontSize: 16,
-    color: '#313131',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  button: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 8,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-    ...Platform.select({
-      web: { cursor: 'pointer' as any },
-    }),
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
