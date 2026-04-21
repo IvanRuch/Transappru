@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 import { mkadPolygonWeb, ttkPolygonWeb, skPolygonWeb } from '../../data/moscowZonePolygons';
+import { ScreenHeader } from '../../components/common';
 // WebAppLayout is provided by _layout.web.tsx — do NOT wrap again here.
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
@@ -364,15 +365,11 @@ export default function PassYaMapScreen() {
     });
   }, [addressData, selectedCoords, autoListParam, router]);
 
+  const safeBack = () => (router.canGoBack() ? router.back() : router.replace('/(authenticated)/pass' as any));
+
   return (
     <View style={{ flex: 1 }}>
-      {/* Header */}
-      <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn}>
-          <Text style={s.backBtnText}>{'<-'}</Text>
-        </Pressable>
-        <Text style={[s.headerTitle, noSelect]}>Добавить адрес</Text>
-      </View>
+      <ScreenHeader title="Добавить адрес" onBack={safeBack} />
 
       {/* Instruction */}
       <View style={s.instruction}>
@@ -472,26 +469,6 @@ export default function PassYaMapScreen() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  backBtnText: { fontSize: 22, color: '#3A3A3A' },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#1A1A1A' },
-
   instruction: {
     paddingHorizontal: 20,
     paddingVertical: 12,
