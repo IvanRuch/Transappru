@@ -1,45 +1,32 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Platform, StatusBar, PermissionsAndroid } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Platform, StatusBar, PermissionsAndroid } from 'react-native';
 
 import { useOnboardingFlow } from '../../hooks/useOnboardingFlow';
 
 export default function OnBoardingScreen() {
   const {
-    slides,
-    current,
-    isLast,
-    isLoading,
-    markViewedAndNavigate,
-    handleNext: hookHandleNext,
+    slides, current, isLast, isLoading,
+    markViewedAndNavigate, handleNext: hookHandleNext,
   } = useOnboardingFlow();
 
   const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Разрешение на доступ к местоположению',
-            message: 'Приложению требуется доступ к вашему местоположению для работы с картой и заказа пропусков',
-            buttonNeutral: 'Спросить позже',
-            buttonNegative: 'Отмена',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('Location permission granted');
-        } else {
-          console.log('Location permission denied');
-        }
-      } catch (err) {
-        console.warn('Error requesting location permission:', err);
-      }
-    }
+    if (Platform.OS !== 'android') return;
+    try {
+      await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Разрешение на доступ к местоположению',
+          message: 'Приложению требуется доступ к вашему местоположению для работы с картой и заказа пропусков',
+          buttonNeutral: 'Спросить позже',
+          buttonNegative: 'Отмена',
+          buttonPositive: 'OK',
+        },
+      );
+    } catch { /* ignore — onboarding still completes */ }
   };
 
   const handleNext = async () => {
     if (isLast) {
-      // Mobile-specific: request location permission before completing
       await requestLocationPermission();
       markViewedAndNavigate();
     } else {
@@ -48,21 +35,27 @@ export default function OnBoardingScreen() {
   };
 
   const slide = slides[current];
+  const imageTop = Platform.OS === 'ios' ? 70 : (StatusBar.currentHeight || 0) + 70;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.imageContainer}>
-        <Image style={styles.image} source={slide.src} resizeMode="contain" />
+    <View className="flex-1 bg-white items-center justify-center">
+      <View
+        className="absolute left-5 right-5 bottom-[220px] bg-bg-secondary rounded items-center justify-center"
+        style={{ top: imageTop }}
+      >
+        <Image source={slide.src} resizeMode="contain" style={{ margin: 5, height: '90%' }} />
       </View>
 
-      <Text style={styles.description}>{slide.msg}</Text>
+      <Text className="absolute bottom-[150px] left-5 right-5 text-center text-xl font-semibold text-text-primary">
+        {slide.msg}
+      </Text>
 
-      <View style={styles.indicatorsContainer}>
-        <View style={styles.indicatorsRow}>
+      <View className="absolute bottom-[120px] left-5 right-5 h-2.5 items-center">
+        <View className="flex-1 flex-row items-center">
           {slides.map((_, index) => (
             <Image
               key={index}
-              style={styles.indicator}
+              style={{ margin: 5 }}
               source={
                 index === current
                   ? require('../../../assets/images/ellipse_active_2.png')
@@ -74,86 +67,19 @@ export default function OnBoardingScreen() {
       </View>
 
       <TouchableOpacity
-        style={[styles.button, isLoading && styles.buttonDisabled]}
+        className={`absolute bottom-[50px] left-5 right-5 h-[50px] rounded items-center justify-center ${
+          isLoading ? 'bg-[#7A7A7A] opacity-60' : 'bg-accent-secondary'
+        }`}
         onPress={handleNext}
         disabled={isLoading}
+        accessibilityRole="button"
+        accessibilityLabel={isLast ? 'Начать' : 'Далее'}
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
       >
-        <Text style={styles.buttonText}>
+        <Text className="px-5 text-sm font-bold text-white">
           {isLoading ? 'Загрузка...' : isLast ? 'Начать' : 'Далее'}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageContainer: {
-    position: 'absolute',
-    backgroundColor: '#EEEEEE',
-    borderRadius: 5,
-    left: 20,
-    right: 20,
-    top: Platform.OS === 'ios' ? 70 : (StatusBar.currentHeight || 0) + 70,
-    bottom: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  image: {
-    margin: 5,
-    height: '90%',
-  },
-  description: {
-    position: 'absolute',
-    textAlign: 'center',
-    bottom: 150,
-    left: 20,
-    right: 20,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#313131',
-  },
-  indicatorsContainer: {
-    position: 'absolute',
-    bottom: 120,
-    height: 10,
-    left: 20,
-    right: 20,
-    alignItems: 'center',
-  },
-  indicatorsRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  indicator: {
-    margin: 5,
-  },
-  button: {
-    position: 'absolute',
-    bottom: 50,
-    left: 20,
-    right: 20,
-    height: 50,
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3A3A3A',
-  },
-  buttonDisabled: {
-    backgroundColor: '#7A7A7A',
-    opacity: 0.6,
-  },
-  buttonText: {
-    paddingLeft: 20,
-    paddingRight: 20,
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-});

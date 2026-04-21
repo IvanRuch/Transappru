@@ -1,112 +1,91 @@
 import React from 'react';
-import { View, Text, Image, TouchableHighlight, StyleSheet } from 'react-native';
+import { View, Text, TouchableHighlight } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 interface FineData {
-  is_paid: string | number;
-  discount_time_left?: string;
-  discount_date_end?: string;
-  discount_percent?: string;
-  dat: string;
-  code: string;
-  description: string;
   uin: string;
+  dat: string;
   sum: string;
-  full_sum: string;
-  vendor: string;
-  comment?: string;
+  [key: string]: any;
 }
 
 export default function FinePaymentSuccessScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
-  const fineData: FineData = params.fine_data 
-    ? JSON.parse(params.fine_data as string) 
+
+  const fineData: FineData | null = params.fine_data
+    ? JSON.parse(params.fine_data as string)
     : null;
 
-  const handleGoToList = () => {
-    // Возвращаемся к списку автомобилей
-    router.replace('/(authenticated)/auto-list' as any);
-  };
-
-  const handleGoToFineDetails = () => {
-    // Возвращаемся к деталям штрафа
+  const goToList = () => router.replace('/(authenticated)/auto-list' as any);
+  const goToFineDetails = () => {
     if (fineData) {
       router.replace({
         pathname: '/(authenticated)/auto-fine' as any,
-        params: { fine_data: JSON.stringify(fineData) }
+        params: { fine_data: JSON.stringify(fineData) },
       });
     } else {
-      handleGoToList();
+      goToList();
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.content}>
-        {/* Иконка успеха */}
-        <View style={styles.iconContainer}>
-          <View style={styles.successCircle}>
-            <Text style={styles.checkmark}>✓</Text>
+    <SafeAreaView className="flex-1 bg-white dark:bg-dark-bg" edges={['top']}>
+      <View className="flex-1 p-5 justify-center items-center">
+        <View className="mb-7">
+          <View
+            className="w-[100px] h-[100px] rounded-full justify-center items-center bg-[#4CAF50]"
+            style={{ elevation: 8 }}
+          >
+            <Text className="text-6xl font-bold text-white">✓</Text>
           </View>
         </View>
 
-        {/* Заголовок */}
-        <Text style={styles.title}>Оплата прошла успешно!</Text>
+        <Text className="text-[28px] font-bold text-text-primary text-center mb-4 select-none">
+          Оплата прошла успешно!
+        </Text>
 
-        {/* Описание */}
-        <Text style={styles.description}>
+        <Text className="text-base text-text-secondary text-center leading-6 mb-7 px-5 select-none">
           Платёж обрабатывается. Информация о штрафе обновится в течение нескольких минут.
         </Text>
 
-        {/* Информация о штрафе */}
         {fineData && (
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Постановление:</Text>
-              <Text style={styles.infoValue}>{fineData.uin}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Дата нарушения:</Text>
-              <Text style={styles.infoValue}>{fineData.dat}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Сумма:</Text>
-              <Text style={styles.infoValue}>{fineData.sum} ₽</Text>
-            </View>
+          <View className="w-full bg-[#F8F8F8] rounded-xl p-5 mb-5 border border-[#E0E0E0]">
+            <InfoRow label="Постановление:" value={fineData.uin} />
+            <InfoRow label="Дата нарушения:" value={fineData.dat} />
+            <InfoRow label="Сумма:" value={`${fineData.sum} ₽`} />
           </View>
         )}
 
-        {/* Дополнительная информация */}
-        <View style={styles.noteCard}>
-          <Text style={styles.noteText}>
-            💡 Статус оплаты можно проверить в разделе "Штрафы" через несколько минут
+        <View className="w-full bg-[#E3F2FD] rounded-xl p-4 mb-7 border border-[#90CAF9]">
+          <Text className="text-sm text-[#1565C0] leading-5">
+            💡 Статус оплаты можно проверить в разделе «Штрафы» через несколько минут
           </Text>
         </View>
 
-        {/* Кнопки */}
-        <View style={styles.buttonContainer}>
+        <View className="w-full">
           <TouchableHighlight
-            style={styles.primaryButton}
+            className="bg-accent-secondary rounded-xl p-5 items-center justify-center mb-4"
             activeOpacity={0.8}
-            underlayColor='#2E2E2E'
-            onPress={handleGoToList}
+            underlayColor="#2E2E2E"
+            onPress={goToList}
+            accessibilityRole="button"
+            accessibilityLabel="Вернуться к списку авто"
           >
-            <Text style={styles.primaryButtonText}>Вернуться к списку</Text>
+            <Text className="text-lg font-bold text-white">Вернуться к списку</Text>
           </TouchableHighlight>
 
           {fineData && (
             <TouchableHighlight
-              style={styles.secondaryButton}
+              className="bg-white rounded-xl p-5 items-center justify-center border border-border-primary"
               activeOpacity={0.8}
-              underlayColor='#F0F0F0'
-              onPress={handleGoToFineDetails}
+              underlayColor="#F0F0F0"
+              onPress={goToFineDetails}
+              accessibilityRole="button"
+              accessibilityLabel="К деталям штрафа"
             >
-              <Text style={styles.secondaryButtonText}>К деталям штрафа</Text>
+              <Text className="text-base text-text-primary">К деталям штрафа</Text>
             </TouchableHighlight>
           )}
         </View>
@@ -115,120 +94,11 @@ export default function FinePaymentSuccessScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    marginBottom: 30,
-  },
-  successCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  checkmark: {
-    fontSize: 60,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#313131',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  description: {
-    fontSize: 16,
-    color: '#656565',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-    paddingHorizontal: 20,
-  },
-  infoCard: {
-    width: '100%',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#656565',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#313131',
-    fontWeight: '500',
-  },
-  noteCard: {
-    width: '100%',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: '#90CAF9',
-  },
-  noteText: {
-    fontSize: 14,
-    color: '#1565C0',
-    lineHeight: 20,
-  },
-  buttonContainer: {
-    width: '100%',
-  },
-  primaryButton: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 15,
-  },
-  primaryButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    color: '#313131',
-  },
-});
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row justify-between mb-2.5">
+      <Text className="text-sm text-text-secondary">{label}</Text>
+      <Text className="text-sm text-text-primary font-medium">{value}</Text>
+    </View>
+  );
+}
