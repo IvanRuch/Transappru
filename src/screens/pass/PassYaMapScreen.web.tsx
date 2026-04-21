@@ -369,14 +369,7 @@ export default function PassYaMapScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScreenHeader title="Добавить адрес" onBack={safeBack} />
-
-      {/* Instruction */}
-      <View style={s.instruction}>
-        <Text style={[s.instructionText, noSelect]}>
-          Укажите адрес кликом на карте
-        </Text>
-      </View>
+      <ScreenHeader title="Укажите адрес кликом на карте" onBack={safeBack} />
 
       {/* Map area */}
       <View style={s.mapContainer}>
@@ -469,17 +462,6 @@ export default function PassYaMapScreen() {
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  instruction: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  instructionText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#313131',
-  },
-
   mapContainer: {
     flex: 1,
     position: 'relative',

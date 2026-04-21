@@ -194,16 +194,11 @@ class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
           translucent={false}
         />
         
-        {/* Заголовок с кнопкой назад */}
-        <ScreenHeader 
-          title="Добавить адрес"
-          onBack={() => {
-            console.log('-> move to Pass (without saving address)')
-            this.props.navigation.goBack()
-          }}
+        {/* Заголовок с кнопкой назад — также выполняет роль инструкции */}
+        <ScreenHeader
+          title="Укажите адрес долгим нажатием"
+          onBack={() => this.props.navigation.goBack()}
         />
-
-        <Text style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 15, paddingBottom: 15, fontSize: 15, fontWeight: "bold", color: "#313131" }}>Укажите адрес долгим нажатием на карте</Text>
 
         {/* Индикатор загрузки адреса */}
         {
