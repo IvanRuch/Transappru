@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
-import { ChargeCard, ChargesFilterPanel, ChargeFilterType } from '../../components/charges';
+import { ChargeCard, ChargesFilterPanel, ChargeFilterType, ChargesGroupCard } from '../../components/charges';
 import { useCharges } from '../../hooks/useCharges';
 import { useChargesSelection } from '../../hooks/useChargesSelection';
 import { SHOW_PAYMENT_UI } from '../../config/features';
@@ -73,8 +73,8 @@ export default function ChargesScreen() {
       />
 
       {activeFilter !== 'all' && (
-        <View style={styles.activeFilterPanel}>
-            <Text style={styles.activeFilterText}>
+        <View className="flex-row justify-between items-center px-5 py-2.5 bg-bg-secondary border-b border-border-primary">
+            <Text className="text-sm font-medium text-text-primary">
                 Фильтр: {
                     activeFilter === 'gibdd' ? 'ГИБДД' :
                     activeFilter === 'paidRoads' ? 'Платные дороги' :
@@ -83,7 +83,7 @@ export default function ChargesScreen() {
                 }
             </Text>
             <TouchableOpacity onPress={() => setActiveFilter('all')}>
-                <Text style={styles.resetFilterText}>Сбросить</Text>
+                <Text className="text-sm font-bold text-status-error">Сбросить</Text>
             </TouchableOpacity>
         </View>
       )}
@@ -140,98 +140,61 @@ export default function ChargesScreen() {
                   const isLoading = loadingAutoFines[auto.id];
                   const loadedCharges = auto.filteredCharges || autoCharges[auto.auto_number]?.charges || [];
                   const finesCount = loadedCharges.length;
-                  const finesSum = loadedCharges.reduce((sum: number, charge: any) => sum + parseFloat(charge.sum || '0'), 0);
+                  const finesSum = loadedCharges.reduce((sum: number, c: any) => sum + parseFloat(c.sum || '0'), 0);
                   const isAllSelected = loadedCharges.length > 0 && loadedCharges.every((c: any) => selectedCharges.has(c.id));
                   const selectedInGroupCount = loadedCharges.filter((c: any) => selectedCharges.has(c.id)).length;
                   const selectedInGroupSum = loadedCharges
                     .filter((c: any) => selectedCharges.has(c.id))
                     .reduce((sum: number, c: any) => sum + parseFloat(c.sum || '0'), 0);
-                  const fineTypeStats = getFineTypeStats(auto.auto_number);
+                  const stats = getFineTypeStats(auto.auto_number);
+
+                  const inlineKindTag =
+                    stats && stats.gibdd.count > 0 && stats.platon.count === 0 ? 'gibdd' :
+                    stats && stats.platon.count > 0 && stats.gibdd.count === 0 ? 'platon' :
+                    null;
+                  const detailedStats =
+                    stats && stats.gibdd.count > 0 && stats.platon.count > 0 ? stats : null;
+                  const selectionHint =
+                    selectedInGroupCount > 0 && !isAllSelected && SHOW_PAYMENT_UI
+                      ? `Выбрано: ${selectedInGroupCount} шт. • ${selectedInGroupSum.toFixed(2)} ₽`
+                      : null;
 
                   return (
-                    <View key={auto.id} className="mb-2.5">
-                      <View className="flex-row items-center px-5 py-2 bg-light-elevated dark:bg-dark-elevated">
-                        {SHOW_PAYMENT_UI && (
-                            <TouchableOpacity
-                                onPress={() => toggleGroupSelection(loadedCharges)}
-                                style={styles.groupCheckboxContainer}
-                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            >
-                                <View style={[styles.checkbox, isAllSelected && styles.checkboxSelected]}>
-                                    {isAllSelected && <Text style={styles.checkmark}>✓</Text>}
-                                </View>
-                            </TouchableOpacity>
-                        )}
-
-                        <TouchableOpacity
-                            className="flex-1 flex-row justify-between items-center ml-3"
-                            onPress={() => toggleGroup(auto.id)}
-                        >
-                            <View className="flex-1">
-                              <Text className="text-base font-semibold text-light-text dark:text-dark-text">
-                                ГРЗ: {auto.auto_number}
-                              </Text>
-                              <Text className="text-[13px] text-[#656565] dark:text-accent-primary mt-0.5">
-                                {finesCount} шт. • {finesSum.toFixed(2)} ₽
-                                {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count === 0 && (
-                                  <Text className="text-[11px] text-[#B0B0B0]"> (ГИБДД)</Text>
-                                )}
-                                {fineTypeStats && fineTypeStats.platon.count > 0 && fineTypeStats.gibdd.count === 0 && (
-                                  <Text className="text-[11px] text-[#EE505A]"> (ПЛАТОН)</Text>
-                                )}
-                              </Text>
-
-                              {fineTypeStats && fineTypeStats.gibdd.count > 0 && fineTypeStats.platon.count > 0 && (
-                                <View className="mt-1 gap-0.5">
-                                  <Text className="text-[11px] text-[#B0B0B0]">
-                                    ГИБДД: {fineTypeStats.gibdd.count} шт. • {fineTypeStats.gibdd.sum.toFixed(2)} ₽
-                                  </Text>
-                                  <Text className="text-[11px] text-[#EE505A]">
-                                    ПЛАТОН: {fineTypeStats.platon.count} шт. • {fineTypeStats.platon.sum.toFixed(2)} ₽
-                                  </Text>
-                                </View>
-                              )}
-
-                              {selectedInGroupCount > 0 && !isAllSelected && SHOW_PAYMENT_UI && (
-                                <Text className="text-[12px] text-[#EE505A] mt-0.5 font-medium">
-                                  Выбрано: {selectedInGroupCount} шт. • {selectedInGroupSum.toFixed(2)} ₽
-                                </Text>
-                              )}
-                            </View>
-                            <Text className="text-base text-[#3A3A3A] dark:text-accent-primary ml-2.5">
-                              {isExpanded ? '▼' : '▶'}
-                            </Text>
-                        </TouchableOpacity>
-                      </View>
-
-                      {isExpanded && (
-                        <>
-                          {isLoading ? (
-                            <View className="flex-row items-center justify-center p-5 gap-2.5">
-                              <ActivityIndicator size="small" color="#3A3A3A" />
-                              <Text className="text-sm text-light-textSecondary dark:text-dark-textSecondary">Загрузка...</Text>
-                            </View>
-                          ) : loadedCharges.length > 0 ? (
-                            <>
-                              {loadedCharges.map((charge: any) => (
-                                <ChargeCard
-                                  key={charge.id}
-                                  item={charge}
-                                  showAutoInfo={false}
-                                  onPress={handleChargePress}
-                                  selected={selectedCharges.has(charge.id)}
-                                  onSelect={SHOW_PAYMENT_UI ? toggleSelection : undefined}
-                                />
-                              ))}
-                            </>
-                          ) : (
-                            <View className="p-5 items-center">
-                              <Text className="text-sm italic text-light-textSecondary dark:text-dark-textSecondary">Нет данных</Text>
-                            </View>
-                          )}
-                        </>
+                    <ChargesGroupCard
+                      key={auto.id}
+                      title={`ГРЗ: ${auto.auto_number}`}
+                      subtitle={`${finesCount} шт. • ${finesSum.toFixed(2)} ₽`}
+                      inlineKindTag={inlineKindTag}
+                      detailedStats={detailedStats}
+                      selectionHint={selectionHint}
+                      showCheckbox={SHOW_PAYMENT_UI}
+                      isAllSelected={isAllSelected}
+                      onToggleAllSelection={() => toggleGroupSelection(loadedCharges)}
+                      isExpanded={isExpanded}
+                      onToggleExpand={() => toggleGroup(auto.id)}
+                    >
+                      {isLoading ? (
+                        <View className="flex-row items-center justify-center p-5 gap-2.5">
+                          <ActivityIndicator size="small" color="#3A3A3A" />
+                          <Text className="text-sm text-text-secondary">Загрузка...</Text>
+                        </View>
+                      ) : loadedCharges.length > 0 ? (
+                        loadedCharges.map((charge: any) => (
+                          <ChargeCard
+                            key={charge.id}
+                            item={charge}
+                            showAutoInfo={false}
+                            onPress={handleChargePress}
+                            selected={selectedCharges.has(charge.id)}
+                            onSelect={SHOW_PAYMENT_UI ? toggleSelection : undefined}
+                          />
+                        ))
+                      ) : (
+                        <View className="p-5 items-center">
+                          <Text className="text-sm italic text-text-secondary">Нет данных</Text>
+                        </View>
                       )}
-                    </View>
+                    </ChargesGroupCard>
                   );
                 })}
               </View>
@@ -323,46 +286,3 @@ export default function ChargesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-    groupCheckboxContainer: {
-        padding: 5,
-    },
-    checkbox: {
-        width: 24,
-        height: 24,
-        borderWidth: 2,
-        borderColor: '#3A3A3A',
-        borderRadius: 4,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFFFFF',
-    },
-    checkboxSelected: {
-        backgroundColor: '#3A3A3A',
-    },
-    checkmark: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    activeFilterPanel: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        backgroundColor: '#EEEEEE',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#B8B8B8',
-    },
-    activeFilterText: {
-        fontSize: 14,
-        color: '#313131',
-        fontWeight: '500',
-    },
-    resetFilterText: {
-        fontSize: 14,
-        color: '#EE505A',
-        fontWeight: 'bold',
-    },
-});

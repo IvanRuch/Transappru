@@ -1,195 +1,126 @@
 import React from 'react';
-import { View, Text, TouchableHighlight, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { ChargeItem } from '../../types/charges';
 
 interface ChargeCardProps {
   item: ChargeItem;
+  /** Show "Not linked to a vehicle" note for "other" charges list. */
   showAutoInfo?: boolean;
+  /** Navigate to the charge detail screen. */
   onPress?: (item: ChargeItem) => void;
+  /** Checkbox selected state — only meaningful when `onSelect` is provided. */
   selected?: boolean;
+  /** Opt-in selection — when omitted, the card shows a status icon instead. */
   onSelect?: (item: ChargeItem) => void;
 }
 
-export const ChargeCard: React.FC<ChargeCardProps> = ({ 
-  item, 
-  showAutoInfo = false, 
+/**
+ * Cross-platform charge card. Layout: left = status icon or selection
+ * checkbox, center = description / amount / meta, right = navigation arrow.
+ * Status & navigation icons come from PNG assets to stay on-brand on both
+ * mobile and web.
+ */
+export const ChargeCard: React.FC<ChargeCardProps> = ({
+  item,
+  showAutoInfo = false,
   onPress,
   selected = false,
-  onSelect
+  onSelect,
 }) => {
-  const isPaid = item.is_paid === '1' || item.is_paid === 1;
-  const isPlaton = item.is_platon === '1' || item.is_platon === 1;
-  const isFssp = item.is_to_fssp === '1' || item.is_to_fssp === 1;
+  const isPaid = item.is_paid === '1' || (item.is_paid as unknown as number) === 1;
+  const isPlaton = item.is_platon === '1' || (item.is_platon as unknown as number) === 1;
+  const isFssp = item.is_to_fssp === '1' || (item.is_to_fssp as unknown as number) === 1;
 
   return (
-    <View style={styles.card}>
-      {/* Чекбокс или иконка статуса */}
-      <View style={styles.iconContainer}>
+    <View
+      className="flex-row mx-5 my-1 p-2.5 rounded-lg border bg-bg-secondary border-border-primary"
+      accessibilityLabel={`Штраф ${item.sum} рублей. ${item.description}`}
+    >
+      {/* Left: checkbox or status icon */}
+      <View className="w-10 items-center justify-center">
         {onSelect && !isPaid ? (
-          <TouchableOpacity 
+          <Pressable
             onPress={() => onSelect(item)}
-            style={styles.checkboxContainer}
+            className="p-1 cursor-pointer"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={selected ? 'Снять выбор' : 'Выбрать для оплаты'}
           >
-            <View style={[styles.checkbox, selected && styles.checkboxSelected]}>
-              {selected && <Text style={styles.checkmark}>✓</Text>}
+            <View
+              className={`w-6 h-6 rounded border-2 border-accent-secondary items-center justify-center ${
+                selected ? 'bg-accent-secondary' : 'bg-white'
+              }`}
+            >
+              {selected && <Text className="text-white font-bold">✓</Text>}
             </View>
-          </TouchableOpacity>
+          </Pressable>
         ) : (
-          <Image 
+          <Image
             source={
-              isPaid 
+              isPaid
                 ? require('../../../assets/images/uil_check_2.png')
                 : require('../../../assets/images/uil_exclamation-triangle_2.png')
             }
+            accessibilityIgnoresInvertColors
           />
         )}
       </View>
 
-      <View style={styles.contentContainer}>
-        {/* Дата постановления */}
-        <View style={styles.row}>
-          <Text style={styles.text}>Постановление от {item.dat}</Text>
-        </View>
-
-        {/* Сумма штрафа */}
+      {/* Center: text block */}
+      <View className="flex-1 pl-2.5">
+        <Text className="text-sm text-text-primary mb-0.5 select-none">
+          Постановление от {item.dat}
+        </Text>
         {isPlaton ? (
-          <View style={styles.row}>
-            <Text style={styles.errorText}>Штраф системы ПЛАТОН {item.sum} ₽</Text>
-          </View>
+          <Text className="text-sm text-status-error mb-0.5 select-none">
+            Штраф системы ПЛАТОН {item.sum} ₽
+          </Text>
         ) : (
-          <View style={styles.row}>
-            <Text style={styles.text}>Штраф {item.sum} ₽</Text>
-          </View>
+          <Text className="text-sm text-text-primary mb-0.5 select-none">
+            Штраф {item.sum} ₽
+          </Text>
         )}
-
-        {/* Передано в ФССП */}
         {isFssp && (
-          <View style={styles.row}>
-            <Text style={styles.errorText}>Передано в ФССП {item.to_fssp_at}</Text>
-          </View>
+          <Text className="text-sm text-status-error mb-0.5 select-none">
+            Передано в ФССП {item.to_fssp_at}
+          </Text>
         )}
-
-        {/* Скидка */}
         {item.discount_str && (
-          <View style={styles.row}>
-            <Text style={styles.text}>{item.discount_str}</Text>
-          </View>
+          <Text className="text-sm text-text-primary mb-0.5 select-none">
+            {item.discount_str}
+          </Text>
         )}
-
-        {/* Описание нарушения */}
-        <View style={styles.row}>
-          <Text style={styles.text}>{item.description}</Text>
-        </View>
-
-        {/* Место нарушения (если есть) */}
+        <Text className="text-sm text-text-primary mb-0.5 select-none">
+          {item.description}
+        </Text>
         {item.offence_place && (
-          <View style={styles.row}>
-            <Text style={styles.smallText}>{item.offence_place}</Text>
-          </View>
+          <Text className="text-xs text-text-secondary mb-0.5 select-none">
+            {item.offence_place}
+          </Text>
         )}
-
-        {/* Информация об авто (для "других" начислений) */}
         {showAutoInfo && !item.user_auto && (
-          <View style={[styles.row, styles.noAutoInfo]}>
-            <Text style={styles.noAutoText}>Не привязано к авто</Text>
+          <View className="mt-1 pt-1 border-t border-[#D0D0D0]">
+            <Text className="text-xs italic text-[#909090] select-none">
+              Не привязано к авто
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Стрелка для перехода */}
+      {/* Right: navigation arrow */}
       {onPress && (
-        <View style={styles.arrowContainer}>
-          <TouchableHighlight
-            style={styles.arrowButton}
-            activeOpacity={1}
-            underlayColor='#EEEEEE'
-            onPress={() => onPress(item)}
-          >
-            <Image source={require('../../../assets/images/arrow_to_right_2.png')}/>
-          </TouchableHighlight>
-        </View>
+        <Pressable
+          onPress={() => onPress(item)}
+          className="justify-center p-2.5 cursor-pointer"
+          accessibilityRole="button"
+          accessibilityLabel="Открыть детали штрафа"
+        >
+          <Image source={require('../../../assets/images/arrow_to_right_2.png')} accessibilityIgnoresInvertColors />
+        </Pressable>
       )}
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginVertical: 5,
-    padding: 10,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-  },
-  iconContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-  },
-  checkboxContainer: {
-    padding: 5,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: '#3A3A3A',
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  checkboxSelected: {
-    backgroundColor: '#3A3A3A',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 5,
-    flexDirection: 'column',
-    paddingLeft: 10,
-  },
-  row: {
-    flexDirection: 'row',
-    marginBottom: 2,
-  },
-  text: {
-    color: '#313131',
-    fontSize: 14,
-  },
-  errorText: {
-    color: '#EE505A',
-    fontSize: 14,
-  },
-  smallText: {
-    color: '#656565',
-    fontSize: 12,
-  },
-  noAutoInfo: {
-    marginTop: 5,
-    paddingTop: 5,
-    borderTopWidth: 1,
-    borderTopColor: '#D0D0D0',
-  },
-  noAutoText: {
-    color: '#909090',
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  arrowContainer: {
-    flex: 1,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  arrowButton: {
-    padding: 10,
-  },
-});
+export default ChargeCard;
