@@ -31,7 +31,7 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, right
 
       <Text
         className="flex-1 text-center text-2xl font-bold text-light-text dark:text-dark-text mr-10"
-        numberOfLines={1}
+        numberOfLines={2}
         selectable={false}
       >
         {title}
