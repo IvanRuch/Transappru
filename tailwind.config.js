@@ -51,6 +51,12 @@ module.exports = {
           border: '#FFE69C',
           text:   '#856404',
         },
+        // Notification card — subtle highlight for unviewed items
+        notification: {
+          newBg:     '#F0F4FF',
+          newBorder: '#B8C8E8',
+          newDot:    '#3A6FD8',
+        },
         // Theme-specific colors for manual use
         light: {
           bg: '#ffffff',

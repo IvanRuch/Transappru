@@ -67,7 +67,7 @@ export function useNotificationList() {
   }, [router]);
 
   const onPressItem = useCallback((item: NotificationItem) => {
-    if (item.viewed === '0' || item.viewed === 0) {
+    if (String(item.viewed) === '0') {
       setNotifications(prev =>
         prev.map(n => n.id === item.id ? { ...n, viewed: '1' } : n)
       );
@@ -78,7 +78,7 @@ export function useNotificationList() {
   const markItemsViewed = useCallback((ids: string[]) => {
     if (ids.length === 0) return;
     setNotifications(prev =>
-      prev.map(n => ids.includes(n.id) && (n.viewed === '0' || n.viewed === 0)
+      prev.map(n => ids.includes(n.id) && String(n.viewed) === '0'
         ? { ...n, viewed: '1' }
         : n
       )
@@ -87,7 +87,7 @@ export function useNotificationList() {
   }, [markAsViewed]);
 
   const unviewedCount = notifications.filter(
-    n => n.viewed === '0' || n.viewed === 0
+    n => String(n.viewed) === '0'
   ).length;
 
   return {

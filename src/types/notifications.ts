@@ -3,7 +3,11 @@ export interface NotificationItem {
   title: string;
   body: string;
   registered: string;
-  viewed: string;     // "0" | "1"
+  /**
+   * Backend returns this as "0"/"1" (string) or 0/1 (number) depending on
+   * the endpoint — narrow to both, compare with `String(item.viewed) === '0'`.
+   */
+  viewed: string | number;
 }
 
 export interface AutoGranted {
