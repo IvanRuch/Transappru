@@ -356,7 +356,10 @@ export default function PassYaMapScreen() {
       lat: selectedCoords.lat,
     });
 
-    router.push({
+    // Use `replace` instead of `push` so /pass-yamap is not left on the
+    // history stack. After return the stack is [/auto-list, /pass] and
+    // pressing back (in-app or via browser) correctly goes to /auto-list.
+    router.replace({
       pathname: '/(authenticated)/pass' as any,
       params: {
         auto_list: autoListParam,

@@ -8,7 +8,7 @@
  *  - ARIA combobox pattern over the address <input> and suggestion lists
  *  - Keyboard navigation (ArrowUp/Down/Enter/Escape) through suggestions
  *  - Inline loading indicator on the autocomplete
- *  - safeBack for direct URL entries (router.back when possible, else /main)
+ *  - safeBack always navigates to /auto-list?mode=pass (natural parent)
  */
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, Image } from 'react-native';
@@ -102,9 +102,15 @@ export default function PassScreen() {
     if (errorMsg) showAlert('Ошибка', errorMsg);
   }, [handleOrder]);
 
+  // PassScreen's natural parent is auto-list in pass-mode (vehicle selection
+  // step). Navigate there explicitly rather than relying on history, so that
+  // back from /pass is deterministic even if the history contains /pass-yamap
+  // (e.g. after a map-address edit on web).
   const safeBack = useCallback(() => {
-    if (router.canGoBack()) router.back();
-    else router.replace('/main' as any);
+    router.replace({
+      pathname: '/(authenticated)/auto-list' as any,
+      params: { mode: 'pass' },
+    });
   }, [router]);
 
   const hasSuggestions = combined.length > 0;
