@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 import { mkadPolygonWeb, ttkPolygonWeb, skPolygonWeb } from '../../data/moscowZonePolygons';
 import { ScreenHeader } from '../../components/common';
+import { MapAddressOverlay, MapAddFooter } from '../../components/pass';
 // WebAppLayout is provided by _layout.web.tsx — do NOT wrap again here.
 
 const noSelect = Platform.OS === 'web' ? { userSelect: 'none' as const } : {};
@@ -415,49 +416,18 @@ export default function PassYaMapScreen() {
         )}
       </View>
 
-      {/* Loading address indicator */}
-      {isLoadingAddress && (
-        <View style={s.addressOverlay}>
-          <View style={s.addressOverlayInner}>
-            <ActivityIndicator size="small" color="#313131" />
-            <Text style={s.addressOverlayText}>Определение адреса...</Text>
-          </View>
-        </View>
+      {/* Overlays — unified with mobile via shared MapAddressOverlay */}
+      {isLoadingAddress && <MapAddressOverlay variant="loading" />}
+      {!isLoadingAddress && wrongLocation && <MapAddressOverlay variant="warning" />}
+      {!isLoadingAddress && addressData?.address && (
+        <MapAddressOverlay variant="address" address={addressData.address} />
       )}
 
-      {/* "Out of zone" warning */}
-      {wrongLocation && !isLoadingAddress && (
-        <View style={s.addressOverlay}>
-          <View style={[s.addressOverlayInner, s.warningOverlay]}>
-            <Text style={s.warningText}>Адрес находится вне выбранной зоны</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Selected address display */}
-      {addressData?.address && !isLoadingAddress && (
-        <View style={s.addressOverlay}>
-          <View style={s.addressOverlayInner}>
-            <Text style={s.addressText}>{addressData.address}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* "Добавить" — shown when there's an address to commit.
-          In edit mode additionally gated on hasNewPick: nothing to commit
-          when the user has not picked anything new (they can just go back). */}
-      {addressData?.address && !isLoadingAddress && (!isEditMode || hasNewPick) && (
-        <View style={s.footer}>
-          <Pressable
-            style={s.addBtn}
-            onPress={handleAdd}
-            accessibilityRole="button"
-            accessibilityLabel="Добавить адрес"
-          >
-            <Text style={[s.addBtnText, noSelect]}>Добавить</Text>
-          </Pressable>
-        </View>
-      )}
+      {/* Commit button — hidden in edit mode until the user picks a new point. */}
+      <MapAddFooter
+        visible={!!addressData?.address && !isLoadingAddress && (!isEditMode || hasNewPick)}
+        onPress={handleAdd}
+      />
     </View>
   );
 }
@@ -498,65 +468,4 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Address overlay (positioned over map)
-  addressOverlay: {
-    position: 'absolute',
-    top: 120,
-    left: 20,
-    right: 20,
-    zIndex: 3,
-    alignItems: 'center',
-  },
-  addressOverlayInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    // Web shadow
-    ...(Platform.OS === 'web' ? {
-      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-    } as any : {}),
-  },
-  addressOverlayText: {
-    marginLeft: 10,
-    fontSize: 15,
-    color: '#313131',
-  },
-  addressText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#313131',
-    flex: 1,
-  },
-  warningOverlay: {
-    borderColor: '#fee600',
-  },
-  warningText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fee600',
-  },
-
-  // Footer with "Добавить" button
-  footer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  addBtn: {
-    backgroundColor: '#3A3A3A',
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
 });

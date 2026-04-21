@@ -1,406 +1,195 @@
-import React from 'react';
-import { StyleSheet, Text, View, Image, TouchableOpacity, TouchableHighlight, Modal, TextInput, ImageBackground, ActivityIndicator,  FlatList, Pressable, ScrollView, Platform, PermissionsAndroid, StatusBar } from 'react-native';
-import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, PermissionsAndroid, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import styles from '../../styles/Styles.js';
-import Api from "../../utils/Api";
+import Api from '../../utils/Api';
 import { ScreenHeader } from '../../components/common';
+import { MapAddressOverlay, MapAddFooter } from '../../components/pass';
+import { setPendingMapData } from '../../utils/passMapBridge';
 
-import YaMap, { Marker, Animation, Polygon, YamapInstance } from 'react-native-yamap-plus';
-
+import YaMap, { Marker, Polygon, YamapInstance } from 'react-native-yamap-plus';
 import { mkadPolygonNative, ttkPolygonNative, skPolygonNative } from '../../data/moscowZonePolygons';
+
 YamapInstance.init('9247644d-4157-4d20-bd95-eb97583fc962');
 
-const mkad_polygon_coordinates = mkadPolygonNative;
-const ttk_polygon_coordinates = ttkPolygonNative;
-const sk_polygon_coordinates = skPolygonNative;
+/**
+ * Mobile map screen for pass-order address selection. Shows Moscow zone
+ * polygons (МКАД/ТТК/СК) and lets the user pick a point via long-press;
+ * resolved address is sent back to PassScreen via `pendingMapData` +
+ * router.back() — the pass.tsx wrapper bridges it into URL params.
+ *
+ * Edit mode (opened with an existing address): all three zones are shown,
+ * the API call is unfiltered, and the Add button is hidden until the
+ * user picks a new point.
+ */
+export default function PassYaMapScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<any>();
 
-interface PassYaMapProps {
-  route: {
-    params: {
-      auto_list: any[];
-      location_type: string;
-      lon?: number | string;
-      lat?: number | string;
-      address?: string;
-    };
-  };
-  navigation: any;
-}
+  const isEditMode = !!params.address;
 
-interface PassYaMapState {
-  location_type: string;
-  lon: number | string;
-  lat: number | string;
-  wrong_location: boolean;
-  address_map_data: { address: string };
-  mkad_polygon: any[];
-  mkad_polygon_inner_ring: any[][];
-  ttk_polygon: any[];
-  ttk_polygon_inner_ring: any[][];
-  sk_polygon: any[];
-  isLoadingAddress: boolean;
-  /**
-   * True when the user has tapped a new point on the map during this visit.
-   * In edit mode (opened with an existing address), this flag distinguishes
-   * "commit a new selection" from "just go back without changes".
-   */
-  hasNewPick: boolean;
-}
+  // State mirrored from route params — also refreshed on focus (see below).
+  const [locationType, setLocationType] = useState<string>((params.location_type as string) || '');
+  const [lon, setLon] = useState<number | string>(params.lon || '');
+  const [lat, setLat] = useState<number | string>(params.lat || '');
+  const [address, setAddress] = useState<string>((params.address as string) || '');
+  const [wrongLocation, setWrongLocation] = useState(false);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [hasNewPick, setHasNewPick] = useState(false);
 
-class PassYaMap extends React.Component<PassYaMapProps, PassYaMapState> {
-  map: React.RefObject<any>;
+  const mapRef = useRef<any>(null);
 
-  constructor(props: PassYaMapProps) {
-    super(props);
+  // Android location permission (for user-position rendering).
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+      {
+        title: 'Разрешение на доступ к местоположению',
+        message: 'Приложению требуется доступ к вашему местоположению для работы с картой',
+        buttonNeutral: 'Спросить позже',
+        buttonNegative: 'Отмена',
+        buttonPositive: 'OK',
+      },
+    ).catch(() => { /* ignore — map still works without permission */ });
+  }, []);
 
-    this.map = React.createRef();
+  // No focus listener needed — params arrive via useLocalSearchParams on mount
+  // and wouldn't change under us because the user navigates away via router.back().
 
-    this.state = {
-      location_type: props.route.params.location_type || '',
-      lon: props.route.params.lon || '',
-      lat: props.route.params.lat || '',
-      wrong_location: false,
-      address_map_data: { address: props.route.params.address || '' },
-      mkad_polygon: mkad_polygon_coordinates,
-      mkad_polygon_inner_ring: [ ttk_polygon_coordinates ],
-      ttk_polygon: ttk_polygon_coordinates,
-      ttk_polygon_inner_ring: [ sk_polygon_coordinates ],
-      sk_polygon: sk_polygon_coordinates,
-      isLoadingAddress: false,
-      hasNewPick: false,
-    };
-  }
+  const handleYaMapLongPress = useCallback((point: { lon: number; lat: number }) => {
+    const apiLocationType = isEditMode ? '' : locationType;
 
-  /**
-   * True when we are re-visiting an address that's already selected on
-   * PassScreen. In this mode: all zones are shown, API call is unfiltered,
-   * and the "Добавить" tap without a new pick is a no-op (just goes back).
-   */
-  get isEditMode(): boolean {
-    return !!this.props.route.params.address;
-  }
-
-  yaMapLongPress = (point: any) => {
-    // In edit mode the zone filter is lifted — user may pick in any zone.
-    const apiLocationType = this.isEditMode ? '' : this.state.location_type;
-
-    this.setState({
-      lon: point.lon,
-      lat: point.lat,
-      wrong_location: false,
-      isLoadingAddress: true,
-      hasNewPick: true,
-    })
+    setLon(point.lon);
+    setLat(point.lat);
+    setWrongLocation(false);
+    setIsLoadingAddress(true);
+    setHasNewPick(true);
 
     Api.post('/get-address-map', { lon: point.lon, lat: point.lat, location_type: apiLocationType })
-       .then(res => {
-          const data = res.data;
-          if(data.auth_required === 1)
-          {
-            this.setState({ isLoadingAddress: false });
-            this.props.navigation.navigate('Auth')
-          }
-          else
-          {
-            if(typeof(data.address_map_data.address) !== 'undefined')
-            {
-              this.setState({address_map_data: data.address_map_data, isLoadingAddress: false})
-            }
-            else
-            {
-              // "Out of zone" warning only when a zone filter was actually applied.
-              const showWrongLocation = apiLocationType !== '';
-              this.setState({address_map_data: { address: '' }, wrong_location: showWrongLocation, isLoadingAddress: false})
-            }
-          }
-        })
-        .catch(error => {
-          this.setState({ isLoadingAddress: false });
-          if(error.response?.status === 401) { this.props.navigation.navigate('Auth') }
-        });
-  }
-
-  /** Commits the current selection back to PassScreen. The button is hidden
-   *  in edit mode until the user taps a new point, so a stale-data commit is
-   *  not reachable from the UI. */
-  handleAdd = () => {
-    this.props.navigation.navigate('Pass', {
-      address_map_data: { ...this.state.address_map_data, lon: this.state.lon, lat: this.state.lat },
-      auto_list: this.props.route.params.auto_list,
-    });
-  }
-
-  setMarkerPos = () => {
-    return { 
-      lon: typeof this.state.lon === 'string' ? parseFloat(this.state.lon) : this.state.lon, 
-      lat: typeof this.state.lat === 'string' ? parseFloat(this.state.lat) : this.state.lat 
-    }
-  }
-
-  async requestLocationPermission() {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Разрешение на доступ к местоположению',
-            message: 'Приложению требуется доступ к вашему местоположению для работы с картой',
-            buttonNeutral: 'Спросить позже',
-            buttonNegative: 'Отмена',
-            buttonPositive: 'OK',
-          }
-        );
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          console.log('✅ Location permission granted');
+      .then((res: any) => {
+        const data = res.data;
+        if (data.auth_required === 1) {
+          setIsLoadingAddress(false);
+          router.replace('/' as any);
+          return;
+        }
+        if (typeof data.address_map_data?.address !== 'undefined') {
+          setAddress(data.address_map_data.address);
+          setIsLoadingAddress(false);
         } else {
-          console.log('⚠️ Location permission denied');
+          const showWrong = apiLocationType !== '';
+          setAddress('');
+          setWrongLocation(showWrong);
+          setIsLoadingAddress(false);
         }
-      } catch (err) {
-        console.warn('Error requesting location permission:', err);
-      }
-    }
-  }
-
-  componentDidMount() {
-    console.log('[PassYaMap] componentDidMount, location_type=', this.state.location_type);
-    // Запрашиваем разрешение на геолокацию для Android
-    this.requestLocationPermission();
-
-    // Подписываемся на событие focus для обновления координат при возврате на экран
-    this.props.navigation.addListener('focus', () => {
-      const params = this.props.route.params;
-      console.log('PassYaMap focus event - updating coordinates:', params.lon, params.lat, 'location_type:', params.location_type);
-      this.setState({
-        lon: params.lon || '',
-        lat: params.lat || '',
-        location_type: params.location_type || '',
-        address_map_data: { address: params.address || '' }
+      })
+      .catch((err: any) => {
+        setIsLoadingAddress(false);
+        if (err.response?.status === 401) router.replace('/' as any);
       });
+  }, [isEditMode, locationType, router]);
+
+  /**
+   * Commit the current pin. Stashes the pick in the module-level bridge,
+   * then pops back — pass.tsx wrapper reads it on focus and sync's into
+   * URL params so the hook's applyMapData effect fires.
+   *
+   * The button is hidden in edit mode until the user taps a new point,
+   * so stale-data commits are not reachable from the UI.
+   */
+  const handleAdd = useCallback(() => {
+    setPendingMapData({
+      address_map_data: { address, lon, lat },
+      auto_list: params.auto_list,
     });
-  }
+    router.back();
+  }, [router, address, lon, lat, params.auto_list]);
 
-  componentWillUnmount() {
-      console.log('[PassYaMap] componentWillUnmount');
-  }
+  const markerPoint = {
+    lon: typeof lon === 'string' ? parseFloat(lon) : lon,
+    lat: typeof lat === 'string' ? parseFloat(lat) : lat,
+  };
 
-  render() {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <StatusBar 
-          barStyle="dark-content"
-          backgroundColor="#ffffff"
-          translucent={false}
+  const showPinMarker = lon !== '' && lat !== '';
+  const showAllZones = isEditMode || locationType === '';
+
+  const canAdd = address !== '' && (!isEditMode || hasNewPick);
+  const overlayVariant = isLoadingAddress
+    ? 'loading' as const
+    : wrongLocation
+      ? 'warning' as const
+      : address !== ''
+        ? 'address' as const
+        : null;
+
+  const initialZoom = isEditMode ? 10 :
+    locationType === 'sk' ? 12.4 :
+    locationType === 'ttk' ? 11.4 : 10;
+
+  return (
+    <SafeAreaView className="flex-1 bg-white dark:bg-dark-bg" edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
+
+      <ScreenHeader
+        title="Укажите адрес долгим нажатием"
+        onBack={() => router.back()}
+      />
+
+      {overlayVariant && (
+        <MapAddressOverlay variant={overlayVariant} address={address} />
+      )}
+
+      <YaMap
+        ref={mapRef}
+        rotateGesturesDisabled
+        showUserPosition={false}
+        userLocationAccuracyFillColor="rgba(0, 0, 0, 0)"
+        userLocationAccuracyStrokeColor="rgba(0, 0, 0, 0)"
+        userLocationAccuracyStrokeWidth={0}
+        initialRegion={{ lat: 55.74954, lon: 37.621587, zoom: initialZoom }}
+        onMapLongPress={(point) => handleYaMapLongPress(point.nativeEvent)}
+        style={{ flex: 1 }}
+      >
+        <Marker
+          point={{ lon: 37.621587, lat: 55.74954 }}
+          source={require('../../../assets/images/moscow_marker.png')}
         />
-        
-        {/* Заголовок с кнопкой назад — также выполняет роль инструкции */}
-        <ScreenHeader
-          title="Укажите адрес долгим нажатием"
-          onBack={() => this.props.navigation.goBack()}
-        />
+        {showPinMarker && (
+          <Marker
+            point={markerPoint}
+            source={require('../../../assets/images/address_marker.png')}
+          />
+        )}
 
-        {/* Индикатор загрузки адреса */}
-        {
-          this.state.isLoadingAddress ? (
-            <View style={{ 
-              position: 'absolute', 
-              zIndex: 3, elevation: 3, 
-              top: 160, 
-              left: 0,
-              right: 0,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <View style={{
-                flexDirection: "row",
-                alignItems: 'center',
-                margin: 20, 
-                padding: 15, 
-                backgroundColor: "#FFFFFF", 
-                borderRadius: 8,
-                borderWidth: 1, 
-                borderColor: "#B8B8B8",
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 3.84,
-                elevation: 5,
-              }}>
-                <ActivityIndicator size="small" color="#313131" />
-                <Text style={{ marginLeft: 10, fontSize: 15, color: "#313131" }}>Определение адреса...</Text>
-              </View>
-            </View>
-          ) : null
-        }
+        {showAllZones ? (
+          <>
+            <Polygon strokeColor="#FF0000" fillColor="rgba(0, 0, 255, 0.15)" points={mkadPolygonNative} />
+            <Polygon strokeColor="#FF0000" fillColor="rgba(0, 255, 0, 0.15)" points={ttkPolygonNative} />
+            <Polygon strokeColor="#FF0000" fillColor="rgba(255, 0, 0, 0.15)" points={skPolygonNative} />
+          </>
+        ) : locationType === 'mkad' ? (
+          <Polygon
+            strokeColor="#FF0000"
+            fillColor="rgba(0, 0, 255, 0.15)"
+            points={mkadPolygonNative}
+            innerRings={[ttkPolygonNative]}
+          />
+        ) : locationType === 'ttk' ? (
+          <Polygon
+            strokeColor="#FF0000"
+            fillColor="rgba(0, 255, 0, 0.15)"
+            points={ttkPolygonNative}
+            innerRings={[skPolygonNative]}
+          />
+        ) : locationType === 'sk' ? (
+          <Polygon strokeColor="#FF0000" fillColor="rgba(255, 0, 0, 0.15)" points={skPolygonNative} />
+        ) : null}
+      </YaMap>
 
-        {
-          this.state.address_map_data.address !== '' ? (
-            <View style={{ 
-              position: 'absolute', 
-              zIndex: 3, elevation: 3, 
-              top: 160, 
-              flexDirection: "row", 
-              margin: 20, 
-              padding: 10, 
-              backgroundColor: "#FFFFFF", 
-              borderRadius: 8,
-              borderWidth: 1, 
-              borderColor: "#B8B8B8",
-            }}>
-              <View style={{
-                flex: 5,
-                flexDirection: "column",
-                paddingLeft: 10,
-              }}>
-                <Text style={{ fontSize: 20, fontWeight: "bold", color: "#313131"}}>{this.state.address_map_data.address}</Text>
-              </View>
-            </View>
-          ) : null
-        }
-
-        {
-          this.state.wrong_location ? (
-            <View style={{ 
-              position: 'absolute', 
-              zIndex: 3, 
-              elevation: 3, 
-              top: 160, 
-              flexDirection: "row", 
-              margin: 20, 
-              padding: 10, 
-              backgroundColor: "#FFFFFF", 
-              borderRadius: 8,
-              borderWidth: 1, 
-              borderColor: "#B8B8B8",
-            }}>
-              <View style={{
-                flex: 5,
-                flexDirection: "column",
-                paddingLeft: 10,
-                alignItems: 'center',
-              }}>
-                <Text style={{ fontSize: 20, fontWeight: "bold", color: "#fee600", alignItems: 'center'}}>Адрес находится вне выбранной зоны</Text>
-              </View>
-            </View>
-          ) : null
-        }
-
-        <YaMap
-          ref={this.map}
-          rotateGesturesDisabled={true}
-          showUserPosition={false}
-          userLocationAccuracyFillColor="rgba(0, 0, 0, 0)"
-          userLocationAccuracyStrokeColor="rgba(0, 0, 0, 0)"
-          userLocationAccuracyStrokeWidth={0}
-          initialRegion={{
-              lat: 55.74954,
-              lon: 37.621587,
-              // In edit mode we show all 3 zones, so use the default (zoomed-out) level.
-              zoom: this.isEditMode ? 10 :
-                    this.state.location_type === 'sk' ? 12.4 :
-                    this.state.location_type === 'ttk' ? 11.4 : 10
-          }}
-          onMapLongPress={(point) => this.yaMapLongPress(point.nativeEvent)}
-          style={{ flex: 1 }}
-        >
-            <Marker
-              point={{ lon: 37.621587, lat: 55.74954 }}
-              source={require('../../../assets/images/moscow_marker.png')}
-            />
-            {
-              this.state.lon !== '' && this.state.lat !== '' ? (
-                <Marker
-                  point={this.setMarkerPos()}
-                  source={require('../../../assets/images/address_marker.png')}
-                />
-              ) : null
-            }
-
-            {
-              // In edit mode — or when no zone was pre-selected — show all three zones.
-              // Otherwise show only the pre-selected zone to emphasise the filter.
-              (this.isEditMode || this.state.location_type === '') ? (
-                <>
-                  <Polygon
-                    strokeColor="#FF0000"
-                    fillColor="rgba(0, 0, 255, 0.15)"
-                    points={this.state.mkad_polygon}
-                  />
-                  <Polygon
-                    strokeColor="#FF0000"
-                    fillColor="rgba(0, 255, 0, 0.15)"
-                    points={this.state.ttk_polygon}
-                  />
-                  <Polygon
-                    strokeColor="#FF0000"
-                    fillColor="rgba(255, 0, 0, 0.15)"
-                    points={this.state.sk_polygon}
-                  />
-                </>
-              ) : this.state.location_type === 'mkad' ? (
-                <Polygon
-                  strokeColor="#FF0000"
-                  fillColor="rgba(0, 0, 255, 0.15)"
-                  points={this.state.mkad_polygon}
-                  innerRings={this.state.mkad_polygon_inner_ring}
-                />
-              ) : this.state.location_type === 'ttk' ? (
-                <Polygon
-                  strokeColor="#FF0000"
-                  fillColor="rgba(0, 255, 0, 0.15)"
-                  points={this.state.ttk_polygon}
-                  innerRings={this.state.ttk_polygon_inner_ring}
-                />
-              ) : this.state.location_type === 'sk' ? (
-                <Polygon
-                  strokeColor="#FF0000"
-                  fillColor="rgba(255, 0, 0, 0.15)"
-                  points={this.state.sk_polygon}
-                />
-              ) : null
-            }
-
-        </YaMap>
-
-        <SafeAreaInsetsContext.Consumer>
-          {(insets) => {
-            // Add button is shown when there's an address to commit.
-            // In edit mode it's additionally gated on hasNewPick — nothing to
-            // commit when the user didn't make a new pick (they can just go back).
-            const canAdd = this.state.address_map_data.address !== ''
-              && (!this.isEditMode || this.state.hasNewPick);
-            if (!canAdd) return null;
-
-            return (
-              <TouchableHighlight
-                style={{
-                  position: 'absolute',
-                  zIndex: 3,
-                  elevation: 3,
-                  left: 10,
-                  bottom: Math.max(insets?.bottom || 0, 20),
-                  right: 10,
-                  height: 50,
-                  margin: 25,
-                  borderRadius: 5,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#3A3A3A',
-                }}
-                underlayColor="#555555"
-                onPress={this.handleAdd}
-              >
-                <Text style={{ fontSize: 24, color: '#FFFFFF' }}>Добавить</Text>
-              </TouchableHighlight>
-            );
-          }}
-        </SafeAreaInsetsContext.Consumer>
-
-      </SafeAreaView>
-    );
-  }
-
+      <MapAddFooter visible={canAdd} onPress={handleAdd} />
+    </SafeAreaView>
+  );
 }
 
-export default PassYaMap;
