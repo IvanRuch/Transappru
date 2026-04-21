@@ -6,7 +6,10 @@
 
 React Native 0.81.5 + Expo 54 + TypeScript 5.9 (strict) + NativeWind 4.
 
-See `src/CLAUDE.md` for coding conventions.
+See `src/CLAUDE.md` for coding conventions and
+[Screen Development Conventions](dev-screen-conventions.md) for the mandatory
+screen / screen-pair playbook (ADR-003 shared hooks, ADR-005 shared UI,
+NativeWind styling rules, prod-ready web checklist).
 
 ## Project Structure
 

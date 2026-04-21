@@ -93,4 +93,34 @@ Shared utility: `src/utils/plateHelpers.ts` (GRZ normalization).
 - **WebAppLayout rule:** All `.web.tsx` screen components must NOT wrap in `<WebAppLayout>`.
   The authenticated layout (`_layout.web.tsx`) already provides it. Use `<View style={{flex:1}}>` instead.
 
+## Screen & UI work — MUST follow
+
+Any non-trivial work on a screen, screen pair, or shared UI component must
+follow the playbook in **`src/CLAUDE.md`** (auto-loaded when working under
+`src/`). Specifically:
+
+- Extract business logic into a shared `src/hooks/use<Feature>.ts` hook (ADR-003).
+- Extract repeating markup into `src/components/<feature>/` sub-components (ADR-005).
+- Use `<ScreenHeader>`, `<WebScreenContainer>`, `showAlert()` — do not reinvent.
+- **Style with NativeWind + semantic Tailwind tokens. No hardcoded hex in JSX.**
+  Exemplars: `src/screens/charges/ChargesScreen.tsx`, `src/screens/pass/PassScreen.*`.
+- Web screens must add a11y polish: ARIA (list, dialog, combobox), keyboard
+  navigation, focus trap on modals, loading indicators, `safeBack`.
+- For cross-screen reference: [dev-screen-conventions](../Writerside/topics/dev-screen-conventions.md).
+
+## Critical thinking — do not rubber-stamp suggestions
+
+When the user proposes a UI element, behaviour, or technical approach:
+
+1. **Interrogate the actual user need.** Does it solve a task the existing UI
+   doesn't already address? (Example: on the map screen I added a "Сбросить"
+   button because the user suggested it, without noticing that tapping a new
+   location already replaced the pin — the button was redundant.)
+2. **Prefer pushing back with a reasoned alternative** over silent compliance.
+3. **Propose simpler variants** when the user's idea introduces friction
+   (extra steps, modals, toggles, etc.).
+4. **Check existing infra first.** Before creating a new utility / component /
+   dependency, search for something equivalent already in the project
+   (`src/components/`, `src/hooks/`, `src/utils/`, `tailwind.config.js`).
+
 ## Corrections (accumulated)

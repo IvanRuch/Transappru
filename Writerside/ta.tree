@@ -14,6 +14,7 @@
 
     <toc-element toc-title="Mobile App">
         <toc-element topic="dev-mobile.md"/>
+        <toc-element topic="dev-screen-conventions.md"/>
         <toc-element topic="dev-expo-router.md"/>
         <toc-element topic="dev-payment-flow.md"/>
         <toc-element topic="dev-push-notifications.md"/>

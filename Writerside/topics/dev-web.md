@@ -116,6 +116,12 @@ Hooks use `api` from `services/api`. Platform-specific behavior via callbacks (e
 
 **Utility:** `src/utils/plateHelpers.ts` — shared GRZ normalization (Latin→Cyrillic, allowed chars, digits-only).
 
+## Conventions playbook
+
+All new/refactored screens must follow [Screen Development Conventions](dev-screen-conventions.md) —
+the mandatory playbook covering ADR-003 (shared hooks), ADR-005 (shared UI),
+NativeWind styling rules, prod-ready web checklist, and migration procedure.
+
 ## Shared UI Sub-components (ADR-005)
 
 After shared hooks (ADR-003), the UI layer was still duplicated ~70% between `.tsx` and `.web.tsx`
