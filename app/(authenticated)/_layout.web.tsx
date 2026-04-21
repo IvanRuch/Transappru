@@ -92,7 +92,6 @@ export default function AuthenticatedLayoutWeb() {
         <Stack.Screen name="main"                 options={{ title: 'Главная' }} />
         <Stack.Screen name="auto-list"            options={{ title: 'Автомобили' }} />
         <Stack.Screen name="charges"              options={{ title: 'Начисления' }} />
-        <Stack.Screen name="profile"              options={{ title: 'Профиль' }} />
         <Stack.Screen name="services"             options={{ title: 'Услуги' }} />
         <Stack.Screen name="auto/[id]"            options={{ title: 'Автомобиль' }} />
         <Stack.Screen name="notification-settings" options={{ title: 'Настройки уведомлений' }} />
