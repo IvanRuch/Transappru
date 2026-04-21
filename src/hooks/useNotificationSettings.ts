@@ -36,14 +36,15 @@ export function useNotificationSettings() {
     try {
       setLoading(true);
       setError(null);
-      const res = await api.post<NotificationGrantedResponse>('/get-notification-granted', { token });
+      const res = await api.post('/get-notification-granted', { token });
+      const data = res.data as NotificationGrantedResponse;
 
-      if (res.data.auth_required === 1) {
+      if (data.auth_required === 1) {
         router.replace('/');
         return;
       }
 
-      setSettings(res.data.notification_granted_list || []);
+      setSettings(data.notification_granted_list || []);
     } catch (err: any) {
       if (err.response?.status === 401) {
         router.replace('/');
