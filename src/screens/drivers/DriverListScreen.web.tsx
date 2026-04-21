@@ -1,36 +1,38 @@
 /**
- * Web version of DriverListScreen.
- * Reuses the DriversTab component (same as inline tab in AutoDetailScreen).
- * Wrapped in WebAppLayout for consistent sidebar navigation.
+ * Web version of DriverListScreen — standalone sidebar route.
+ *
+ * Reuses `DriversTab` — the same component used as a tab inside AutoDetail
+ * (CRUD over /get-driver-list, /add-user-driver, etc.). No business logic here.
+ *
+ * Does NOT wrap in `<WebAppLayout>` — the authenticated layout
+ * (`_layout.web.tsx`) already provides it (see .claude/rules.md).
+ *
+ * TODO: the mobile counterpart is a 533-line class component that duplicates
+ * all the logic already present in DriversTab. Follow-up task: extract
+ * `useDriverList` hook + shared `<DriverCard>`, `<DriverEditModal>`,
+ * `<DriverDeleteModal>` sub-components, then convert mobile to functional.
  */
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import WebAppLayout from '../../components/web/WebAppLayout';
+import React, { useCallback } from 'react';
+import { View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ScreenHeader } from '../../components/common';
+import WebScreenContainer from '../../components/web/WebScreenContainer';
 import { DriversTab } from '../auto/web/DriversTab';
 
 export default function DriverListScreen() {
+  const router = useRouter();
+
+  const safeBack = useCallback(() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/main' as any);
+  }, [router]);
+
   return (
-    <WebAppLayout>
-      <View style={styles.header}>
-        <Text style={styles.title}>Водители</Text>
-      </View>
-      <DriversTab />
-    </WebAppLayout>
+    <View className="flex-1">
+      <ScreenHeader title="Водители" onBack={safeBack} />
+      <WebScreenContainer maxWidth={960}>
+        <DriversTab />
+      </WebScreenContainer>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-});
