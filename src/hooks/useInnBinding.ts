@@ -70,8 +70,11 @@ export function useInnBinding(onConfirmationClose?: () => void) {
 
   // ── Modal state ─────────────────────────────────────────────────────────────
   const [confirmationModal, setConfirmationModal] = useState(false);
-  const [errorModal, setErrorModal] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  /**
+   * Last backend error (/bind-inn returned error === 1 with msg). Screens
+   * surface it via showAlert in a useEffect, then call clearError().
+   */
+  const [error, setError] = useState<string | null>(null);
   const [managerPhone, setManagerPhone] = useState('');
 
   // ── INN binding ─────────────────────────────────────────────────────────────
@@ -97,8 +100,7 @@ export function useInnBinding(onConfirmationClose?: () => void) {
       }
 
       if (data.error == 1) {
-        setErrorMsg(data.msg);
-        setErrorModal(true);
+        setError(data.msg || 'Не удалось привязать ИНН');
       } else {
         if (isExistingUser) {
           const originalInn = userData.inn;
@@ -154,7 +156,7 @@ export function useInnBinding(onConfirmationClose?: () => void) {
   };
 
   // ── Modal actions ───────────────────────────────────────────────────────────
-  const closeErrorModal = () => setErrorModal(false);
+  const clearError = () => setError(null);
 
   const closeConfirmationModal = () => {
     setConfirmationModal(false);
@@ -180,10 +182,9 @@ export function useInnBinding(onConfirmationClose?: () => void) {
     changeAutoNumberRegion,
     // Modals
     confirmationModal,
-    errorModal,
-    errorMsg,
+    error,
+    clearError,
     managerPhone,
-    closeErrorModal,
     closeConfirmationModal,
     // Actions
     handleBindInn,
