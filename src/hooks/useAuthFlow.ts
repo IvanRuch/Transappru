@@ -54,8 +54,8 @@ export function useAuthFlow(initialSessionData?: SessionData) {
     let t = 0;
     const timer = setInterval(async () => {
       try {
-        const res = await api.post<ApiResponse>('/get-session-data', { token });
-        const data = res.data;
+        const res = await api.post('/get-session-data', { token });
+        const data = res.data as ApiResponse;
         if (data.session_data) {
           setSessionData(data.session_data);
           const c1 = data.session_data.user_data?.phone_inn_confirmed;
@@ -135,9 +135,10 @@ export function useAuthFlow(initialSessionData?: SessionData) {
           processSessionData(initialSessionData, token);
         } else {
           try {
-            const res = await api.post<ApiResponse>('/get-session-data', { token });
-            if (res.data.session_data) {
-              processSessionData(res.data.session_data, token);
+            const res = await api.post('/get-session-data', { token });
+            const data = res.data as ApiResponse;
+            if (data.session_data) {
+              processSessionData(data.session_data, token);
             } else {
               setIsCheckingToken(false);
             }

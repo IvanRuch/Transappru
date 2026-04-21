@@ -1,158 +1,73 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Pressable, Modal, Image, Platform } from 'react-native';
+import { Text, View, TextInput, TouchableOpacity, Image, Platform } from 'react-native';
 
 import { usePinConfirm } from '../../hooks/usePinConfirm';
+import { ConfirmModal } from '../../components/common';
 
 export default function PinScreen() {
   const {
-    modalVisible,
-    msg,
-    canGoBack,
-    submitPin,
-    handleGoBack,
-    handleChangeNumber,
-    closeErrorModal,
+    modalVisible, msg, canGoBack,
+    submitPin, handleGoBack, handleChangeNumber, closeErrorModal,
   } = usePinConfirm();
 
-  // Local input state
   const [code, setCode] = useState('');
-  const [disabled, setDisabled] = useState(true);
-
-  const changeCode = (value: string) => {
-    setCode(value);
-    setDisabled(!value.match(/(\d{4})/));
-  };
-
-  const handleSubmit = () => {
-    submitPin(code);
-  };
-
-  const getButtonStyle = () => {
-    const backgroundColor = disabled ? '#c0c0c0' : '#3A3A3A';
-    return {
-      height: 50,
-      width: 185,
-      borderRadius: 5,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor,
-    };
-  };
-
-  const getButtonTextStyle = () => {
-    return { fontSize: 20, color: '#FFFFFF' };
-  };
+  const disabled = !/^\d{4}$/.test(code);
 
   return (
-    <View style={styles.container}>
-      <Modal
-        animationType="slide"
-        transparent={true}
+    <View className="flex-1 bg-white items-center justify-center">
+      <ConfirmModal
         visible={modalVisible}
-        onRequestClose={() => {
-          Alert.alert("Modal has been closed.");
-          closeErrorModal();
-        }}
-      >
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalText}>{msg}</Text>
-            <Pressable
-              style={[styles.button, styles.buttonClose]}
-              onPress={closeErrorModal}
-            >
-              <Text style={styles.textStyle}>получить еще раз</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+        title={msg}
+        confirmLabel="Получить ещё раз"
+        hideCancel
+        onConfirm={closeErrorModal}
+        onCancel={closeErrorModal}
+      />
 
       {canGoBack && (
         <TouchableOpacity
-          style={{
-            position: 'absolute',
-            top: Platform.OS === 'ios' ? 60 : 20,
-            left: 20,
-            padding: 10,
-            zIndex: 10,
-          }}
+          className="absolute left-5 p-2.5 z-10"
+          style={{ top: Platform.OS === 'ios' ? 60 : 20 }}
           onPress={handleGoBack}
+          accessibilityRole="button"
+          accessibilityLabel="Назад"
         >
           <Image source={require('../../../assets/images/back_2.png')} />
         </TouchableOpacity>
       )}
 
-      <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#4C4C4C' }}>Код подтверждения</Text>
-      <Text style={{ color: '#4C4C4C' }}>Введите 4-значный код из SMS</Text>
+      <Text className="text-[22px] font-bold text-[#4C4C4C]">Код подтверждения</Text>
+      <Text className="text-[#4C4C4C]">Введите 4-значный код из SMS</Text>
+
       <TextInput
         keyboardType="numeric"
-        textAlign="center"
-        style={{
-          height: 60, width: 100, color: '#4C4C4C', fontSize: 34,
-          borderRadius: 5, borderBottomColor: 'black', borderBottomWidth: 1, marginBottom: 10,
-        }}
+        className="h-[60px] w-[100px] text-[#4C4C4C] text-[34px] text-center rounded border-b border-black mb-2.5"
         maxLength={4}
         placeholder="0000"
         placeholderTextColor="#c0c0c0"
-        onChangeText={changeCode}
+        onChangeText={setCode}
       />
+
       <TouchableOpacity
         disabled={disabled}
-        style={getButtonStyle()}
-        onPress={handleSubmit}
+        className={`h-[50px] w-[185px] rounded items-center justify-center ${
+          disabled ? 'bg-[#c0c0c0]' : 'bg-accent-secondary'
+        }`}
+        onPress={() => submitPin(code)}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
       >
-        <Text style={getButtonTextStyle()}>Подтвердить</Text>
+        <Text className="text-xl text-white">Подтвердить</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={{ marginTop: 30 }} onPress={handleChangeNumber}>
-        <Text style={{ fontSize: 14, color: '#666666', textDecorationLine: 'underline' }}>
-          Войти с другим номером
-        </Text>
+      <TouchableOpacity
+        className="mt-8"
+        onPress={handleChangeNumber}
+        accessibilityRole="button"
+        accessibilityLabel="Войти с другим номером"
+      >
+        <Text className="text-sm text-[#666666] underline">Войти с другим номером</Text>
       </TouchableOpacity>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -350,
-  },
-  modalView: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 15,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  button: {
-    borderRadius: 5,
-    padding: 10,
-    elevation: 2,
-  },
-  buttonClose: {
-    backgroundColor: '#fee600',
-  },
-  textStyle: {
-    color: 'black',
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  modalText: {
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-});

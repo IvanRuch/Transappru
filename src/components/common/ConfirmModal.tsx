@@ -14,6 +14,8 @@ interface ConfirmModalProps {
   confirmVariant?: ConfirmVariant;
   /** Label for the cancel button. Default: "Отмена". */
   cancelLabel?: string;
+  /** Hide the cancel button (single-action dialog, e.g. error alert). */
+  hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -25,7 +27,7 @@ interface ConfirmModalProps {
  */
 export default function ConfirmModal({
   visible, title, message, confirmLabel = 'ОК', confirmVariant = 'primary',
-  cancelLabel = 'Отмена', onConfirm, onCancel,
+  cancelLabel = 'Отмена', hideCancel, onConfirm, onCancel,
 }: ConfirmModalProps) {
   useEffect(() => {
     if (Platform.OS !== 'web' || !visible) return;
@@ -74,14 +76,16 @@ export default function ConfirmModal({
             >
               <Text className="text-[15px] font-bold text-white select-none">{confirmLabel}</Text>
             </Pressable>
-            <Pressable
-              className="flex-1 h-12 rounded-lg items-center justify-center bg-white border border-border-primary cursor-pointer"
-              onPress={onCancel}
-              accessibilityRole="button"
-              accessibilityLabel={cancelLabel}
-            >
-              <Text className="text-[15px] text-text-primary select-none">{cancelLabel}</Text>
-            </Pressable>
+            {!hideCancel && (
+              <Pressable
+                className="flex-1 h-12 rounded-lg items-center justify-center bg-white border border-border-primary cursor-pointer"
+                onPress={onCancel}
+                accessibilityRole="button"
+                accessibilityLabel={cancelLabel}
+              >
+                <Text className="text-[15px] text-text-primary select-none">{cancelLabel}</Text>
+              </Pressable>
+            )}
           </View>
         </Pressable>
       </Pressable>

@@ -1,68 +1,44 @@
 /**
- * Web-only version of PinScreen (SMS code verification).
- * Metro resolves *.web.tsx for the web platform automatically.
+ * Web version of PinScreen.
  *
- * Layout mirrors AuthScreen.web.tsx:
- *  - Mobile web  (<768 px): centered card
- *  - Desktop web (≥768 px): left branding panel + right form card
+ * Shares business logic with mobile via usePinConfirm (ADR-003). Layout
+ * uses the cross-screen `AuthCardLayout` for the responsive 2-col desktop
+ * / centered mobile shell. Error modal via the shared `ConfirmModal` with
+ * `hideCancel` (single-action alert).
  */
 import React, { useState, useRef, useCallback } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 
 import { usePinConfirm } from '../../hooks/usePinConfirm';
+import { ConfirmModal } from '../../components/common';
+import { AuthCardLayout } from '../../components/auth';
 
 export default function PinScreen() {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
-
   const {
-    modalVisible,
-    msg,
-    canGoBack,
-    submitPin,
-    handleGoBack,
-    handleChangeNumber,
-    closeErrorModal,
+    modalVisible, msg, canGoBack,
+    submitPin, handleGoBack, handleChangeNumber, closeErrorModal,
   } = usePinConfirm();
 
-  // ── Local input state ───────────────────────────────────────────────────────
   const [digits, setDigits] = useState<string[]>(['', '', '', '']);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null]);
 
   const code = digits.join('');
   const disabled = !/^\d{4}$/.test(code);
 
-  // ── PIN digit handlers ───────────────────────────────────────────────────
   const handleDigitChange = useCallback((index: number, value: string) => {
-    // Handle paste of full code
     const pasted = value.replace(/\D/g, '');
     if (pasted.length >= 4) {
-      const newDigits = pasted.substring(0, 4).split('');
-      setDigits(newDigits);
+      setDigits(pasted.substring(0, 4).split(''));
       inputRefs.current[3]?.focus();
       return;
     }
-
-    // Single digit input
     const digit = pasted.slice(-1);
     setDigits(prev => {
       const next = [...prev];
       next[index] = digit;
       return next;
     });
-    if (digit && index < 3) {
-      inputRefs.current[index + 1]?.focus();
-    }
+    if (digit && index < 3) inputRefs.current[index + 1]?.focus();
   }, []);
 
   const handleDigitKeyDown = useCallback((index: number, e: React.KeyboardEvent) => {
@@ -88,299 +64,80 @@ export default function PinScreen() {
     }
   }, [digits]);
 
-  const handleSubmit = () => {
-    submitPin(code);
-  };
-
-  // ── Error modal ───────────────────────────────────────────────────────────
-  const errorModal = (
-    <Modal
-      animationType="fade"
-      transparent
-      visible={modalVisible}
-      onRequestClose={closeErrorModal}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalText}>{msg}</Text>
-          <Pressable style={styles.modalBtn} onPress={closeErrorModal}>
-            <Text style={styles.modalBtnText}>Получить ещё раз</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  // ── Form card ─────────────────────────────────────────────────────────────
-  const formCard = (
-    <View style={[styles.card, isDesktop && styles.cardDesktop]}>
-      <Text style={styles.formTitle}>Код подтверждения</Text>
-      <Text style={styles.formSubtitle}>Введите 4-значный код из SMS</Text>
-
-      <View style={styles.codeRow}>
-        {[0, 1, 2, 3].map(i => (
-          <input
-            key={i}
-            ref={(el: any) => { inputRefs.current[i] = el; }}
-            type="tel"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="0"
-            value={digits[i]}
-            autoFocus={i === 0}
-            onChange={(e: any) => handleDigitChange(i, e.target.value)}
-            onKeyDown={(e: any) => handleDigitKeyDown(i, e)}
-            onFocus={(e: any) => e.target.select()}
-            style={{
-              width: 56,
-              height: 56,
-              fontSize: 28,
-              color: '#1A1A1A',
-              border: '1px solid #D0D0D0',
-              borderRadius: 8,
-              outline: 'none',
-              backgroundColor: digits[i] ? '#FFFFFF' : '#FAFAFA',
-              textAlign: 'center' as const,
-              fontFamily: 'inherit',
-              fontWeight: '600',
-              caretColor: '#3A3A3A',
-            }}
-          />
-        ))}
-      </View>
-
-      <TouchableOpacity
-        disabled={disabled}
-        style={[styles.submitBtn, disabled && styles.submitBtnDisabled]}
-        onPress={handleSubmit}
-      >
-        <Text style={styles.submitBtnText}>Подтвердить</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={handleChangeNumber} style={styles.linkWrap}>
-        <Text style={styles.linkText}>Войти с другим номером</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // ── Root render ───────────────────────────────────────────────────────────
   return (
-    <View style={styles.root}>
-      {errorModal}
+    <>
+      <ConfirmModal
+        visible={modalVisible}
+        title={msg}
+        confirmLabel="Получить ещё раз"
+        hideCancel
+        onConfirm={closeErrorModal}
+        onCancel={closeErrorModal}
+      />
 
-      {isDesktop ? (
-        <View style={styles.desktopRow}>
-          <View style={styles.brandPanel}>
-            {canGoBack && (
-              <TouchableOpacity onPress={handleGoBack} style={styles.backBtn}>
-                <Image
-                  source={require('../../../assets/images/back_2.png')}
-                  style={styles.backIcon}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            )}
-            <Image
-              source={require('../../../assets/images/icon.png')}
-              style={styles.brandLogo}
-              resizeMode="contain"
+      <AuthCardLayout onBack={canGoBack ? handleGoBack : undefined}>
+        <Text className="text-[22px] font-bold text-text-primary mb-1.5 text-center select-none">
+          Код подтверждения
+        </Text>
+        <Text className="text-sm text-text-muted text-center mb-6 select-none">
+          Введите 4-значный код из SMS
+        </Text>
+
+        <View className="flex-row justify-center gap-3 mb-6">
+          {[0, 1, 2, 3].map(i => (
+            <input
+              key={i}
+              ref={(el) => { inputRefs.current[i] = el; }}
+              type="tel"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="0"
+              value={digits[i]}
+              autoFocus={i === 0}
+              onChange={(e) => handleDigitChange(i, e.target.value)}
+              onKeyDown={(e) => handleDigitKeyDown(i, e)}
+              onFocus={(e) => (e.target as HTMLInputElement).select()}
+              aria-label={`Цифра ${i + 1} из 4`}
+              style={{
+                width: 56,
+                height: 56,
+                fontSize: 28,
+                color: '#1A1A1A',
+                border: '1px solid #D0D0D0',
+                borderRadius: 8,
+                outline: 'none',
+                backgroundColor: digits[i] ? '#FFFFFF' : '#FAFAFA',
+                textAlign: 'center',
+                fontFamily: 'inherit',
+                fontWeight: 600,
+                caretColor: '#3A3A3A',
+              }}
             />
-            <Text style={styles.brandTitle}>TransApp</Text>
-            <Text style={styles.brandSub}>Транспортные решения{'\n'}для вашего бизнеса</Text>
-          </View>
-
-          <View style={styles.formPanel}>
-            {formCard}
-          </View>
+          ))}
         </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.mobileScroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+
+        <Pressable
+          disabled={disabled}
+          className={`h-[50px] rounded-lg items-center justify-center mb-5 cursor-pointer ${
+            disabled ? 'bg-[#C0C0C0]' : 'bg-accent-secondary'
+          }`}
+          onPress={() => submitPin(code)}
+          accessibilityRole="button"
+          accessibilityLabel="Подтвердить"
+          accessibilityState={{ disabled }}
         >
-          {canGoBack && (
-            <TouchableOpacity onPress={handleGoBack} style={styles.backBtnMobile}>
-              <Image
-                source={require('../../../assets/images/back_2.png')}
-                style={styles.backIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          )}
-          {formCard}
-        </ScrollView>
-      )}
-    </View>
+          <Text className="text-lg font-semibold text-white select-none">Подтвердить</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleChangeNumber}
+          className="items-center cursor-pointer"
+          accessibilityRole="button"
+          accessibilityLabel="Войти с другим номером"
+        >
+          <Text className="text-sm text-text-muted underline select-none">Войти с другим номером</Text>
+        </Pressable>
+      </AuthCardLayout>
+    </>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#F0F2F5',
-  },
-
-  desktopRow: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  brandPanel: {
-    flex: 1,
-    backgroundColor: '#1A1A1A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 48,
-  },
-  brandLogo: {
-    width: 72,
-    height: 72,
-    marginBottom: 24,
-    borderRadius: 16,
-  },
-  brandTitle: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  brandSub: {
-    fontSize: 16,
-    color: '#B0B0B0',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  formPanel: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 40,
-  },
-
-  mobileScroll: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
-
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 32,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  cardDesktop: {
-    maxWidth: 400,
-  },
-
-  formTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  formSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  codeRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 24,
-  },
-  submitBtn: {
-    height: 50,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3A3A3A',
-    marginBottom: 20,
-  },
-  submitBtnDisabled: {
-    backgroundColor: '#C0C0C0',
-  },
-  submitBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  linkWrap: {
-    alignItems: 'center',
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#666666',
-    textDecorationLine: 'underline',
-  },
-
-  backBtn: {
-    position: 'absolute',
-    top: 24,
-    left: 24,
-    padding: 8,
-    zIndex: 10,
-  },
-  backBtnMobile: {
-    alignSelf: 'flex-start',
-    padding: 8,
-    marginBottom: 16,
-  },
-  backIcon: {
-    width: 24,
-    height: 24,
-    tintColor: '#FFFFFF',
-  },
-
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    maxWidth: 340,
-    width: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  modalText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  modalBtn: {
-    height: 44,
-    borderRadius: 8,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3A3A3A',
-  },
-  modalBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-});
