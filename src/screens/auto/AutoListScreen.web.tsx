@@ -1,25 +1,20 @@
 /**
- * Web-only version of AutoListScreen.
- * Key differences from native:
- *  - Responsive grid (4 / 3 / 2 / 1 columns)
+ * Web version of AutoListScreen.
+ *
+ * Differences from mobile:
+ *  - Responsive grid (1/2/3/4 columns via useWebLayout)
+ *  - Inline search in header (desktop only; mobile uses FindAutoPanel)
  *  - No bottom tab bar (sidebar handles navigation)
  *  - No LeftMenuModal (sidebar provides that navigation)
- *  - No SafeAreaView / StatusBar
- *  - FlatList key resets when numColumns changes
- *  - Cards have fixed %-width so the last row stays left-aligned (no stretching)
+ *  - Pass-mode selection footer with Reset + "Пропуск в Москву"
+ *
+ * Does NOT wrap in WebAppLayout — authenticated layout (`_layout.web.tsx`)
+ * already provides it.
  */
 import React, { useEffect, useCallback, useMemo } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableHighlight,
-  TouchableOpacity,
-  Pressable,
-  ActivityIndicator,
-  StyleSheet,
-  Image,
-  Alert,
+  View, Text, FlatList, TouchableHighlight, TouchableOpacity, Pressable,
+  ActivityIndicator, Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -28,19 +23,19 @@ import { useAutoList }    from '../../hooks/useAutoList';
 import { useAutoActions } from '../../hooks/useAutoActions';
 import { useWebLayout }   from '../../hooks/useWebLayout';
 import { AutoListItem }   from '../../components/auto/AutoListItem';
+import AutoListFilterChips from '../../components/auto/AutoListFilterChips';
+import AutoCountToolbar    from '../../components/auto/AutoCountToolbar';
+import AutoListEmptyState  from '../../components/auto/AutoListEmptyState';
 import {
-  AddAutoModal,
-  DeleteAutoModal,
-  ContactsModal,
-  DebtInfoModal,
+  AddAutoModal, DeleteAutoModal, ContactsModal, DebtInfoModal,
 } from '../../components/auto/modals';
 import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel }  from '../../components/auto/FindAutoPanel';
 import { useNotification } from '../../contexts/NotificationContext';
-import api from '../../services/api';
+import { showAlert } from '../../utils/alert';
 
-// Module-level callback so sidebar can open AddAutoModal without navigation.
-// Matches mobile: bottom-bar "Пропуск в Москву" at markedCnt===0 opens AddAutoModal.
+// Module-level callback so sidebar "Пропуск" can open AddAutoModal in-place
+// without navigation. Matches mobile behaviour.
 let _openAddAutoModal: (() => void) | null = null;
 export function openAddAutoModalIfMounted(): boolean {
   if (_openAddAutoModal) { _openAddAutoModal(); return true; }
@@ -54,7 +49,6 @@ export default function AutoListScreen() {
   const { resetViewedCount } = useNotification();
   const { columns }  = useWebLayout();
 
-  // Register module-level callback so sidebar "Пропуск" can open the modal in-place
   useEffect(() => {
     _openAddAutoModal = () => autoActions.setModalAddAutoVisible(true);
     return () => { _openAddAutoModal = null; };
@@ -70,38 +64,18 @@ export default function AutoListScreen() {
     }, [])
   );
 
-  useEffect(() => {
-    autoListHook.loadData();
-  }, []);
+  useEffect(() => { autoListHook.loadData(); }, []);
 
-  const handleItemPress = useCallback((item: any) => {
-    autoActions.navigateToAuto(item);
-  }, [autoActions]);
-
-  const handleItemMark = useCallback((item: any, index: number) => {
-    autoListHook.markItem(item, index);
-  }, [autoListHook]);
-
-  const handleEndReached = useCallback(() => {
-    autoListHook.loadMore();
-  }, [autoListHook]);
+  const handleItemPress = useCallback((item: any) => autoActions.navigateToAuto(item), [autoActions]);
+  const handleItemMark = useCallback((item: any, index: number) => autoListHook.markItem(item, index), [autoListHook]);
+  const handleEndReached = useCallback(() => autoListHook.loadMore(), [autoListHook]);
 
   const handleOrderOsagoPolicy = useCallback(async (item: any) => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) return;
-      await api.post('/order-osago-policy', { token, id: item.id });
-      Alert.alert(
-        'Заявка отправлена',
-        'Ваша заявка на оформление полиса ОСАГО принята. Мы свяжемся с вами в ближайшее время.',
-        [{ text: 'OK' }]
-      );
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось отправить заявку. Попробуйте позже.', [{ text: 'OK' }]);
-    }
-  }, []);
+    const { ok, msg } = await autoActions.orderOsagoPolicy(item);
+    showAlert(ok ? 'Заявка отправлена' : 'Ошибка', msg);
+  }, [autoActions]);
 
-  // Фиксированный % ширины на ячейку — карточки не растягиваются в неполной строке
+  // Fixed %-width cell — last row stays left-aligned (no stretching).
   const cellStyle = useMemo(
     () => ({ width: `${100 / columns}%` as const, padding: 4 }),
     [columns],
@@ -123,21 +97,19 @@ export default function AutoListScreen() {
   const showGlobalLoading = autoListHook.isLoading && autoListHook.autoList.length === 0;
 
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-[#F8F8F8]">
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 py-3 bg-white border-b border-[#E8E8E8]">
+        <Text className="text-[22px] font-bold text-text-primary select-none">Мой автопарк</Text>
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Мой автопарк</Text>
-
-        {/* Inline search — desktop only */}
         {columns >= 2 && (autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters()) && (
-          <View style={styles.inlineSearch}>
-            <Text style={styles.inlineSearchIcon}>🔍</Text>
+          <View className="flex-1 flex-row items-center bg-bg-secondary rounded-lg px-3 mx-4 h-10 max-w-[320px]">
+            <Text className="text-sm mr-2">🔍</Text>
             <input
               type="text"
               placeholder="Поиск по номеру..."
               value={autoListHook.filters.autoStr}
-              onChange={(e: any) => autoListHook.changeAutoStr(e.target.value)}
+              onChange={(e) => autoListHook.changeAutoStr(e.target.value)}
               style={{
                 flex: 1,
                 height: 36,
@@ -150,26 +122,30 @@ export default function AutoListScreen() {
               }}
             />
             {autoListHook.filters.autoStr ? (
-              <TouchableOpacity onPress={autoListHook.clearAutoStr} style={{ padding: 4 }}>
-                <Text style={{ color: '#999', fontSize: 18 }}>✕</Text>
+              <TouchableOpacity onPress={autoListHook.clearAutoStr} className="p-1">
+                <Text className="text-text-muted text-lg">✕</Text>
               </TouchableOpacity>
             ) : null}
           </View>
         )}
 
-        <View style={styles.headerActions}>
-          {/* Уведомления */}
+        <View className="flex-row items-center gap-1">
           <TouchableHighlight
-            style={styles.headerBtn}
+            className="w-10 h-10 rounded-lg items-center justify-center"
             activeOpacity={1}
             underlayColor="#F0F0F0"
             onPress={() => router.push('/(authenticated)/notifications' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Уведомления"
           >
             <View>
               <Image source={require('../../../assets/images/notification.png')} />
               {(autoListHook.userData.notification_unviewed_count || 0) > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
+                <View
+                  className="absolute bg-status-error rounded-[10px] items-center justify-center px-[3px]"
+                  style={{ top: -4, right: -6, minWidth: 18, height: 18 }}
+                >
+                  <Text className="text-[10px] font-bold text-white">
                     {autoListHook.userData.notification_unviewed_count}
                   </Text>
                 </View>
@@ -177,29 +153,31 @@ export default function AutoListScreen() {
             </View>
           </TouchableHighlight>
 
-          {/* Долг */}
           {!!autoListHook.userData.debt_sum && autoListHook.userData.debt_sum !== '0.00' && (
             <TouchableHighlight
-              style={styles.headerBtn}
+              className="w-10 h-10 rounded-lg items-center justify-center"
               activeOpacity={1}
               underlayColor="#F0F0F0"
               onPress={() => autoActions.setModalDebtInfoVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Информация о задолженности"
             >
               <Image source={require('../../../assets/images/alert-circle_2.png')} />
             </TouchableHighlight>
           )}
 
-          {/* Фильтр */}
           {autoListHook.isSearching ? (
-            <View style={styles.headerBtn}>
+            <View className="w-10 h-10 rounded-lg items-center justify-center">
               <ActivityIndicator size="small" color="#3A3A3A" />
             </View>
           ) : (autoListHook.autoList.length > 0 || autoListHook.hasActiveFilters()) ? (
             <TouchableHighlight
-              style={styles.headerBtn}
+              className="w-10 h-10 rounded-lg items-center justify-center"
               activeOpacity={1}
               underlayColor="#F0F0F0"
               onPress={() => autoActions.setFindAutoVisible(!autoActions.findAutoVisible)}
+              accessibilityRole="button"
+              accessibilityLabel="Фильтр"
             >
               <Image source={require('../../../assets/images/filter.png')} />
             </TouchableHighlight>
@@ -207,22 +185,13 @@ export default function AutoListScreen() {
         </View>
       </View>
 
-      {/* ── Active filter chips ─────────────────────────────────────── */}
       {autoListHook.hasActiveFilters() && (
-        <View style={styles.filterBar}>
-          <Text style={styles.filterLabel}>Фильтры:</Text>
-          {autoListHook.getActiveFiltersText().map((f, i) => (
-            <View key={i} style={styles.filterChip}>
-              <Text style={styles.filterChipText}>{f}</Text>
-            </View>
-          ))}
-          <TouchableOpacity onPress={() => autoActions.setFindAutoVisible(true)} style={styles.filterLink}>
-            <Text style={styles.filterLinkText}>Изменить</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={autoListHook.clearAllFilters} style={styles.filterLink}>
-            <Text style={[styles.filterLinkText, { color: '#EE505A' }]}>Сбросить</Text>
-          </TouchableOpacity>
-        </View>
+        <AutoListFilterChips
+          filters={autoListHook.getActiveFiltersText()}
+          onEdit={() => autoActions.setFindAutoVisible(true)}
+          onClearAll={autoListHook.clearAllFilters}
+          label="Фильтры:"
+        />
       )}
 
       <FindAutoPanel
@@ -241,29 +210,15 @@ export default function AutoListScreen() {
         onClose={() => autoActions.setFindAutoVisible(false)}
       />
 
-      {/* ── Count + Add button ──────────────────────────────────────── */}
       {!showGlobalLoading && (
-        <View style={styles.toolbar}>
-          <Text style={styles.countText}>
-            Всего {autoListHook.autoListCount || 0} авто
-          </Text>
-          <TouchableHighlight
-            activeOpacity={1}
-            underlayColor="#F0F0F0"
-            onPress={() => autoActions.setModalAddAutoVisible(true)}
-            style={styles.addBtn}
-          >
-            <View style={styles.addBtnInner}>
-              <Text style={styles.addBtnText}>Добавить авто</Text>
-              <Image source={require('../../../assets/images/edit_2.png')} />
-            </View>
-          </TouchableHighlight>
-        </View>
+        <AutoCountToolbar
+          count={autoListHook.autoListCount || 0}
+          onAddPress={() => autoActions.setModalAddAutoVisible(true)}
+        />
       )}
 
-      {/* ── List / Grid ─────────────────────────────────────────────── */}
       {showGlobalLoading ? (
-        <View style={styles.loadingWrap}>
+        <View className="flex-1 items-center justify-center bg-[#F8F8F8]">
           <ActivityIndicator size="large" color="#313131" />
         </View>
       ) : (
@@ -271,28 +226,18 @@ export default function AutoListScreen() {
           // key forces remount when column count changes (RN requirement for numColumns)
           key={String(columns)}
           numColumns={columns}
-          // flex-start: неполная последняя строка выравнивается влево, а не растягивается
-          columnWrapperStyle={columns > 1 ? styles.row : undefined}
+          columnWrapperStyle={columns > 1 ? { justifyContent: 'flex-start', flexWrap: 'wrap' } : undefined}
           data={autoListHook.autoList}
           renderItem={renderItem}
           keyExtractor={(item, idx) => item.id || String(idx)}
           ListEmptyComponent={() => (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>
-                {autoListHook.hasActiveFilters() ? 'Ничего не найдено' : 'Список авто пуст'}
-              </Text>
-              {!autoListHook.hasActiveFilters() && (
-                <Text style={styles.emptySubText}>
-                  Добавьте первое авто нажав на кнопку выше
-                </Text>
-              )}
-            </View>
+            <AutoListEmptyState hasActiveFilters={autoListHook.hasActiveFilters()} />
           )}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
           refreshing={autoListHook.isRefreshing}
           onRefresh={autoListHook.refreshAutoList}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ padding: 8, paddingBottom: 24 }}
           style={{ flex: 1 }}
           ListFooterComponent={
             autoListHook.isLoadingMore ? (
@@ -304,30 +249,34 @@ export default function AutoListScreen() {
         />
       )}
 
-      {/* ── Selection footer (matches mobile bottom menu when markedCnt > 0) ── */}
+      {/* Pass-mode selection footer */}
       {autoListHook.markedCnt > 0 && (
-        <View style={styles.passFooter}>
-          <View style={styles.passFooterRow}>
+        <View className="p-4 bg-white border-t border-[#E8E8E8]">
+          <View className="flex-row gap-3">
             <Pressable
-              style={styles.passFooterBtnSecondary}
+              className="py-3.5 px-5 rounded-[10px] border border-border-primary bg-bg-secondary items-center justify-center cursor-pointer"
               onPress={autoListHook.undoSelect}
+              accessibilityRole="button"
+              accessibilityLabel="Сбросить выбор"
             >
-              <Text style={styles.passFooterBtnSecondaryText}>Сбросить</Text>
+              <Text className="text-base font-semibold text-text-secondary select-none">Сбросить</Text>
             </Pressable>
             <Pressable
-              style={styles.passFooterBtn}
+              className="flex-1 bg-accent-secondary rounded-[10px] py-3.5 items-center cursor-pointer"
               onPress={() => {
                 const marked = autoListHook.autoList.filter((i: any) => i.marked);
                 autoActions.navigateToPass(marked);
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Заказать пропуск"
             >
-              <Text style={styles.passFooterBtnText}>Пропуск в Москву</Text>
+              <Text className="text-base font-bold text-white select-none">Пропуск в Москву</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* ── Modals ──────────────────────────────────────────────────── */}
+      {/* Modals */}
       <AddAutoModal
         visible={autoActions.modalAddAutoVisible}
         autoNumberBase={autoActions.autoNumberBase}
@@ -384,221 +333,3 @@ export default function AutoListScreen() {
     </View>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F8F8',
-  },
-
-  // ── Header ────────────────────────────────────────────────────────────────
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  inlineSearch: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 16,
-    maxWidth: 320,
-    height: 40,
-  },
-  inlineSearchIcon: {
-    fontSize: 14,
-    marginRight: 8,
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    backgroundColor: '#EE505A',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  // ── Filter bar ────────────────────────────────────────────────────────────
-  filterBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F0F0F0',
-    borderBottomWidth: 1,
-    borderBottomColor: '#D8D8D8',
-    gap: 6,
-  },
-  filterLabel: {
-    fontSize: 12,
-    color: '#666',
-  },
-  filterChip: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#3A3A3A',
-  },
-  filterChipText: {
-    fontSize: 11,
-    color: '#3A3A3A',
-    fontWeight: '500',
-  },
-  filterLink: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  filterLinkText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#3A3A3A',
-  },
-
-  // ── Toolbar ───────────────────────────────────────────────────────────────
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-  },
-  countText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  addBtn: {
-    borderRadius: 8,
-  },
-  addBtnInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  addBtnText: {
-    fontSize: 13,
-    color: '#3A3A3A',
-  },
-
-  // ── List/Grid ─────────────────────────────────────────────────────────────
-  listContent: {
-    padding: 8,
-    paddingBottom: 24,
-  },
-  // Строка сетки: выравнивание влево, чтобы неполная последняя строка не растягивалась
-  row: {
-    justifyContent: 'flex-start',
-    flexWrap: 'wrap',
-  },
-  // Базовый стиль ячейки (ширина задаётся через cellStyle — useMemo)
-  gridCell: {
-    padding: 4,
-  },
-
-  // ── States ────────────────────────────────────────────────────────────────
-  loadingWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F8F8F8',
-  },
-  emptyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 60,
-    paddingBottom: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    textAlign: 'center',
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-
-  // ── Pass-mode footer ───────────────────────────────────────────────────────
-  passFooter: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  passFooterRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  passFooterBtn: {
-    flex: 1,
-    backgroundColor: '#3A3A3A',
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  passFooterBtnText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  passFooterBtnSecondary: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  passFooterBtnSecondaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#656565',
-  },
-});

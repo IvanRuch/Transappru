@@ -320,6 +320,25 @@ export function useAutoActions(
     setModalAddAutoVisible(false);
   }, []);
 
+  /**
+   * Fire-and-forget OSAGO policy order. Returns a human-readable result
+   * message so the screen can surface it via showAlert (mobile Alert.alert
+   * / web window.alert) without platform-specific branching.
+   */
+  const orderOsagoPolicy = useCallback(async (item: AutoItem | { id: string }): Promise<{ ok: boolean; msg: string }> => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return { ok: false, msg: 'Необходима авторизация' };
+      await api.post('/order-osago-policy', { token, id: item.id });
+      return {
+        ok: true,
+        msg: 'Ваша заявка на оформление полиса ОСАГО принята. Мы свяжемся с вами в ближайшее время.',
+      };
+    } catch {
+      return { ok: false, msg: 'Не удалось отправить заявку. Попробуйте позже.' };
+    }
+  }, []);
+
   return {
     // State
     modalViewContacts,
@@ -364,5 +383,6 @@ export function useAutoActions(
     changeSts,
     addAuto,
     modalAddAutoCancel,
+    orderOsagoPolicy,
   };
 }
