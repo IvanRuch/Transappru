@@ -143,6 +143,7 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 |------|---------|
 | `src/utils/alert.ts` + `.web.ts` | `showAlert(title, message?)` — `Alert.alert` on mobile, `window.alert` on web |
 | `src/utils/switchOrganization.ts` | `switchOrganization(inn)` — single-source org-switch request. Returns discriminated union `{ status: 'ok' \| 'auth_required' \| 'error' }`. Handles `auth_required=1` response and HTTP 401 by clearing the stored token. Used by both `useAutoActions` (mobile) and `WebSidebar` (web). |
+| `src/utils/navigateToInn.ts` | `navigateToInn(router, userData, checkRnis)` — canonical push to `/(authenticated)/inn` with the exact params `useInnBinding` expects (`user_data` JSON-serialised, `check_rnis` as `"0" \| "1"`). Ensures both sidebars keep mobile and web in lockstep across three flows: register-new, add-account, RNIS-only check. |
 | `src/components/web/WebScreenContainer.tsx` | Desktop max-width + centering wrapper (default 820px), used inside authenticated web screens |
 | `src/components/common/ScreenHeader.tsx` | Cross-platform header (Pressable + accessibilityRole + cursor:pointer on web). Replaces inline web headers |
 

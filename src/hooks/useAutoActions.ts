@@ -7,6 +7,7 @@ import type { AutoItem } from '../types/auto';
 import { GRZ_ALLOWED, DIGITS_ONLY, normalizePlate } from '../utils/plateHelpers';
 import { showAlert } from '../utils/alert';
 import { switchOrganization as switchOrganizationRequest } from '../utils/switchOrganization';
+import { navigateToInn as navigateToInnRequest } from '../utils/navigateToInn';
 
 export function useAutoActions(
   refreshAutoList: () => Promise<void>,
@@ -142,13 +143,7 @@ export function useAutoActions(
 
   const navigateToInn = useCallback((userData: any, checkRnis: boolean) => {
     console.log('-> move to Inn', { userData, checkRnis });
-    router.push({
-      pathname: '/(authenticated)/inn' as any,
-      params: {
-        user_data: JSON.stringify(userData),
-        check_rnis: checkRnis ? '1' : '0'
-      }
-    });
+    navigateToInnRequest(router, userData, checkRnis);
   }, [router]);
 
   const navigateToCharges = useCallback(() => {

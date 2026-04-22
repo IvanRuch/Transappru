@@ -19,6 +19,7 @@ import {
 } from '../../utils/responsive';
 import { showAlert } from '../../utils/alert';
 import { switchOrganization as switchOrganizationRequest } from '../../utils/switchOrganization';
+import { navigateToInn as navigateToInnRequest } from '../../utils/navigateToInn';
 import { OrgListItem, type OrgListItemData } from '../sidebar';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -381,14 +382,19 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <NavItem
           icon={require('../../../assets/images/menu_left_check_rnis.png')}
           label="Проверить в РНИС"
-          path="/(authenticated)/inn"
+          // checkRnis=true → hide the INN form, show only the RNIS plate check
+          onPress={() => navigateToInnRequest(router, {}, true)}
           active={isActive('/(authenticated)/inn')}
           expanded={expanded}
         />
         <NavItem
           icon={require('../../../assets/images/menu_left_add.png')}
           label="Добавить аккаунт"
-          path="/(authenticated)/inn"
+          // Pass current userData → isExistingUser=true on the INN screen:
+          // button becomes "Добавить" instead of "Зарегистрироваться", and
+          // on success we return to the original org + show the confirmation
+          // modal instead of logging the user out. Matches mobile exactly.
+          onPress={() => navigateToInnRequest(router, userData, false)}
           active={false}
           expanded={expanded}
         />
