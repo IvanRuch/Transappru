@@ -50,13 +50,15 @@ export default function NotificationListScreen() {
         onBack={safeBack}
         rightComponent={
           <Pressable
-            className="px-2 py-2"
+            className="px-3.5 py-1.5 rounded-full bg-bg-secondary"
             onPress={() => router.push('/(authenticated)/notification-settings' as any)}
             accessibilityRole="button"
             accessibilityLabel="Настройки уведомлений"
             hitSlop={8}
           >
-            <Text className="text-sm font-medium text-text-primary">Настройки</Text>
+            <Text className="text-[13px] font-semibold text-text-primary">
+              Настройки
+            </Text>
           </Pressable>
         }
       />
