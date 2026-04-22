@@ -1,6 +1,21 @@
 import React, { useRef } from 'react';
-import { View, Text, TextInput, Image } from 'react-native';
+import { View, Text, TextInput, Image, Platform } from 'react-native';
 import { useSafariAutofillFix } from '../../hooks/useSafariAutofillFix';
+
+// On web, stretch the underlying <input> to fill its visual container.
+// Without this, Safari draws its focus ring / autofill overlay around the
+// real (content-sized) input which sits in the middle of the tall 75px
+// card — so the user's click target and the visible rectangle diverge.
+const BASE_INPUT_STYLE = Platform.select<object>({
+  web: { padding: 0, width: '100%', height: '100%' },
+  default: {},
+})!;
+// Region leaves 20px at the bottom for the RUS/flag caption, so it uses
+// a fixed 45px height on both platforms (web just adds full-width + reset padding).
+const REGION_INPUT_STYLE = Platform.select<object>({
+  web: { padding: 0, width: '100%', height: 45 },
+  default: { height: 45 },
+})!;
 
 interface PlateInputProps {
   /** Base characters (letter-digit-digit-digit-letter-letter). */
@@ -47,6 +62,7 @@ export default function PlateInput({
             <TextInput
               ref={baseRef}
               className="text-[29px] text-center text-text-primary"
+              style={BASE_INPUT_STYLE}
               maxLength={6}
               placeholder="А000АА"
               placeholderTextColor="#B8B8B8"
@@ -67,7 +83,7 @@ export default function PlateInput({
               keyboardType="numeric"
               inputMode="numeric"
               className="text-[29px] text-center text-text-primary"
-              style={{ height: 45 }}
+              style={REGION_INPUT_STYLE}
               maxLength={3}
               placeholder="777"
               placeholderTextColor="#B8B8B8"
