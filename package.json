@@ -3,6 +3,9 @@
   "main": "expo-router/entry",
   "version": "2.0.17",
   "scripts": {
+    "test": "NODE_ENV=test jest --no-watchman",
+    "test:watch": "NODE_ENV=test jest --watch --no-watchman",
+    "test:coverage": "NODE_ENV=test jest --coverage --no-watchman",
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
@@ -70,11 +73,21 @@
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@babel/preset-env": "^7.29.2",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
     "@expo/config-plugins": "^54.0.2",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.0",
     "@types/react-dom": "^19.2.2",
+    "babel-jest": "^30.3.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true
