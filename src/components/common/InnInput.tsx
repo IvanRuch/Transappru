@@ -6,7 +6,7 @@ import { useSafariAutofillFix } from '../../hooks/useSafariAutofillFix';
 interface InnInputProps {
   value: string;
   onChangeText: (value: string) => void;
-  /** Override the visible placeholder. Defaults to "ИНН организации (10 или 12 цифр)". */
+  /** Override the visible placeholder. Defaults to "ИНН организации". */
   placeholder?: string;
   /** Autofocus on mount. Useful for modals / screens where INN is the primary action. */
   autoFocus?: boolean;
@@ -47,7 +47,7 @@ export default function InnInput({
         inputMode="numeric"
         maxLength={12}
         autoFocus={autoFocus}
-        placeholder={placeholder ?? 'ИНН организации (10 или 12 цифр)'}
+        placeholder={placeholder ?? 'ИНН организации'}
         placeholderTextColor="#B8B8B8"
         style={styles.input}
       />
