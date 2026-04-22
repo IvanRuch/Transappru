@@ -42,6 +42,10 @@
         <toc-element topic="setup-mac-m2.md"/>
     </toc-element>
 
+    <toc-element toc-title="Quality">
+        <toc-element topic="manual-qa-checklist.md"/>
+    </toc-element>
+
     <toc-element toc-title="Guides">
         <toc-element topic="guide-claude-code-setup.md"/>
     </toc-element>
