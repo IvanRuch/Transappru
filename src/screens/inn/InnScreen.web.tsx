@@ -58,62 +58,59 @@ export default function InnScreen() {
 
       <WebScreenContainer maxWidth={560}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingVertical: 40 }}>
-          <View className="bg-white rounded-2xl p-8 web:shadow-lg">
-            <Text className="text-[22px] font-bold text-text-primary text-center mb-2 select-none">
-              {checkRnis ? 'Проверить в РНИС' : 'Введите ИНН'}
-            </Text>
+          {/* INN card — hidden in RNIS-only mode (checkRnis=true), otherwise
+              the card would render empty apart from a duplicate title (the
+              header text is already in ScreenHeader). */}
+          {!checkRnis && (
+            <View className="bg-white rounded-2xl p-8 web:shadow-lg">
+              {!isExistingUser && (
+                <Text className="text-sm text-text-muted text-center mb-6 leading-5 select-none">
+                  для более точной идентификации Вас как клиента
+                </Text>
+              )}
 
-            {!isExistingUser && !checkRnis && (
-              <Text className="text-sm text-text-muted text-center mb-6 leading-5 select-none">
-                для более точной идентификации Вас как клиента
-              </Text>
-            )}
+              <View className="h-16 rounded-lg border border-[#D0D0D0] mb-4 bg-[#FAFAFA] overflow-hidden justify-center">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="ИНН организации (10 или 12 цифр)"
+                  value={inn}
+                  onChange={(e) => changeInn(e.target.value)}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    height: 56,
+                    fontSize: 24,
+                    color: '#1A1A1A',
+                    border: 'none',
+                    outline: 'none',
+                    backgroundColor: 'transparent',
+                    textAlign: 'center',
+                    letterSpacing: 4,
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </View>
 
-            {!checkRnis && (
-              <>
-                <View className="h-16 rounded-lg border border-[#D0D0D0] mb-4 bg-[#FAFAFA] overflow-hidden justify-center">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="ИНН организации (10 или 12 цифр)"
-                    value={inn}
-                    onChange={(e) => changeInn(e.target.value)}
-                    autoFocus
-                    style={{
-                      width: '100%',
-                      height: 56,
-                      fontSize: 24,
-                      color: '#1A1A1A',
-                      border: 'none',
-                      outline: 'none',
-                      backgroundColor: 'transparent',
-                      textAlign: 'center',
-                      letterSpacing: 4,
-                      fontFamily: 'inherit',
-                    }}
-                  />
-                </View>
-
-                <Pressable
-                  disabled={!innValid}
-                  className={`h-[50px] rounded-lg items-center justify-center cursor-pointer ${
-                    innValid ? 'bg-accent-secondary' : 'bg-[#C0C0C0]'
-                  }`}
-                  onPress={handleBindInn}
-                  accessibilityRole="button"
-                  accessibilityLabel={isExistingUser ? 'Добавить организацию' : 'Зарегистрироваться'}
-                  accessibilityState={{ disabled: !innValid }}
-                >
-                  <Text className="text-lg font-semibold text-white select-none">
-                    {isExistingUser ? 'Добавить' : 'Зарегистрироваться'}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </View>
+              <Pressable
+                disabled={!innValid}
+                className={`h-[50px] rounded-lg items-center justify-center cursor-pointer ${
+                  innValid ? 'bg-accent-secondary' : 'bg-[#C0C0C0]'
+                }`}
+                onPress={handleBindInn}
+                accessibilityRole="button"
+                accessibilityLabel={isExistingUser ? 'Добавить организацию' : 'Зарегистрироваться'}
+                accessibilityState={{ disabled: !innValid }}
+              >
+                <Text className="text-lg font-semibold text-white select-none">
+                  {isExistingUser ? 'Добавить' : 'Зарегистрироваться'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {(!isExistingUser || checkRnis) && (
-            <View className="bg-white rounded-2xl p-8 mt-4 web:shadow-lg">
+            <View className={`bg-white rounded-2xl p-8 web:shadow-lg ${checkRnis ? '' : 'mt-4'}`}>
               {!checkRnis && (
                 <Text className="text-sm text-text-muted text-center mb-6 leading-5 select-none">
                   Вы можете проверить автомобиль на наличие регистрации в РНИС и передачу телематики
