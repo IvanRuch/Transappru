@@ -6,8 +6,8 @@ import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareSc
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { ScreenHeader } from '../../components/common';
-import { PlateInput, RnisResultCard, InnConfirmationModal } from '../../components/inn';
+import { ScreenHeader, PlateField } from '../../components/common';
+import { RnisResultCard, InnConfirmationModal } from '../../components/inn';
 import { useInnBinding } from '../../hooks/useInnBinding';
 import { showAlert } from '../../utils/alert';
 
@@ -99,7 +99,7 @@ export default function InnScreen() {
                   </>
                 )}
 
-                <PlateInput
+                <PlateField
                   base={autoNumberBase}
                   onChangeBase={changeAutoNumberBase}
                   region={autoNumberRegion}

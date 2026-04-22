@@ -12,9 +12,9 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ScreenHeader } from '../../components/common';
+import { ScreenHeader, PlateField } from '../../components/common';
 import WebScreenContainer from '../../components/web/WebScreenContainer';
-import { PlateInput, RnisResultCard, InnConfirmationModal } from '../../components/inn';
+import { RnisResultCard, InnConfirmationModal } from '../../components/inn';
 import { useInnBinding } from '../../hooks/useInnBinding';
 import { showAlert } from '../../utils/alert';
 
@@ -117,7 +117,7 @@ export default function InnScreen() {
                 </Text>
               )}
 
-              <PlateInput
+              <PlateField
                 base={autoNumberBase}
                 onChangeBase={changeAutoNumberBase}
                 region={autoNumberRegion}

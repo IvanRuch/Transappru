@@ -19,7 +19,7 @@ const STRIP_ATTRS = [
 ] as const;
 
 // Ref-counted global style — ensures concurrent consumers (e.g. AddAutoModal
-// open while a PlateInput is also mounted on the INN screen) don't race and
+// open while a PlateField is also mounted on the INN screen) don't race and
 // remove each other's <style> element on cleanup.
 let installedCount = 0;
 let styleEl: HTMLStyleElement | null = null;

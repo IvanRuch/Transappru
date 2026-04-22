@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useSafariAutofillFix } from '../../../hooks/useSafariAutofillFix';
+import { PlateField } from '../../common';
 
 interface AddAutoModalProps {
   visible: boolean;
@@ -35,13 +36,12 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
   onSubmit,
   onCancel,
 }) => {
-  const plateBaseRef = useRef<any>(null);
-  const plateRegionRef = useRef<any>(null);
   const stsRef = useRef<any>(null);
 
-  // Web: hide Safari autofill overlay + strip RN attrs that trigger it.
-  // Gated by `visible` so we don't mount DOM state while the modal is closed.
-  useSafariAutofillFix([plateBaseRef, plateRegionRef, stsRef], visible);
+  // Web: STS input still needs the Safari autofill suppression. Plate inputs
+  // get their own fix internally via `PlateField` — ref counting inside
+  // `useSafariAutofillFix` keeps the concurrent consumers safe.
+  useSafariAutofillFix([stsRef], visible);
 
   return (
     <Modal
@@ -86,44 +86,14 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
 
             {/* Блок ввода номера */}
             <View style={styles.inputSection}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Государственный регистрационный знак:</Text>
-                <View style={styles.plateContainer}>
-                  <View style={styles.plateRow}>
-                    {/* Основная часть номера */}
-                    <View style={styles.plateBase}>
-                      <TextInput
-                        ref={plateBaseRef}
-                        style={styles.plateBaseInput}
-                        maxLength={6}
-                        placeholder='А000АА'
-                        placeholderTextColor={'#B8B8B8'}
-                        onChangeText={onChangeAutoNumberBase}
-                        value={autoNumberBase}
-                      />
-                    </View>
-                    {/* Разделитель */}
-                    <View style={styles.plateSeparator} />
-                    {/* Регион */}
-                    <View style={styles.plateRegion}>
-                      <TextInput
-                        ref={plateRegionRef}
-                        keyboardType='numeric'
-                        style={styles.plateRegionInput}
-                        maxLength={3}
-                        placeholder='777'
-                        placeholderTextColor={'#B8B8B8'}
-                        onChangeText={onChangeAutoNumberRegionCode}
-                        value={autoNumberRegionCode}
-                      />
-                      <View style={styles.plateRegionBottom}>
-                        <Text style={styles.plateRegionText}>RUS</Text>
-                        <Image source={require('../../../../assets/images/flag_rus.png')} style={styles.flagImage} />
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
+              <PlateField
+                label="Государственный регистрационный знак:"
+                base={autoNumberBase}
+                region={autoNumberRegionCode}
+                onChangeBase={onChangeAutoNumberBase}
+                onChangeRegion={onChangeAutoNumberRegionCode}
+                style={styles.plateCard}
+              />
 
               {/* Блок ввода СТС */}
               <View style={styles.inputContainer}>
@@ -273,75 +243,9 @@ const styles = StyleSheet.create({
     fontWeight: 'normal',
     color: '#313131',
   },
-  plateContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  plateRow: {
-    flexDirection: 'row',
-    width: 305,
-    height: 80,
-  },
-  plateBase: {
-    flex: 188,
-    backgroundColor: '#FFFFFF',
-    height: 80,
-    borderBottomLeftRadius: 8,
-    borderTopLeftRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-  },
-  plateBaseInput: {
-    fontSize: 34,
-    textAlign: 'center',
-    ...Platform.select({
-      web: { padding: 0, width: '100%', height: '100%' },
-      default: { paddingTop: 5 },
-    }),
-  },
-  plateSeparator: {
-    flex: 1,
-    backgroundColor: '#B8B8B8',
-    height: 80,
-  },
-  plateRegion: {
-    flex: 114,
-    flexDirection: 'column',
-    backgroundColor: '#FFFFFF',
-    height: 80,
-    borderBottomRightRadius: 8,
-    borderTopRightRadius: 8,
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#B8B8B8',
-  },
-  plateRegionInput: {
-    height: 55,
-    fontSize: 34,
-    textAlign: 'center',
-    ...Platform.select({
-      web: { padding: 0, width: '100%' },
-      default: { paddingBottom: -10 },
-    }),
-  },
-  plateRegionBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 25,
-  },
-  plateRegionText: {
-    paddingRight: 5,
-    fontSize: 16,
-    color: '#2c2c2c',
-  },
-  flagImage: {
-    width: 24,
-    height: 12,
+  // Same vertical gap that the old `inputContainer` provided via marginTop.
+  plateCard: {
+    marginTop: 24,
   },
   stsContainer: {
     alignItems: 'center',

@@ -146,6 +146,8 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 | `src/utils/navigateToInn.ts` | `navigateToInn(router, userData, checkRnis)` — canonical push to `/(authenticated)/inn` with the exact params `useInnBinding` expects (`user_data` JSON-serialised, `check_rnis` as `"0" \| "1"`). Ensures both sidebars keep mobile and web in lockstep across three flows: register-new, add-account, RNIS-only check. |
 | `src/components/web/WebScreenContainer.tsx` | Desktop max-width + centering wrapper (default 820px), used inside authenticated web screens |
 | `src/components/common/ScreenHeader.tsx` | Cross-platform header (Pressable + accessibilityRole + cursor:pointer on web). Replaces inline web headers |
+| `src/components/common/PlateField.tsx` | Russian license plate input (305×80 visual + RUS/flag caption). Uses `useSafariAutofillFix` + `Platform.select` so the `<input>` on web fills its box and Safari autofill overlays don't pollute the UI. Consumed by `AddAutoModal` and both `InnScreen` variants. |
+| `src/hooks/useSafariAutofillFix.ts` | Ref-counted global style hiding `::-webkit-contacts-auto-fill-button` + per-input attr stripper. Web-only; no-op on native. |
 
 **Prod-ready web features layered on top (pilot on PassScreen):**
 - ARIA combobox over the address `<input>` + suggestion list
