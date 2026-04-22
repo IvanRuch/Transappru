@@ -64,16 +64,16 @@ Api.interceptors.response.use(
     return response;
   },
   async (error: AxiosError) => {
+    const onAuthFlow =
+      typeof window !== 'undefined' &&
+      isAuthFlowPath(window.location.pathname);
+    const isStaleAuthFlow401 = error.response?.status === 401 && onAuthFlow;
+
     if (error.response?.status === 401) {
-      const onAuthFlow =
-        typeof window !== 'undefined' &&
-        isAuthFlowPath(window.location.pathname);
       if (onAuthFlow) {
-        // See services/api.web.ts: on auth-flow pages a 401 is almost
-        // always a stale request from the previous session. Don't touch
-        // stored tokens (would nuke the fresh interim one) and don't
-        // redirect (we're already in the auth funnel).
-        console.warn('🔒 [API Web] 401 on auth-flow path — stale request, ignored');
+        // Stale request from the previous session. Don't touch stored
+        // tokens (would nuke the fresh interim one) and don't redirect
+        // (we're already in the auth funnel). Silent.
       } else {
         console.warn('🔒 [API Web] 401 Unauthorized. Clearing session...');
         try {
@@ -86,7 +86,9 @@ Api.interceptors.response.use(
       }
     }
 
-    if (error.response) {
+    if (isStaleAuthFlow401) {
+      // Skip the verbose per-error log for stale auth-flow 401s.
+    } else if (error.response) {
       console.error(`❌ [API Web] Error ${error.response.status} ${error.config?.url}:`, error.response.data);
     } else if (error.request) {
       console.error(`❌ [API Web] No response from ${error.config?.url}:`, error.message);

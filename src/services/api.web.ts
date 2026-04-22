@@ -82,21 +82,17 @@ class ApiService {
       async error => {
         if (error.response) {
           const { status, data } = error.response;
+          const onAuthFlow =
+            typeof window !== 'undefined' &&
+            isAuthFlowPath(window.location.pathname);
           if (status === 401) {
-            const onAuthFlow =
-              typeof window !== 'undefined' &&
-              isAuthFlowPath(window.location.pathname);
             if (onAuthFlow) {
-              // User is on '/', '/pin', or '/onboarding'. A 401 here is
-              // almost certainly a stale request from the previous
-              // session that was in flight when the user logged out /
-              // navigated away. Don't touch AsyncStorage — removing the
-              // token would also nuke the fresh interim token just set
-              // by `/auth-by-phone`, breaking the login flow. Don't
-              // redirect either (we're already in the auth funnel).
-              // The caller's own error handling can still catch the
-              // rejection if it cares.
-              console.log('API Web: 401 on auth-flow path — stale request, ignored');
+              // Stale request from the previous session that was in
+              // flight when the user logged out / navigated away. Don't
+              // touch AsyncStorage (would nuke a fresh interim token)
+              // and don't redirect (we're already in the auth funnel).
+              // Silent — no need to spam the console for requests we've
+              // structurally chosen to ignore.
             } else {
               console.log('API Web: 401 Unauthorized - clearing token');
               await AsyncStorage.removeItem('token');
@@ -104,7 +100,10 @@ class ApiService {
               router.replace('/');
             }
           }
-          console.log('API Web Error:', { url: error.config?.url, status, data });
+          // Only log actionable errors. Auth-flow 401s handled silently above.
+          if (!(status === 401 && onAuthFlow)) {
+            console.log('API Web Error:', { url: error.config?.url, status, data });
+          }
         } else if (error.request) {
           console.log('API Web: Network Error -', error.message);
         } else {
