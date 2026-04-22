@@ -4,21 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../components/common';
 import { SHOW_PAYMENT_UI } from '../../config/features';
-
-interface FineData {
-  is_paid: string | number;
-  discount_time_left?: string;
-  discount_date_end?: string;
-  discount_percent?: string;
-  dat: string;
-  code: string;
-  description: string;
-  uin: string;
-  sum: string;
-  full_sum: string;
-  vendor: string;
-  comment?: string;
-}
+import type { FineData } from '../../types/fines';
 
 export default function AutoFineScreen() {
   const router = useRouter();

@@ -5,11 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WebView } from 'react-native-webview';
 import { ScreenHeader } from '../../components/common';
 import PaymentService from '../../services/payment';
-
-interface FineData {
-  uin: string;
-  [key: string]: any;
-}
+import type { FineData } from '../../types/fines';
 
 export default function FinePaymentWebViewScreen() {
   const router = useRouter();

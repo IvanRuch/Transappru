@@ -13,14 +13,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
 import WebScreenContainer from '../../components/web/WebScreenContainer';
 import { SHOW_PAYMENT_UI } from '../../config/features';
+import type { FineData } from '../../types/fines';
 
 export default function AutoFineScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const fineData = useMemo(() => {
+  const fineData = useMemo<FineData | null>(() => {
     try {
-      return params.fine_data ? JSON.parse(params.fine_data as string) : null;
+      return params.fine_data ? JSON.parse(params.fine_data as string) as FineData : null;
     } catch {
       return null;
     }
@@ -95,7 +96,7 @@ export default function AutoFineScreen() {
               Нарушение {fineData.dat}
             </Text>
 
-            <InfoRow label="Статья КОАП:" value={fineData.code} />
+            <InfoRow label="Статья КОАП:" value={fineData.code ?? ''} />
             <View className="mb-2.5">
               <Text className="text-sm text-text-primary leading-5">{fineData.description}</Text>
             </View>
@@ -104,7 +105,7 @@ export default function AutoFineScreen() {
                 <Text className="text-[13px] text-text-secondary leading-[18px]">{fineData.offence_place}</Text>
               </View>
             )}
-            <InfoRow label="Номер постановления:" value={fineData.uin} />
+            <InfoRow label="Номер постановления:" value={fineData.uin ?? ''} />
 
             {isPlaton && (
               <View className="flex-row items-start mb-2">

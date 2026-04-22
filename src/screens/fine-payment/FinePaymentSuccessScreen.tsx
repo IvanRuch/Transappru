@@ -2,13 +2,7 @@ import React from 'react';
 import { View, Text, TouchableHighlight } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-
-interface FineData {
-  uin: string;
-  dat: string;
-  sum: string;
-  [key: string]: any;
-}
+import type { FineData } from '../../types/fines';
 
 export default function FinePaymentSuccessScreen() {
   const router = useRouter();
@@ -52,9 +46,9 @@ export default function FinePaymentSuccessScreen() {
 
         {fineData && (
           <View className="w-full bg-[#F8F8F8] rounded-xl p-5 mb-5 border border-[#E0E0E0]">
-            <InfoRow label="Постановление:" value={fineData.uin} />
-            <InfoRow label="Дата нарушения:" value={fineData.dat} />
-            <InfoRow label="Сумма:" value={`${fineData.sum} ₽`} />
+            <InfoRow label="Постановление:" value={fineData.uin ?? ''} />
+            <InfoRow label="Дата нарушения:" value={fineData.dat ?? ''} />
+            <InfoRow label="Сумма:" value={`${fineData.sum ?? '0'} ₽`} />
           </View>
         )}
 
