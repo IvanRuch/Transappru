@@ -232,9 +232,26 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
               </View>
             </TouchableHighlight>
 
-            {/* 4. Другие организации */}
-            {otherUserList.length > 0 && (
+            {/* 4. Организации — single-select radio list.
+                 Current org is prepended as the filled-radio row so the
+                 group always has a "selected" item; the rest are switch
+                 targets. Without this the list reads as a bunch of empty
+                 radios with nothing selected. */}
+            {otherUserList.length > 0 && !!userData.inn && (
               <View style={{ paddingTop: 10 }}>
+                <OrgListItem
+                  key={`current-${userData.inn}`}
+                  org={{
+                    inn: userData.inn,
+                    firm: userData.firm,
+                    user_auto_count: userData.user_auto_count,
+                    notification_unviewed_count: userData.notification_unviewed_count,
+                    user_confirmed: 1,
+                    phone_inn_confirmed: 1,
+                  }}
+                  current
+                  onPress={() => {}}
+                />
                 {otherUserList.map((item, index) => (
                   <OrgListItem
                     key={item.inn || index}
