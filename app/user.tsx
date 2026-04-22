@@ -105,18 +105,6 @@ export default function UserScreen() {
           )}
         </View>
 
-        <Pressable
-          className="bg-white rounded-xl p-5 mb-4 flex-row justify-between items-center"
-          onPress={() => router.push('/(authenticated)/notification-settings' as any)}
-          accessibilityRole="button"
-          accessibilityLabel="Настройки уведомлений"
-        >
-          <Text className="text-[17px] font-bold text-text-primary select-none">
-            Настройки уведомлений
-          </Text>
-          <Text className="text-xl text-text-muted select-none">›</Text>
-        </Pressable>
-
         {__DEV__ && (
           <Pressable
             className="bg-[#FF9800] rounded-lg p-4 mb-4 items-center cursor-pointer"
@@ -133,6 +121,17 @@ export default function UserScreen() {
             <Text className="text-base font-bold text-white">🗑️ Очистить данные (DEV)</Text>
           </Pressable>
         )}
+
+        <Pressable
+          className="py-4 rounded-xl items-center border border-border-primary bg-white mb-3"
+          onPress={() => router.push('/(authenticated)/notification-settings' as any)}
+          accessibilityRole="button"
+          accessibilityLabel="Настройки уведомлений"
+        >
+          <Text className="text-base font-medium text-text-primary select-none">
+            Настройки уведомлений
+          </Text>
+        </Pressable>
 
         <Pressable
           className="py-4 rounded-xl items-center border border-border-primary bg-white mb-3"

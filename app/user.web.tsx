@@ -90,19 +90,15 @@ export default function UserScreenWeb() {
 
             <View className="bg-white rounded-xl p-5 mb-4">
               <Pressable
-                className="flex-row justify-between items-center cursor-pointer"
+                className="py-3.5 rounded-xl items-center border border-border-primary bg-white mb-3 cursor-pointer"
                 onPress={() => router.push('/(authenticated)/notification-settings' as any)}
                 accessibilityRole="button"
                 accessibilityLabel="Настройки уведомлений"
               >
-                <Text className="text-[15px] font-semibold text-text-primary select-none">
+                <Text className="text-[15px] font-medium text-text-primary select-none">
                   Настройки уведомлений
                 </Text>
-                <Text className="text-xl text-text-muted select-none">›</Text>
               </Pressable>
-            </View>
-
-            <View className="bg-white rounded-xl p-5 mb-4">
               <Pressable
                 className="py-3.5 rounded-xl items-center border border-border-primary bg-white mb-3 cursor-pointer"
                 onPress={openLogout}
