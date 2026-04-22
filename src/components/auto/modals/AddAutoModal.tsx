@@ -1,5 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Modal, View, Text, TextInput, TouchableHighlight, ActivityIndicator, Image, ImageBackground, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
+import { useSafariAutofillFix } from '../../../hooks/useSafariAutofillFix';
 
 interface AddAutoModalProps {
   visible: boolean;
@@ -38,45 +39,9 @@ export const AddAutoModal: React.FC<AddAutoModalProps> = ({
   const plateRegionRef = useRef<any>(null);
   const stsRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !visible) return;
-
-    // Hide Safari autofill icon via CSS pseudo-elements
-    const style = document.createElement('style');
-    style.textContent = `
-      input::-webkit-contacts-auto-fill-button,
-      input::-webkit-credentials-auto-fill-button {
-        visibility: hidden !important;
-        display: none !important;
-        pointer-events: none !important;
-        height: 0 !important;
-        width: 0 !important;
-        margin: 0 !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    // Strip RN-generated attributes that trigger Safari autofill heuristics.
-    // The search input ("Поиск по номеру...") has only 4 bare attrs and no autofill —
-    // we match that minimal signature by removing extra attrs Safari uses as signals.
-    const timer = setTimeout(() => {
-      [plateBaseRef, plateRegionRef, stsRef].forEach(ref => {
-        const node = ref.current;
-        if (!node) return;
-        const input = node.tagName === 'INPUT' ? node : node.querySelector?.('input');
-        if (!input) return;
-        for (const attr of ['autocomplete', 'autocorrect', 'autocapitalize',
-          'spellcheck', 'rows', 'virtualkeyboardpolicy', 'inputmode']) {
-          input.removeAttribute(attr);
-        }
-      });
-    }, 50);
-
-    return () => {
-      clearTimeout(timer);
-      document.head.removeChild(style);
-    };
-  }, [visible]);
+  // Web: hide Safari autofill overlay + strip RN attrs that trigger it.
+  // Gated by `visible` so we don't mount DOM state while the modal is closed.
+  useSafariAutofillFix([plateBaseRef, plateRegionRef, stsRef], visible);
 
   return (
     <Modal

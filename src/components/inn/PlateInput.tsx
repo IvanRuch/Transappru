@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, TextInput, Image } from 'react-native';
+import { useSafariAutofillFix } from '../../hooks/useSafariAutofillFix';
 
 interface PlateInputProps {
   /** Base characters (letter-digit-digit-digit-letter-letter). */
@@ -18,10 +19,18 @@ interface PlateInputProps {
  * normalization (Latin→Cyrillic, uppercase, allowed chars, digit-only region)
  * is expected to be done by the caller via its hook (e.g. useInnBinding uses
  * `normalizePlate` from utils/plateHelpers).
+ *
+ * On web, `useSafariAutofillFix` hides Safari's autofill overlay and strips
+ * RN-generated attributes that trigger it — otherwise Safari injects the
+ * Contacts autofill button on top of the plate input, breaking the layout.
  */
 export default function PlateInput({
   base, onChangeBase, region, onChangeRegion, label,
 }: PlateInputProps) {
+  const baseRef = useRef<any>(null);
+  const regionRef = useRef<any>(null);
+  useSafariAutofillFix([baseRef, regionRef]);
+
   return (
     <View className="bg-[#F7F7F7] rounded-3xl mt-4 p-3.5 border border-border-primary">
       {label ? (
@@ -36,6 +45,7 @@ export default function PlateInput({
             style={{ flex: 188, height: 75 }}
           >
             <TextInput
+              ref={baseRef}
               className="text-[29px] text-center text-text-primary"
               maxLength={6}
               placeholder="А000АА"
@@ -53,6 +63,7 @@ export default function PlateInput({
             style={{ flex: 114, height: 75 }}
           >
             <TextInput
+              ref={regionRef}
               keyboardType="numeric"
               inputMode="numeric"
               className="text-[29px] text-center text-text-primary"
