@@ -62,6 +62,13 @@ export default function InnScreen() {
               </Text>
             )}
 
+            {isExistingUser && !checkRnis && (
+              <Text className="px-10 pt-5 mb-5 text-sm text-text-secondary text-justify">
+                Введите ИНН организации, которую вы хотите добавить к текущему аккаунту.
+                После подтверждения вы сможете переключаться между организациями в левом меню.
+              </Text>
+            )}
+
             {!checkRnis ? (
               <>
                 <InnInput
