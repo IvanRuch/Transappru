@@ -3,9 +3,16 @@ import { View, Text, Switch, Pressable } from 'react-native';
 import type { NotificationTypeGranted } from '../../types/notifications';
 
 // Shared Switch colors so mobile and web render identical visuals.
-const SWITCH_TRACK = { false: '#767577', true: '#3A3A3A' };
-const SWITCH_THUMB = '#f4f3f4';
-const IOS_BG = '#3e3e3e';
+//
+// Contrast matters most on iOS: there the Switch ignores `trackColor.false`
+// and uses `ios_backgroundColor` for the OFF state. Previously this was
+// `#3e3e3e`, nearly identical to the ON `#3A3A3A` — OFF vs ON was only
+// distinguishable by thumb position. We now use a light gray (`#E9E9EA`,
+// iOS HIG standard) so the OFF state reads as clearly "inactive" on all
+// three platforms, while ON stays on our brand graphite.
+const SWITCH_TRACK = { false: '#E9E9EA', true: '#3A3A3A' };
+const SWITCH_THUMB = '#FFFFFF';
+const IOS_BG = '#E9E9EA';
 
 interface NotificationSettingGroupProps {
   item: NotificationTypeGranted;
@@ -42,11 +49,19 @@ export default function NotificationSettingGroup({
         }
       >
         <Text
-          className={`text-xs text-accent-secondary w-4 mr-2.5 select-none ${hasAutos ? '' : 'opacity-0'}`}
+          className={`text-xs w-4 mr-2.5 select-none ${
+            masterOn ? 'text-accent-secondary' : 'text-text-muted'
+          } ${hasAutos ? '' : 'opacity-0'}`}
         >
           {expanded ? '▼' : '▶'}
         </Text>
-        <Text className="flex-1 text-base font-semibold text-text-primary select-none">
+        <Text
+          className={`flex-1 text-base select-none ${
+            masterOn
+              ? 'font-semibold text-text-primary'
+              : 'font-medium text-text-secondary'
+          }`}
+        >
           {item.header}
         </Text>
         <Switch
