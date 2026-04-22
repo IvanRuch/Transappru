@@ -21,7 +21,7 @@ import { showAlert } from '../../utils/alert';
 import { switchOrganization as switchOrganizationRequest } from '../../utils/switchOrganization';
 import { navigateToInn as navigateToInnRequest } from '../../utils/navigateToInn';
 import { OrgListItem, type OrgListItemData } from '../sidebar';
-import { RnisCheckModal } from '../inn';
+import { RnisCheckModal, AddAccountModal } from '../inn';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ interface UserData {
   user_auto_count?: number | string;
   notification_unviewed_count?: number;
   other_user_notification_unviewed_count?: number;
+  manager_data?: { mobile_phone?: string };
 }
 
 type OtherUser = OrgListItemData;
@@ -126,6 +127,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const [switchingInn,   setSwitchingInn]   = useState<string | null>(null);
   const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
   const [rnisModalOpen,  setRnisModalOpen]  = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
   // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
@@ -351,12 +353,11 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <NavItem
           icon={require('../../../assets/images/menu_left_add.png')}
           label="Добавить аккаунт"
-          // Pass current userData → isExistingUser=true on the INN screen:
-          // button becomes "Добавить" instead of "Зарегистрироваться", and
-          // on success we return to the original org + show the confirmation
-          // modal instead of logging the user out. Matches mobile exactly.
-          onPress={() => navigateToInnRequest(router, userData, false)}
-          active={false}
+          // Opens `AddAccountModal` in place — no route change. Direct
+          // navigation to `/inn` with user_data still works if someone
+          // bookmarks the URL.
+          onPress={() => setAddAccountOpen(true)}
+          active={addAccountOpen}
           expanded={expanded}
         />
         <NavItem
@@ -460,6 +461,17 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
       <RnisCheckModal
         visible={rnisModalOpen}
         onClose={() => setRnisModalOpen(false)}
+      />
+
+      {/* Add-account modal — fed with the current session's user snapshot
+          so the hook can switch back to it after a successful bind. */}
+      <AddAccountModal
+        visible={addAccountOpen}
+        userData={{
+          inn: userData.inn || '',
+          manager_data: userData.manager_data,
+        }}
+        onClose={() => setAddAccountOpen(false)}
       />
     </View>
   );

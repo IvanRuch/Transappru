@@ -12,7 +12,7 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ScreenHeader, PlateField } from '../../components/common';
+import { ScreenHeader, PlateField, InnInput } from '../../components/common';
 import WebScreenContainer from '../../components/web/WebScreenContainer';
 import { RnisResultCard, InnConfirmationModal } from '../../components/inn';
 import { useInnBinding } from '../../hooks/useInnBinding';
@@ -69,28 +69,12 @@ export default function InnScreen() {
                 </Text>
               )}
 
-              <View className="h-16 rounded-lg border border-[#D0D0D0] mb-4 bg-[#FAFAFA] overflow-hidden justify-center">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="ИНН организации (10 или 12 цифр)"
-                  value={inn}
-                  onChange={(e) => changeInn(e.target.value)}
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    height: 56,
-                    fontSize: 24,
-                    color: '#1A1A1A',
-                    border: 'none',
-                    outline: 'none',
-                    backgroundColor: 'transparent',
-                    textAlign: 'center',
-                    letterSpacing: 4,
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </View>
+              <InnInput
+                value={inn}
+                onChangeText={changeInn}
+                autoFocus
+                style={{ marginBottom: 16 }}
+              />
 
               <Pressable
                 disabled={!innValid}

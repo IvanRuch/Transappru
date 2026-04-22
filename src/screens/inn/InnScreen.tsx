@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, TextInput, Image, StatusBar, Platform, Keyboard,
+  View, Text, TouchableOpacity, Image, StatusBar, Platform, Keyboard,
 } from 'react-native';
 import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { SafeAreaView, SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { ScreenHeader, PlateField } from '../../components/common';
+import { ScreenHeader, PlateField, InnInput } from '../../components/common';
 import { RnisResultCard, InnConfirmationModal } from '../../components/inn';
 import { useInnBinding } from '../../hooks/useInnBinding';
 import { showAlert } from '../../utils/alert';
@@ -64,15 +64,11 @@ export default function InnScreen() {
 
             {!checkRnis ? (
               <>
-                <View className="px-[60px]">
-                  <TextInput
-                    keyboardType="numeric"
-                    className="h-[60px] px-[30px] text-[30px] text-center rounded border-b border-black mb-2.5 text-text-primary"
-                    maxLength={12}
-                    onChangeText={changeInn}
-                    value={inn}
-                  />
-                </View>
+                <InnInput
+                  value={inn}
+                  onChangeText={changeInn}
+                  style={{ marginHorizontal: 24, marginBottom: 10 }}
+                />
 
                 <TouchableOpacity
                   disabled={!innValid}
