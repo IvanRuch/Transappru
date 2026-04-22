@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import api from '../services/api';
 import type { AutoItem } from '../types/auto';
 import { GRZ_ALLOWED, DIGITS_ONLY, normalizePlate } from '../utils/plateHelpers';
+import { showAlert } from '../utils/alert';
+import { switchOrganization as switchOrganizationRequest } from '../utils/switchOrganization';
 
 export function useAutoActions(
   refreshAutoList: () => Promise<void>,
@@ -76,49 +78,20 @@ export function useAutoActions(
   }, []);
 
   const switchOrganization = useCallback(async (inn: string, onSuccess?: () => void, onFinally?: () => void) => {
+    const result = await switchOrganizationRequest(inn);
+
     try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
+      if (result.status === 'auth_required') {
         router.replace('/' as any);
         return;
       }
-
-      console.log('Switching to organization with INN:', inn);
-
-      const res = await api.post('/set-current-inn', {
-        token,
-        current_inn: inn,
-      });
-
-      const data = res.data;
-      console.log('Switch organization response:', data);
-
-      if (data.auth_required === 1) {
-        console.log('⚠️ Organization switch failed: auth_required.');
-        // Удаляем токен и делаем редирект на авторизацию
-        await AsyncStorage.removeItem('token');
-        router.replace('/' as any);
+      if (result.status === 'error') {
+        showAlert('Ошибка', result.message);
         return;
       }
-
-      // Вызываем callback для перезагрузки данных
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error: any) {
-      console.log('Error switching organization:', error);
-      if (error.response?.status === 401) {
-        // Только при 401 делаем редирект на авторизацию
-        await AsyncStorage.removeItem('token');
-        router.replace('/' as any);
-      } else {
-        // Для других ошибок показываем сообщение
-        alert('Ошибка при переключении организации. Попробуйте позже.');
-      }
+      onSuccess?.();
     } finally {
-      if (onFinally) {
-        onFinally();
-      }
+      onFinally?.();
     }
   }, [router]);
 

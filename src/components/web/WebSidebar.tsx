@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,16 @@ import {
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import api from '../../services/api';
 import { openAddAutoModalIfMounted } from '../../screens/auto/AutoListScreen.web';
 import {
   WEB_SIDEBAR_WIDTH_COLLAPSED,
   WEB_SIDEBAR_WIDTH_EXPANDED,
 } from '../../utils/responsive';
+import { showAlert } from '../../utils/alert';
+import { switchOrganization as switchOrganizationRequest } from '../../utils/switchOrganization';
+import { OrgListItem, type OrgListItemData } from '../sidebar';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,18 +27,12 @@ interface UserData {
   firm?: string;
   inn?: string;
   phone?: string;
+  user_auto_count?: number | string;
   notification_unviewed_count?: number;
   other_user_notification_unviewed_count?: number;
 }
 
-interface OtherUser {
-  inn: string;
-  firm?: string;
-  user_auto_count?: number;
-  user_confirmed?: number | string;
-  phone_inn_confirmed?: number | string;
-  notification_unviewed_count?: number;
-}
+type OtherUser = OrgListItemData;
 
 interface OurService {
   id: string;
@@ -122,16 +120,36 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const [ourServices,    setOurServices]    = useState<OurService[]>([]);
   const [servicesOpen,   setServicesOpen]   = useState(false);
   const [loading,        setLoading]        = useState(true);
-  const [switching,      setSwitching]      = useState(false);
+  // INN currently being switched to (null = idle). Drives per-row spinner.
+  const [switchingInn,   setSwitchingInn]   = useState<string | null>(null);
   const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
+  // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
+  // visibility / post-switch) fires while an old `/get-auto-list` is still
+  // pending, the old request is aborted and the fresh one takes its place.
+  // This way a slow backend never blocks the user for 30s — as soon as they
+  // act again, the stale call is cancelled. Also cleans up on unmount.
+  const abortRef = useRef<AbortController | null>(null);
+
   const loadData = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
     if (!token) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const res = await api.post('/get-auto-list', { token, auto_list_limit: 0 });
-      const d   = res.data;
+      const res = await api.post(
+        '/get-auto-list',
+        { token, auto_list_limit: 0 },
+        { signal: controller.signal },
+      );
+      // If a newer request was started meanwhile, discard this response.
+      if (controller.signal.aborted) return;
+
+      const d = res.data;
       if (d.user_data) {
         setUserData(d.user_data);
         setOtherUserList(d.other_user_list || []);
@@ -141,30 +159,100 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         setOnboardingExpired(d.onboarding_expired);
       }
     } catch (e) {
-      // silent — sidebar is non-critical
+      // Ignore aborts (expected when a fresh trigger supersedes us).
+      // All other errors are silent — sidebar is non-critical.
+      if (axios.isCancel(e)) return;
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // Abort any in-flight request on unmount so we don't touch state on a
+  // dead component and don't waste bandwidth.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Refetch on mount and whenever the user navigates between routes — keeps
+  // `other_user_list[].notification_unviewed_count` fresh. Since `loadData`
+  // has a stable identity (useCallback with no deps), the effect re-fires
+  // purely on `pathname` changes after the initial mount.
+  useEffect(() => { loadData(); }, [loadData, pathname]);
+
+  // Refetch when the browser tab regains focus. Catches the common case
+  // where the user switched to another tab, received a notification on
+  // another device, then came back — without this the badge would stay
+  // stale until the next navigation.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') loadData();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [loadData]);
 
   // ── org switch ──────────────────────────────────────────────────────────────
+  // Delegates to shared util (src/utils/switchOrganization.ts) so mobile
+  // (useAutoActions) and web sidebar stay in lockstep.
+  //
+  // UX note: the backend tends to serialise requests per session, so the
+  // sidebar's own `/get-auto-list` fetch ends up queued behind AutoListScreen's
+  // full fetch + its own `updateUserDataOnly` — meaning the footer would keep
+  // showing the previous org for several seconds after the fleet already
+  // rendered. To fix this we do an **optimistic swap** the moment
+  // `/set-current-inn` succeeds:
+  //   - the clicked org moves from `otherUserList` into `userData`
+  //   - the previously-current org takes its place in `otherUserList`
+  //   - the user's phone stays (it belongs to the session, not the org)
+  // The real refetch still runs in the background so any drifted fields
+  // (user_auto_count on the swapped-back entry, etc.) get reconciled.
   const switchOrg = useCallback(async (inn: string) => {
-    if (switching) return;
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-    setSwitching(true);
+    if (switchingInn) return;
+
+    const previousUser = userData;
+    const targetOrg = otherUserList.find(o => o.inn === inn);
+
+    setSwitchingInn(inn);
     try {
-      await api.post('/set-active-user', { token, inn });
-      await loadData();
+      const result = await switchOrganizationRequest(inn);
+      if (result.status === 'auth_required') {
+        router.replace('/' as any);
+        return;
+      }
+      if (result.status === 'error') {
+        showAlert('Ошибка', result.message);
+        return;
+      }
+
+      if (targetOrg) {
+        setUserData({
+          ...previousUser,
+          firm: targetOrg.firm,
+          inn: targetOrg.inn,
+          user_auto_count: targetOrg.user_auto_count,
+          notification_unviewed_count: targetOrg.notification_unviewed_count,
+        });
+        setOtherUserList(prev => {
+          const withoutTarget = prev.filter(o => o.inn !== inn);
+          if (!previousUser.inn) return withoutTarget;
+          const previousAsOther: OrgListItemData = {
+            inn: previousUser.inn,
+            firm: previousUser.firm,
+            user_auto_count: previousUser.user_auto_count,
+            user_confirmed: 1,
+            phone_inn_confirmed: 1,
+            notification_unviewed_count: previousUser.notification_unviewed_count,
+          };
+          return [previousAsOther, ...withoutTarget];
+        });
+      }
+
+      loadData(); // background sync — latest-wins via AbortController
       router.replace('/(authenticated)/auto-list' as any);
-    } catch (e) {
-      // ignore
     } finally {
-      setSwitching(false);
+      setSwitchingInn(null);
     }
-  }, [switching, loadData, router]);
+  }, [switchingInn, userData, otherUserList, loadData, router]);
 
   // ── active path helper ──────────────────────────────────────────────────────
   const isActive = (path: string) => pathname.startsWith(path);
@@ -328,22 +416,16 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
             {expanded && (
               <Text style={styles.orgSectionLabel}>Организации</Text>
             )}
-            {otherUserList.map((org, i) => {
-              const confirmed =
-                (org.user_confirmed === 1 || org.user_confirmed === '1') &&
-                (org.phone_inn_confirmed === 1 || org.phone_inn_confirmed === '1');
-              return (
-                <NavItem
-                  key={org.inn || i}
-                  icon={require('../../../assets/images/menu_left_other_user.png')}
-                  label={org.firm || org.inn}
-                  onPress={confirmed ? () => switchOrg(org.inn) : undefined}
-                  active={false}
-                  expanded={expanded}
-                  badge={org.notification_unviewed_count}
-                />
-              );
-            })}
+            {otherUserList.map((org, i) => (
+              <OrgListItem
+                key={org.inn || i}
+                org={org}
+                compact={!expanded}
+                disabled={switchingInn !== null && switchingInn !== org.inn}
+                loading={switchingInn === org.inn}
+                onPress={switchOrg}
+              />
+            ))}
           </>
         )}
 
@@ -367,6 +449,9 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
             <>
               <Text style={styles.footerFirm} numberOfLines={2}>{userData.firm || '—'}</Text>
               <Text style={styles.footerInn}>ИНН: {userData.inn || '—'}</Text>
+              {!!userData.phone && (
+                <Text style={styles.footerPhone}>+{userData.phone}</Text>
+              )}
             </>
           ) : (
             <Image
@@ -527,6 +612,11 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
   footerInn: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+  footerPhone: {
     fontSize: 11,
     color: '#888',
     marginTop: 2,

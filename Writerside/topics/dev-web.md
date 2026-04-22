@@ -1,6 +1,6 @@
 # Web Version
 
-## Current State (as of 2026-04-21)
+## Current State (as of 2026-04-22)
 
 Web version is **in active development** using Expo Web from the shared `/src/` codebase.
 Auth flow, onboarding, INN registration, auto-list, auto detail (8 tabs), driver management, charges,
@@ -133,6 +133,7 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 | `src/components/pass/` | `ZoneTabs`, `LocationBadges`, `SuggestionItem`, `VehicleCard`, `ManualZoneBanner`, `SuccessModal` | ✅ Pilot done (PassScreen) |
 | `src/components/charges/` | (pre-existing) `ChargeCard`, `ChargesFilterPanel` | ✅ Already shared |
 | `src/components/auto/` | (pre-existing) `AutoListItem`, `AutoListMenu`, `FindAutoPanel`, `modals/*` | ✅ Already shared |
+| `src/components/sidebar/` | `OrgListItem` | ✅ Done (WebSidebar + LeftMenuModal parity) |
 | `src/components/notifications/` | TBD | ⏳ Next |
 | `src/components/inn/`, `user/`, `payment/`, `auth/` | TBD | ⏳ Planned |
 
@@ -141,6 +142,7 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 | File | Purpose |
 |------|---------|
 | `src/utils/alert.ts` + `.web.ts` | `showAlert(title, message?)` — `Alert.alert` on mobile, `window.alert` on web |
+| `src/utils/switchOrganization.ts` | `switchOrganization(inn)` — single-source org-switch request. Returns discriminated union `{ status: 'ok' \| 'auth_required' \| 'error' }`. Handles `auth_required=1` response and HTTP 401 by clearing the stored token. Used by both `useAutoActions` (mobile) and `WebSidebar` (web). |
 | `src/components/web/WebScreenContainer.tsx` | Desktop max-width + centering wrapper (default 820px), used inside authenticated web screens |
 | `src/components/common/ScreenHeader.tsx` | Cross-platform header (Pressable + accessibilityRole + cursor:pointer on web). Replaces inline web headers |
 
@@ -234,9 +236,74 @@ Layout fixes:
 ## Sidebar (WebSidebar.tsx)
 
 - "Как работать" link conditionally shown only when `onboarding_expired === 0`
-- Organization list with switch support
+- Organization list with switch support — uses shared `OrgListItem` (see below)
 - Services dropdown (expandable)
 - Responsive: collapses below 900px viewport width
+
+### Sidebar data freshness
+
+`WebSidebar.loadData()` (`POST /get-auto-list` with `auto_list_limit: 0`) runs on
+four triggers to keep `userData`, `otherUserList` and notification badges current:
+
+| Trigger | Why |
+|---|---|
+| Component mount | Initial load. |
+| `pathname` change | User navigated between routes — any counts may have changed. |
+| `document.visibilitychange` → visible | User switched tabs and came back; may have received notifications elsewhere. |
+| Successful `switchOrg` | `router.replace('/auto-list')` from `/auto-list` does **not** change pathname, and the sidebar does not unmount across the redirect — without this explicit call the footer would keep showing the previous org. Called fire-and-forget in parallel with navigation. |
+
+All triggers share one `useCallback`-stable `loadData` reference; re-renders do
+not create duplicate listeners or extra in-flight requests. `loadData` uses an
+`AbortController` ref with **latest-wins** semantics — if a new trigger fires
+while an old `/get-auto-list` is still pending, the old request is aborted and
+the fresh one replaces it. This prevents a slow or stalled backend (e.g., the
+30s axios client timeout) from blocking the user for half a minute: as soon as
+they act again, the stale call is cancelled. The same controller is aborted on
+unmount, so we never call `setState` on a dead component and never waste
+bandwidth after navigation away.
+
+> Known minor redundancy: on web, `AutoListScreen.web.tsx` also fires
+> `/get-auto-list` via its own `useFocusEffect` → `updateUserDataOnly`. The
+> sidebar fetch and the screen fetch are independent state. If this becomes a
+> perf concern, the natural next step is to lift `user_data` + `other_user_list`
+> into a React context shared by both consumers.
+
+### Optimistic swap on org switch
+
+The backend serialises requests per session, so the sidebar's own `/get-auto-list`
+ends up queued behind `AutoListScreen.loadData()` + `updateUserDataOnly` right after
+a switch — the footer would otherwise keep the previous org visible for several
+seconds after the fleet already rendered.
+
+Fix: as soon as `/set-current-inn` succeeds, `WebSidebar.switchOrg` performs an
+**optimistic swap** in local state *before* firing the refetch:
+
+- The clicked org moves from `otherUserList` into `userData` (firm, inn,
+  user_auto_count, notification_unviewed_count). The phone stays — it's bound
+  to the session, not the org.
+- The previously-current org takes the clicked org's slot in `otherUserList`,
+  with `user_confirmed = phone_inn_confirmed = 1` (the current org is confirmed
+  by definition).
+
+The background `loadData()` still runs and reconciles any drifted fields when
+the server eventually responds, but the user sees the new org in the footer
+and the list reshuffled the instant the switch is acknowledged.
+
+### Organization switcher parity (shared `OrgListItem`)
+
+`src/components/sidebar/OrgListItem.tsx` is used by both web (`WebSidebar`) and mobile
+(`LeftMenuModal`). Each row renders:
+
+- Firm name (bold when fully confirmed, muted when not)
+- `инн: <ИНН>`
+- `количество авто: <N>` (`user_auto_count` from `/get-auto-list`)
+- `инн ожидает подтверждения` (if `user_confirmed` is falsy)
+- `телефон ожидает подтверждения` (if `phone_inn_confirmed` is falsy)
+- Red badge with `notification_unviewed_count`
+
+Tap fires `onPress(inn)` only if `user_confirmed && phone_inn_confirmed`; otherwise ignored
+(matches legacy mobile behaviour). `compact` prop hides all text — used when web sidebar is collapsed.
+Styled via NativeWind semantic tokens (`text-text-primary`, `text-text-secondary`, `bg-status-error`).
 
 ## CI/CD Pipeline (Docker + Yandex Cloud)
 

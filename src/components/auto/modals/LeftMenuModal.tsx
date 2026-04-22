@@ -4,6 +4,7 @@ import Modal from 'react-native-modal';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { UserData, OurService } from '../../../types/auto';
+import { OrgListItem } from '../../sidebar';
 
 interface LeftMenuModalProps {
   visible: boolean;
@@ -35,7 +36,8 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [ourServicesVisible, setOurServicesVisible] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
+  // INN currently being switched to (null = idle). Drives per-row spinner.
+  const [switchingInn, setSwitchingInn] = useState<string | null>(null);
   
   // Адаптивная ширина меню: максимум 75% экрана или 340px
   const screenWidth = Dimensions.get('window').width;
@@ -232,105 +234,22 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
 
             {/* 4. Другие организации */}
             {otherUserList.length > 0 && (
-              <View>
+              <View style={{ paddingTop: 10 }}>
                 {otherUserList.map((item, index) => (
-                  <TouchableHighlight
-                    key={index}
-                    style={{ paddingTop: 10, paddingBottom: 10, opacity: isSwitching ? 0.5 : 1 }}
-                    activeOpacity={1}
-                    underlayColor='#F0F0F0'
-                    disabled={isSwitching}
-                    onPress={() => {
-                      if (isSwitching) return;
-                      
-                      console.log('Switching to organization:', item.inn, 'user_confirmed:', item.user_confirmed, 'phone_inn_confirmed:', item.phone_inn_confirmed);
-                      // Проверяем подтверждение перед переключением (как в старом проекте)
-                      // Значения могут быть как числом, так и строкой
-                      const isUserConfirmed = item.user_confirmed === 1 || item.user_confirmed === '1';
-                      const isPhoneConfirmed = item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1';
-                      
-                      if (isUserConfirmed && isPhoneConfirmed) {
-                        setIsSwitching(true);
-                        onSwitchOrganization(
-                          item.inn, 
-                          () => onClose(), // onSuccess
-                          () => setIsSwitching(false) // onFinally
-                        );
-                      } else {
-                        console.log('Organization not confirmed, click ignored');
-                      }
+                  <OrgListItem
+                    key={item.inn || index}
+                    org={item}
+                    disabled={switchingInn !== null && switchingInn !== item.inn}
+                    loading={switchingInn === item.inn}
+                    onPress={(inn) => {
+                      setSwitchingInn(inn);
+                      onSwitchOrganization(
+                        inn,
+                        () => onClose(),
+                        () => setSwitchingInn(null),
+                      );
                     }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 40, alignItems: 'center', padding: 5, position: 'relative' }}>
-                        <Image source={require('../../../../assets/images/menu_left_other_user.png')} />
-                        {(item.notification_unviewed_count || 0) > 0 && (
-                          <View style={{ 
-                            position: 'absolute',
-                            top: 17,
-                            left: 17, 
-                            backgroundColor: '#EE505A', 
-                            borderRadius: 12,
-                            minWidth: 16,
-                            height: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingHorizontal: 4
-                          }}>
-                            <Text style={{ 
-                              textAlign: 'center',
-                              fontSize: 10,
-                              fontWeight: 'bold', 
-                              color: '#FFFFFF'
-                            }} numberOfLines={1}>
-                              {item.notification_unviewed_count}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <View style={{ flex: 1, alignItems: 'flex-start', paddingLeft: 10, paddingRight: 16 }}>
-                        {/* Название компании */}
-                        <Text 
-                          style={{ 
-                            fontSize: 14, 
-                            fontWeight: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? 'bold' : 'normal',
-                            color: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? '#3A3A3A' : '#656565'
-                          }}
-                          numberOfLines={2}
-                          ellipsizeMode="tail"
-                        >
-                          {item.firm}
-                        </Text>
-                        
-                        {/* ИНН */}
-                        <Text style={{ 
-                          fontSize: 12, 
-                          fontWeight: 'normal',
-                          color: ((item.user_confirmed === 1 || item.user_confirmed === '1') && (item.phone_inn_confirmed === 1 || item.phone_inn_confirmed === '1')) ? '#3A3A3A' : '#656565'
-                        }}>
-                          инн: {item.inn}
-                        </Text>
-                        
-                        {/* Количество авто (как в старом проекте) */}
-                        <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#3A3A3A' }}>
-                          количество авто: {item.user_auto_count || 0}
-                        </Text>
-                        
-                        {/* Статусы подтверждения (как в старом проекте) */}
-                        {(item.user_confirmed === 0 || item.user_confirmed === '0') && (
-                          <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#656565' }}>
-                            инн ожидает подтверждения
-                          </Text>
-                        )}
-                        
-                        {(item.phone_inn_confirmed === 0 || item.phone_inn_confirmed === '0') && (
-                          <Text style={{ fontSize: 12, fontWeight: 'normal', color: '#656565' }}>
-                            телефон ожидает подтверждения
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  </TouchableHighlight>
+                  />
                 ))}
               </View>
             )}
