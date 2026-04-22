@@ -83,19 +83,24 @@ class ApiService {
         if (error.response) {
           const { status, data } = error.response;
           if (status === 401) {
-            console.log('API Web: 401 Unauthorized - clearing token');
-            await AsyncStorage.removeItem('token');
-            try { localStorage.removeItem('ta_onboarding_done'); } catch {}
-            // Don't forcibly redirect when the user is in the auth flow
-            // ('/', '/pin', '/onboarding'). A late-arriving 401 from a
-            // pre-auth endpoint (e.g. `/get-user-agreement` fired from
-            // useAuthFlow.init and still in flight while the user moves
-            // to /pin) must NOT yank them back to / — doing so remounts
-            // the Stack and blanks the just-entered phone number.
-            if (
+            const onAuthFlow =
               typeof window !== 'undefined' &&
-              !isAuthFlowPath(window.location.pathname)
-            ) {
+              isAuthFlowPath(window.location.pathname);
+            if (onAuthFlow) {
+              // User is on '/', '/pin', or '/onboarding'. A 401 here is
+              // almost certainly a stale request from the previous
+              // session that was in flight when the user logged out /
+              // navigated away. Don't touch AsyncStorage — removing the
+              // token would also nuke the fresh interim token just set
+              // by `/auth-by-phone`, breaking the login flow. Don't
+              // redirect either (we're already in the auth funnel).
+              // The caller's own error handling can still catch the
+              // rejection if it cares.
+              console.log('API Web: 401 on auth-flow path — stale request, ignored');
+            } else {
+              console.log('API Web: 401 Unauthorized - clearing token');
+              await AsyncStorage.removeItem('token');
+              try { localStorage.removeItem('ta_onboarding_done'); } catch {}
               router.replace('/');
             }
           }

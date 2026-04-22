@@ -65,20 +65,24 @@ Api.interceptors.response.use(
   },
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      console.warn('🔒 [API Web] 401 Unauthorized. Clearing session...');
-      try {
-        await AsyncStorage.removeItem('token');
-        await AsyncStorage.removeItem('last_sent_fcm_token');
-        // Don't redirect when the user is already in the auth flow
-        // (see services/api.web.ts for the full rationale).
-        if (
-          typeof window !== 'undefined' &&
-          !isAuthFlowPath(window.location.pathname)
-        ) {
+      const onAuthFlow =
+        typeof window !== 'undefined' &&
+        isAuthFlowPath(window.location.pathname);
+      if (onAuthFlow) {
+        // See services/api.web.ts: on auth-flow pages a 401 is almost
+        // always a stale request from the previous session. Don't touch
+        // stored tokens (would nuke the fresh interim one) and don't
+        // redirect (we're already in the auth funnel).
+        console.warn('🔒 [API Web] 401 on auth-flow path — stale request, ignored');
+      } else {
+        console.warn('🔒 [API Web] 401 Unauthorized. Clearing session...');
+        try {
+          await AsyncStorage.removeItem('token');
+          await AsyncStorage.removeItem('last_sent_fcm_token');
           router.replace('/');
+        } catch (e) {
+          console.error('Error clearing session:', e);
         }
-      } catch (e) {
-        console.error('Error clearing session:', e);
       }
     }
 
