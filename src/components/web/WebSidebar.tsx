@@ -264,8 +264,6 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   // ── active path helper ──────────────────────────────────────────────────────
   const isActive = (path: string) => pathname.startsWith(path);
 
-  const otherBadge   = userData.other_user_notification_unviewed_count || 0;
-
   const sidebarWidth = expanded ? WEB_SIDEBAR_WIDTH_EXPANDED : WEB_SIDEBAR_WIDTH_COLLAPSED;
 
   return (
@@ -379,13 +377,31 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           />
         )}
 
-        {/* ── Другие организации ── */}
-        {otherUserList.length > 0 && (
+        {/* ── Организации (single-select radio list) ──
+             Current org is the first row (filled radio, non-interactive);
+             all other orgs the user has access to follow below as switch
+             targets. Presenting them as one radio group makes the
+             "which org am I in" question immediately obvious. */}
+        {!!userData.inn && (
           <>
             <Divider expanded={expanded} />
             {expanded && (
               <Text style={styles.orgSectionLabel}>Организации</Text>
             )}
+            <OrgListItem
+              key={`current-${userData.inn}`}
+              org={{
+                inn: userData.inn,
+                firm: userData.firm,
+                user_auto_count: userData.user_auto_count,
+                notification_unviewed_count: userData.notification_unviewed_count,
+                user_confirmed: 1,
+                phone_inn_confirmed: 1,
+              }}
+              compact={!expanded}
+              current
+              onPress={() => {}}
+            />
             {otherUserList.map((org, i) => (
               <OrgListItem
                 key={org.inn || i}
@@ -431,34 +447,21 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      {/* ── Footer: current org ────────────────────────────────── */}
+      {/* ── Footer: session identity only ──
+           Organization info has moved into the radio list above. The
+           footer now shows just the user's phone (session-scoped, the
+           one constant across org switches) so the sidebar still
+           answers "who is logged in on this machine" at a glance. */}
       {loading ? (
         <View style={styles.footer}>
           <ActivityIndicator size="small" color="#B8B8B8" />
         </View>
       ) : (
-        <View style={styles.footer}>
-          {!!otherBadge && otherBadge > 0 && (
-            <View style={[styles.badge, { marginBottom: 4, alignSelf: 'flex-start', marginLeft: 8 }]}>
-              <Text style={styles.badgeText}>{otherBadge}</Text>
-            </View>
-          )}
-          {expanded ? (
-            <>
-              <Text style={styles.footerFirm} numberOfLines={2}>{userData.firm || '—'}</Text>
-              <Text style={styles.footerInn}>ИНН: {userData.inn || '—'}</Text>
-              {!!userData.phone && (
-                <Text style={styles.footerPhone}>+{userData.phone}</Text>
-              )}
-            </>
-          ) : (
-            <Image
-              source={require('../../../assets/images/menu_left_other_user.png')}
-              style={styles.navIcon}
-              resizeMode="contain"
-            />
-          )}
-        </View>
+        expanded && !!userData.phone && (
+          <View style={styles.footer}>
+            <Text style={styles.footerPhone}>+{userData.phone}</Text>
+          </View>
+        )
       )}
 
       {/* RNIS check modal — sidebar-owned since that's the only entry point. */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, Platform, ActivityIndicator } from 'react-native';
 
 export interface OrgListItemData {
   inn: string;
@@ -12,28 +12,41 @@ export interface OrgListItemData {
 
 interface Props {
   org: OrgListItemData;
-  /** Compact mode: icon + badge only, no text details (collapsed web sidebar) */
+  /** Compact mode: radio dot + badge only, no text details (collapsed web sidebar) */
   compact?: boolean;
   /** Disable interactions (e.g. while another switch is in progress) */
   disabled?: boolean;
   /** This specific row is being switched to — show spinner, ignore further taps */
   loading?: boolean;
-  /** Called with `inn` when a confirmed org row is tapped */
+  /**
+   * Mark this row as the currently-active organization. Renders a filled
+   * radio indicator, drops the "auto count" display redundancy, and
+   * becomes non-interactive (you can't "switch to yourself").
+   */
+  current?: boolean;
+  /** Called with `inn` when a confirmed, non-current org row is tapped */
   onPress: (inn: string) => void;
 }
 
 const isTruthyFlag = (v: unknown) => v === 1 || v === '1';
 
 /**
- * Shared organization row for the sidebar / left-menu drawer.
- * Shows firm + INN + auto count + optional confirmation warnings.
- * Tap only fires onPress if org is fully confirmed (user_confirmed && phone_inn_confirmed).
+ * Single-select row for the organization switcher (web sidebar +
+ * mobile left drawer). Visual affordance is a radio button — classic
+ * single-select semantics:
+ *
+ *   ●  current org — filled, non-interactive
+ *   ○  other org   — outlined, tap → switch
+ *
+ * In compact (collapsed web sidebar) mode the radio becomes the only
+ * visible element, with the notification badge layered on the top-right.
  */
 export const OrgListItem: React.FC<Props> = ({
   org,
   compact = false,
   disabled = false,
   loading = false,
+  current = false,
   onPress,
 }) => {
   const isUserConfirmed = isTruthyFlag(org.user_confirmed);
@@ -42,8 +55,9 @@ export const OrgListItem: React.FC<Props> = ({
 
   const badgeCount = org.notification_unviewed_count || 0;
 
-  // Loading takes precedence: this row is being processed, ignore all taps.
-  const isInteractionBlocked = loading || disabled || !isConfirmed;
+  // Current rows are single-select targets that you can't re-select; loading
+  // takes precedence; disabled (another switch in progress) blocks taps too.
+  const isInteractionBlocked = current || loading || disabled || !isConfirmed;
 
   const handlePress = () => {
     if (isInteractionBlocked) return;
@@ -54,6 +68,7 @@ export const OrgListItem: React.FC<Props> = ({
     'Организация',
     org.firm || org.inn,
     `ИНН ${org.inn}`,
+    current && 'текущая',
     !isUserConfirmed && 'ИНН ожидает подтверждения',
     !isPhoneConfirmed && 'телефон ожидает подтверждения',
     badgeCount > 0 && `${badgeCount} новых уведомлений`,
@@ -62,41 +77,62 @@ export const OrgListItem: React.FC<Props> = ({
     .filter(Boolean)
     .join(', ');
 
-  // Loading row keeps full opacity (it's the active target); other disabled
-  // rows get dimmed so the user's focus stays on the one being switched to.
   const rowClassName = [
     'flex-row items-center',
     compact ? 'px-2 py-2' : 'px-3 py-2',
-    !loading && disabled ? 'opacity-50' : '',
+    !loading && !current && disabled ? 'opacity-50' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   const webCursor =
     Platform.OS === 'web'
-      ? ({ cursor: isConfirmed && !isInteractionBlocked ? 'pointer' : 'default' } as any)
+      ? ({ cursor: !isInteractionBlocked ? 'pointer' : 'default' } as any)
       : undefined;
 
   return (
     <Pressable
       onPress={handlePress}
       disabled={isInteractionBlocked}
-      accessibilityRole="button"
+      accessibilityRole={current ? 'radio' : 'button'}
       accessibilityLabel={a11yLabel}
-      accessibilityState={{ disabled: isInteractionBlocked, busy: loading }}
+      accessibilityState={{
+        disabled: isInteractionBlocked && !current,
+        busy: loading,
+        selected: current,
+        checked: current,
+      }}
       className={rowClassName}
       style={webCursor}
     >
-      {/* Icon + badge (in compact+loading mode the icon is replaced by a spinner) */}
+      {/* Radio indicator (or spinner if this row is switching) */}
       <View className="relative w-10 items-center justify-center" style={{ height: 28 }}>
-        {compact && loading ? (
+        {loading ? (
           <ActivityIndicator size="small" color="#3A3A3A" />
         ) : (
-          <Image
-            source={require('../../../assets/images/menu_left_other_user.png')}
-            style={{ width: 24, height: 24 }}
-            resizeMode="contain"
-          />
+          <View
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              borderWidth: 2,
+              borderColor: current ? '#3A3A3A' : '#B8B8B8',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'transparent',
+            }}
+          >
+            {current && (
+              <View
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
+                  backgroundColor: '#3A3A3A',
+                }}
+              />
+            )}
+          </View>
         )}
         {badgeCount > 0 && !loading && (
           <View
