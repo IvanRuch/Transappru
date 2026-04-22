@@ -98,10 +98,17 @@ export function useAutoData() {
   // Таймер для debounce
   const filterDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Latest-wins AbortController for /get-auto-list. Without it, a request
+  // in flight when the user logs out (or quickly fires another filter
+  // change) still resolves later — returning 401 with a null token, which
+  // spams the console and used to bounce the user back to '/'. Cancelling
+  // the stale one keeps state consistent and quiet.
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
   // Основная функция загрузки данных
   const fetchAutoList = useCallback(async (
-    token: string, 
-    requestFilters = stateRef.current.filters, 
+    token: string,
+    requestFilters = stateRef.current.filters,
     requestOffset = stateRef.current.offset,
     isBackground = false
   ) => {
@@ -118,18 +125,27 @@ export function useAutoData() {
       }
     }
 
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+
     try {
       console.log('fetchAutoList: filters =', JSON.stringify(requestFilters), 'offset =', requestOffset);
-      const res = await api.post('/get-auto-list', { 
-        token,
-        auto_str: requestFilters.autoStr,
-        auto_cancelled: requestFilters.autoCancelled ? 1 : 0,
-        auto_pass_ended: requestFilters.autoPassEnded ? 1 : 0,
-        auto_pass_ends: requestFilters.autoPassEnds ? 1 : 0,
-        auto_pass_ends_until_date: requestFilters.autoPassEndsUntilDate,
-        auto_list_from: requestOffset,
-        auto_list_limit: AUTO_LIST_LIMIT
-      });
+      const res = await api.post(
+        '/get-auto-list',
+        {
+          token,
+          auto_str: requestFilters.autoStr,
+          auto_cancelled: requestFilters.autoCancelled ? 1 : 0,
+          auto_pass_ended: requestFilters.autoPassEnded ? 1 : 0,
+          auto_pass_ends: requestFilters.autoPassEnds ? 1 : 0,
+          auto_pass_ends_until_date: requestFilters.autoPassEndsUntilDate,
+          auto_list_from: requestOffset,
+          auto_list_limit: AUTO_LIST_LIMIT,
+        },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return null;
       
       const data = res.data;
 
@@ -218,11 +234,14 @@ export function useAutoData() {
 
       return data;
     } catch (error: any) {
+      // Ignore aborts — a fresh fetch superseded this one, or the hook unmounted.
+      if (axios.isCancel(error)) return null;
       console.log('Error fetching auto list:', error);
       if (error.response?.status === 401) {
         redirectToAuth(router);
       }
     } finally {
+      if (fetchAbortRef.current === controller) fetchAbortRef.current = null;
       setIsLoading(false);
       setIsRefreshing(false);
       setIsSearching(false);
@@ -462,6 +481,11 @@ export function useAutoData() {
   }, []);
 
   useEffect(() => () => updateUserAbortRef.current?.abort(), []);
+
+  // Abort any lingering /get-auto-list on unmount (logout, route change)
+  // so it doesn't resolve with 401 and noise up the console after the
+  // user has already left the authenticated area.
+  useEffect(() => () => fetchAbortRef.current?.abort(), []);
 
   return {
     autoList,
