@@ -62,7 +62,12 @@ Api.interceptors.response.use(
       try {
         await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('last_sent_fcm_token');
-        router.replace('/');
+        // See services/api.web.ts for rationale — don't redirect from '/'
+        // to '/' because it remounts the Stack and blanks AuthScreen's
+        // local form state.
+        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+          router.replace('/');
+        }
       } catch (e) {
         console.error('Error clearing session:', e);
       }

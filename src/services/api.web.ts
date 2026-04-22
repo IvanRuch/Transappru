@@ -79,7 +79,13 @@ class ApiService {
             console.log('API Web: 401 Unauthorized - clearing token');
             await AsyncStorage.removeItem('token');
             try { localStorage.removeItem('ta_onboarding_done'); } catch {}
-            router.replace('/');
+            // Only redirect if we're NOT already at the auth screen.
+            // router.replace('/') from '/' can remount the Stack and
+            // reset AuthScreen's local state (e.g. a just-typed phone
+            // number) when a pre-auth endpoint happens to 401.
+            if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+              router.replace('/');
+            }
           }
           console.log('API Web Error:', { url: error.config?.url, status, data });
         } else if (error.request) {
