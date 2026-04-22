@@ -12,6 +12,13 @@ const getBaseUrl = (): string => {
   return `https://${hostname}/api/`;
 };
 
+// Paths where a 401 should NOT redirect to '/'. Pre-auth / half-auth
+// flow routes — user is already there, redirecting would either be a
+// no-op or blank just-entered form state (see services/api.web.ts for
+// the full rationale).
+const AUTH_FLOW_PATHS = new Set(['/', '/pin', '/onboarding']);
+const isAuthFlowPath = (path: string) => AUTH_FLOW_PATHS.has(path);
+
 // Сериализует тело запроса в application/x-www-form-urlencoded.
 // Вложенные объекты/массивы сериализуются через JSON.stringify.
 // Это "simple request" по стандарту CORS — preflight не отправляется,
@@ -62,10 +69,12 @@ Api.interceptors.response.use(
       try {
         await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('last_sent_fcm_token');
-        // See services/api.web.ts for rationale — don't redirect from '/'
-        // to '/' because it remounts the Stack and blanks AuthScreen's
-        // local form state.
-        if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+        // Don't redirect when the user is already in the auth flow
+        // (see services/api.web.ts for the full rationale).
+        if (
+          typeof window !== 'undefined' &&
+          !isAuthFlowPath(window.location.pathname)
+        ) {
           router.replace('/');
         }
       } catch (e) {

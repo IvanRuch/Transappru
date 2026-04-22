@@ -40,6 +40,13 @@ const FORM_CONFIG = {
   transformRequest: [(data: any) => serializeToFormData(data)],
 };
 
+// Paths where a 401 should NOT redirect the user to '/'. These are the
+// routes that make up the pre-auth / half-auth flow — user is already
+// here, redirecting would either be a no-op (on '/') or would yank them
+// back to the start and destroy just-entered form state.
+const AUTH_FLOW_PATHS = new Set(['/', '/pin', '/onboarding']);
+const isAuthFlowPath = (path: string) => AUTH_FLOW_PATHS.has(path);
+
 class ApiService {
   private api: AxiosInstance;
   private paymentApi: AxiosInstance;
@@ -79,11 +86,16 @@ class ApiService {
             console.log('API Web: 401 Unauthorized - clearing token');
             await AsyncStorage.removeItem('token');
             try { localStorage.removeItem('ta_onboarding_done'); } catch {}
-            // Only redirect if we're NOT already at the auth screen.
-            // router.replace('/') from '/' can remount the Stack and
-            // reset AuthScreen's local state (e.g. a just-typed phone
-            // number) when a pre-auth endpoint happens to 401.
-            if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+            // Don't forcibly redirect when the user is in the auth flow
+            // ('/', '/pin', '/onboarding'). A late-arriving 401 from a
+            // pre-auth endpoint (e.g. `/get-user-agreement` fired from
+            // useAuthFlow.init and still in flight while the user moves
+            // to /pin) must NOT yank them back to / — doing so remounts
+            // the Stack and blanks the just-entered phone number.
+            if (
+              typeof window !== 'undefined' &&
+              !isAuthFlowPath(window.location.pathname)
+            ) {
               router.replace('/');
             }
           }
