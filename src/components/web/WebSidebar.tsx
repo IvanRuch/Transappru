@@ -22,6 +22,7 @@ import { switchOrganization as switchOrganizationRequest } from '../../utils/swi
 import { navigateToInn as navigateToInnRequest } from '../../utils/navigateToInn';
 import { OrgListItem, type OrgListItemData } from '../sidebar';
 import { RnisCheckModal, AddAccountModal } from '../inn';
+import { InviteUserModal } from '../user';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
   const [rnisModalOpen,  setRnisModalOpen]  = useState(false);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [inviteOpen,     setInviteOpen]     = useState(false);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
   // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
@@ -411,8 +413,10 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <NavItem
           icon={require('../../../assets/images/menu_invite_user_2.png')}
           label="Пригласить друга"
-          path="/invite-user"
-          active={isActive('/invite-user')}
+          // Opens InviteUserModal in place — no route change. Direct URL
+          // navigation to `/invite-user` still works for legacy bookmarks.
+          onPress={() => setInviteOpen(true)}
+          active={inviteOpen}
           expanded={expanded}
         />
         <NavItem
@@ -472,6 +476,13 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           manager_data: userData.manager_data,
         }}
         onClose={() => setAddAccountOpen(false)}
+      />
+
+      {/* Invite-a-friend modal — on submit returns a pre-composed message
+          that the user can copy to clipboard. */}
+      <InviteUserModal
+        visible={inviteOpen}
+        onClose={() => setInviteOpen(false)}
       />
     </View>
   );

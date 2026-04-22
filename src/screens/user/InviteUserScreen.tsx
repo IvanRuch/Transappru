@@ -1,161 +1,79 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableHighlight, Image, StyleSheet, Share, Platform } from 'react-native';
+/**
+ * Mobile full-screen "Пригласить друга" form.
+ *
+ * Shares state + validation + API via `useInviteUser` (ADR-003). Web uses
+ * the same hook inside `InviteUserModal`. Visual tone kept close to the
+ * legacy screen so the refactor is risk-free; migration to NativeWind +
+ * shared sub-components can follow separately if the visual standard
+ * shifts.
+ *
+ * On success: opens the native Share sheet with the invitation text
+ * returned by the backend. Falls back to an alert if Share fails.
+ */
+import React from 'react';
+import {
+  View, Text, TextInput, TouchableHighlight, Image, StyleSheet, Share, Platform,
+} from 'react-native';
 import { KeyboardAwareScrollView } from '../../components/common/KeyboardAwareScrollView';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import Api from '../../utils/Api';
-
-interface InviteUserData {
-  firm: string;
-  inn: string;
-  fio: string;
-  phone: string;
-}
+import { useInviteUser } from '../../hooks/useInviteUser';
+import { showAlert } from '../../utils/alert';
 
 export default function InviteUserScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
-  // Получаем данные менеджера из параметров (если переданы)
-  const managerData = params.manager_data ? JSON.parse(params.manager_data as string) : null;
+
+  const managerData = params.manager_data
+    ? JSON.parse(params.manager_data as string)
+    : null;
   const managerPhone = managerData?.mobile_phone || '+7';
-  
-  const [inviteUserData, setInviteUserData] = useState<InviteUserData>({
-    firm: '',
-    inn: '',
-    fio: '',
-    phone: '',
-  });
 
-  const handlePhoneChange = (value: string) => {
-    let newValue = value;
+  const {
+    form, firmValid, innValid, fioValid, phoneValid, allValid, submitting,
+    changeFirm, changeInn, changeFio, changePhone,
+    submit,
+  } = useInviteUser();
 
-    if (newValue === '+7') {
-      newValue = '';
-    } else if (newValue === '7') {
-      newValue = '+7';
-    } else if (newValue === '+' || newValue === '8') {
-      newValue = '+7';
-    } else if (newValue.match(/^\d$/)) {
-      newValue = '+7' + newValue;
+  const handleSubmit = async () => {
+    if (!allValid || submitting) return;
+    const result = await submit();
+    if (result.status === 'auth_required') {
+      router.replace('/' as any);
+      return;
     }
-
-    setInviteUserData({ ...inviteUserData, phone: newValue });
-  };
-
-  const handleFieldChange = (value: string, field: keyof InviteUserData) => {
-    if (field === 'phone') {
-      handlePhoneChange(value);
-    } else {
-      setInviteUserData({ ...inviteUserData, [field]: value });
+    if (result.status === 'error') {
+      showAlert('Ошибка', result.error);
+      return;
     }
-  };
-
-  const isButtonDisabled = () => {
-    return !(
-      inviteUserData.firm !== '' &&
-      inviteUserData.fio !== '' &&
-      inviteUserData.inn.match(/^(\d{10})$|^(\d{12})$/) &&
-      inviteUserData.phone.match(/\+7(\d{10})/)
-    );
-  };
-
-  const handleInviteUser = async () => {
+    // ok — hand the message to the native Share sheet.
     try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        router.replace('/' as any);
-        return;
-      }
-
-      const res = await Api.post('/invite-user', {
-        token,
-        firm: inviteUserData.firm,
-        inn: inviteUserData.inn,
-        fio: inviteUserData.fio,
-        phone: inviteUserData.phone,
-      });
-
-      const data = res.data;
-      console.log('Invite user response:', data);
-
-      if (data.auth_required === 1) {
-        router.replace('/' as any);
-        return;
-      }
-
-      // Открываем Share с сообщением
-      if (data.msg) {
-        try {
-          const result = await Share.share({
-            message: data.msg,
-          });
-          
-          console.log('Share result:', result);
-          
-          if (result.action === Share.sharedAction) {
-            console.log('Shared successfully');
-            // Возвращаемся назад после успешной отправки
-            router.back();
-          } else if (result.action === Share.dismissedAction) {
-            console.log('Share dismissed');
-            // Пользователь отменил - остаемся на экране
-          }
-        } catch (error) {
-          console.log('Error sharing:', error);
-        }
-      } else {
-        // Если нет сообщения, просто возвращаемся
+      const shareResult = await Share.share({ message: result.message });
+      if (shareResult.action === Share.sharedAction) {
         router.back();
       }
-    } catch (error: any) {
-      console.log('Error inviting user:', error);
-      if (error.response?.status === 401) {
-        router.replace('/' as any);
-      }
+      // dismissedAction → stay on screen so the user can try again.
+    } catch (e) {
+      console.log('Error sharing:', e);
+      showAlert('Ошибка', 'Не удалось открыть окно отправки');
     }
   };
 
-  const getTextInputStyle = (field: keyof InviteUserData) => {
-    let color = '#B8B8B8';
-    let bgcolor = '#F9FAF9';
-
-    if (field === 'phone') {
-      const isValid = inviteUserData.phone.match(/\+7(\d{10})/);
-      color = isValid ? '#656565' : '#B8B8B8';
-      bgcolor = isValid ? '#FFFFFF' : '#F9FAF9';
-    } else if (field === 'firm') {
-      const isValid = inviteUserData.firm !== '';
-      color = isValid ? '#656565' : '#B8B8B8';
-      bgcolor = isValid ? '#FFFFFF' : '#F9FAF9';
-    } else if (field === 'fio') {
-      const isValid = inviteUserData.fio !== '';
-      color = isValid ? '#656565' : '#B8B8B8';
-      bgcolor = isValid ? '#FFFFFF' : '#F9FAF9';
-    } else if (field === 'inn') {
-      const isValid = inviteUserData.inn.match(/^(\d{10})$|^(\d{12})$/);
-      color = isValid ? '#656565' : '#B8B8B8';
-      bgcolor = isValid ? '#FFFFFF' : '#F9FAF9';
-    }
-
-    return {
-      ...styles.textInput,
-      borderColor: color,
-      backgroundColor: bgcolor,
-    };
-  };
-
-  const buttonDisabled = isButtonDisabled();
+  const fieldStyle = (value: string, valid: boolean) => ({
+    ...styles.textInput,
+    backgroundColor: value.length > 0 && valid ? '#FFFFFF' : '#F9FAF9',
+    borderColor: value.length > 0 && valid ? '#656565' : '#B8B8B8',
+  });
 
   return (
     <View style={styles.container}>
-      {/* Заголовок */}
       <View style={styles.header}>
         <TouchableHighlight
           style={styles.backButton}
           activeOpacity={1}
-          underlayColor='#FFFFFF'
+          underlayColor="#FFFFFF"
           onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Назад"
         >
           <Image source={require('../../../assets/images/back_2.png')} />
         </TouchableHighlight>
@@ -164,7 +82,7 @@ export default function InviteUserScreen() {
 
       <KeyboardAwareScrollView
         style={styles.content}
-        enableOnAndroid={true}
+        enableOnAndroid
         extraScrollHeight={Platform.OS === 'ios' ? 20 : 80}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 150 }}
@@ -174,71 +92,67 @@ export default function InviteUserScreen() {
           <Text style={styles.phoneLink}>{managerPhone}</Text>
         </View>
 
-        {/* Название организации */}
         <Text style={styles.firstFieldLabel}>Название организации *:</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={getTextInputStyle('firm')}
+            style={fieldStyle(form.firm, firmValid)}
             placeholder="Название организации"
             placeholderTextColor="#8C8C8C"
-            value={inviteUserData.firm}
-            onChangeText={(value) => handleFieldChange(value, 'firm')}
+            value={form.firm}
+            onChangeText={changeFirm}
           />
         </View>
 
-        {/* ИНН */}
         <Text style={styles.fieldLabel}>ИНН *:</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={getTextInputStyle('inn')}
+            style={fieldStyle(form.inn, innValid)}
             placeholder="ИНН"
             placeholderTextColor="#8C8C8C"
             keyboardType="numeric"
             maxLength={12}
-            value={inviteUserData.inn}
-            onChangeText={(value) => handleFieldChange(value, 'inn')}
+            value={form.inn}
+            onChangeText={changeInn}
           />
         </View>
 
-        {/* ФИО */}
         <Text style={styles.fieldLabel}>ФИО *:</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={getTextInputStyle('fio')}
+            style={fieldStyle(form.fio, fioValid)}
             placeholder="ФИО"
             placeholderTextColor="#8C8C8C"
-            value={inviteUserData.fio}
-            onChangeText={(value) => handleFieldChange(value, 'fio')}
+            value={form.fio}
+            onChangeText={changeFio}
           />
         </View>
 
-        {/* Телефон */}
         <Text style={styles.fieldLabel}>Номер телефона *:</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={getTextInputStyle('phone')}
-            placeholder="Номер телефона *"
+            style={fieldStyle(form.phone, phoneValid)}
+            placeholder="+7"
             placeholderTextColor="#8C8C8C"
-            keyboardType="numeric"
+            keyboardType="phone-pad"
             maxLength={12}
-            value={inviteUserData.phone}
-            onChangeText={(value) => handleFieldChange(value, 'phone')}
+            value={form.phone}
+            onChangeText={changePhone}
           />
         </View>
-
       </KeyboardAwareScrollView>
 
-      {/* Кнопка отправить - показывается только когда все поля заполнены */}
-      {!buttonDisabled && (
+      {allValid && (
         <TouchableHighlight
-          disabled={buttonDisabled}
+          disabled={submitting}
           style={[
             styles.inviteButton,
-            { backgroundColor: buttonDisabled ? '#c0c0c0' : '#3A3A3A' }
+            { backgroundColor: submitting ? '#c0c0c0' : '#3A3A3A' },
           ]}
           activeOpacity={1}
-          underlayColor='#2E2E2E'
-          onPress={handleInviteUser}
+          underlayColor="#2E2E2E"
+          onPress={handleSubmit}
+          accessibilityRole="button"
+          accessibilityLabel="Отправить приглашение"
         >
           <Text style={styles.inviteButtonText}>Отправить приглашение</Text>
         </TouchableHighlight>
