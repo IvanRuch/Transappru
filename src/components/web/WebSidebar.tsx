@@ -21,6 +21,7 @@ import { showAlert } from '../../utils/alert';
 import { switchOrganization as switchOrganizationRequest } from '../../utils/switchOrganization';
 import { navigateToInn as navigateToInnRequest } from '../../utils/navigateToInn';
 import { OrgListItem, type OrgListItemData } from '../sidebar';
+import { RnisCheckModal } from '../inn';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   // INN currently being switched to (null = idle). Drives per-row spinner.
   const [switchingInn,   setSwitchingInn]   = useState<string | null>(null);
   const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
+  const [rnisModalOpen,  setRnisModalOpen]  = useState(false);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
   // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
@@ -382,9 +384,10 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <NavItem
           icon={require('../../../assets/images/menu_left_check_rnis.png')}
           label="Проверить в РНИС"
-          // checkRnis=true → hide the INN form, show only the RNIS plate check
-          onPress={() => navigateToInnRequest(router, {}, true)}
-          active={isActive('/(authenticated)/inn')}
+          // Opens `RnisCheckModal` in place — no route change. Direct navigation
+          // to `/inn?check_rnis=1` still works if someone bookmarks the URL.
+          onPress={() => setRnisModalOpen(true)}
+          active={rnisModalOpen}
           expanded={expanded}
         />
         <NavItem
@@ -468,6 +471,12 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           )}
         </View>
       )}
+
+      {/* RNIS check modal — sidebar-owned since that's the only entry point. */}
+      <RnisCheckModal
+        visible={rnisModalOpen}
+        onClose={() => setRnisModalOpen(false)}
+      />
     </View>
   );
 }
