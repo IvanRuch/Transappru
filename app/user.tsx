@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, Image, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { ScreenHeader, ConfirmModal } from '../src/components/common';
@@ -45,14 +46,15 @@ export default function UserScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-light-bg dark:bg-dark-bg">
+      <SafeAreaView className="flex-1 items-center justify-center bg-light-bg dark:bg-dark-bg" edges={['top']}>
         <ActivityIndicator size="large" color="#3A8FD9" />
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-light-bg dark:bg-dark-bg">
+    <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
       <ScreenHeader title="Профиль" onBack={safeBack} />
 
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
@@ -195,7 +197,7 @@ export default function UserScreen() {
         onConfirm={() => { closeDeleteProfile(); onDeleteProfile(); }}
         onCancel={closeDeleteProfile}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
