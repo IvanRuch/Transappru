@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
 import api from '../services/api';
+import { redirectToAuth } from '../utils/redirectToAuth';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
 const AUTO_LIST_LIMIT = 10;
@@ -134,7 +135,7 @@ export function useAutoData() {
 
       // Проверка авторизации и статуса пользователя
       if (data.user_data?.user_confirmed === 0 || data.user_data?.phone_inn_confirmed === 0) {
-        router.replace('/');
+        redirectToAuth(router);
         return null;
       }
 
@@ -219,7 +220,7 @@ export function useAutoData() {
     } catch (error: any) {
       console.log('Error fetching auto list:', error);
       if (error.response?.status === 401) {
-        router.replace('/');
+        redirectToAuth(router);
       }
     } finally {
       setIsLoading(false);

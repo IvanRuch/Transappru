@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/services/api';
+import { redirectToAuth } from '../../src/utils/redirectToAuth';
 import WebAppLayout from '../../src/components/web/WebAppLayout';
 
 export default function AuthenticatedLayoutWeb() {
@@ -26,7 +27,7 @@ export default function AuthenticatedLayoutWeb() {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
-        router.replace('/');
+        redirectToAuth(router);
         return;
       }
 
@@ -40,13 +41,13 @@ export default function AuthenticatedLayoutWeb() {
         userConfirmed    === 0 || userConfirmed    === '0' ||
         phoneInnConfirmed === 0 || phoneInnConfirmed === '0'
       ) {
-        router.replace('/');
+        redirectToAuth(router);
       } else {
         setIsChecking(false);
       }
     } catch (error: any) {
       if (error.response?.status === 401) {
-        router.replace('/');
+        redirectToAuth(router);
       } else {
         // Ошибка сети — пускаем, экраны сами разберутся
         setIsChecking(false);
@@ -69,11 +70,11 @@ export default function AuthenticatedLayoutWeb() {
         userConfirmed    === 0 || userConfirmed    === '0' ||
         phoneInnConfirmed === 0 || phoneInnConfirmed === '0'
       ) {
-        router.replace('/');
+        redirectToAuth(router);
       }
     } catch (error: any) {
       if (error.response?.status === 401) {
-        router.replace('/');
+        redirectToAuth(router);
       }
     }
   };
