@@ -260,7 +260,6 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   // ── active path helper ──────────────────────────────────────────────────────
   const isActive = (path: string) => pathname.startsWith(path);
 
-  const notifBadge   = userData.notification_unviewed_count   || 0;
   const otherBadge   = userData.other_user_notification_unviewed_count || 0;
 
   const sidebarWidth = expanded ? WEB_SIDEBAR_WIDTH_EXPANDED : WEB_SIDEBAR_WIDTH_COLLAPSED;
@@ -311,22 +310,6 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           active={isActive('/(authenticated)/charges')}
           expanded={expanded}
         />
-        <NavItem
-          icon={require('../../../assets/images/notification.png')}
-          label="Уведомления"
-          path="/(authenticated)/notifications"
-          active={isActive('/(authenticated)/notifications')}
-          expanded={expanded}
-          badge={notifBadge}
-        />
-        <NavItem
-          icon={require('../../../assets/images/notification.png')}
-          label="Настройки уведомлений"
-          path="/(authenticated)/notification-settings"
-          active={isActive('/(authenticated)/notification-settings')}
-          expanded={expanded}
-        />
-
         <Divider expanded={expanded} />
 
         {/* ── Аккаунт ── */}

@@ -11,7 +11,7 @@
  * (`_layout.web.tsx`) already provides it (see .claude/rules.md).
  */
 import React, { useCallback } from 'react';
-import { View, Text, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, ActivityIndicator, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
 import WebScreenContainer from '../../components/web/WebScreenContainer';
@@ -29,7 +29,20 @@ export default function NotificationListScreen() {
 
   return (
     <View className="flex-1">
-      <ScreenHeader title="Уведомления" onBack={safeBack} />
+      <ScreenHeader
+        title="Уведомления"
+        onBack={safeBack}
+        rightComponent={
+          <Pressable
+            className="px-2 py-2 cursor-pointer"
+            onPress={() => router.push('/(authenticated)/notification-settings' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Настройки уведомлений"
+          >
+            <Text className="text-sm font-medium text-text-primary select-none">Настройки</Text>
+          </Pressable>
+        }
+      />
 
       <WebScreenContainer maxWidth={820}>
         {loading ? (

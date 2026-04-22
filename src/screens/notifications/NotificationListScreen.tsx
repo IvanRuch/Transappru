@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StatusBar, ViewToken } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StatusBar, ViewToken, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
@@ -45,7 +45,21 @@ export default function NotificationListScreen() {
     <SafeAreaView className="flex-1 bg-light-bg dark:bg-dark-bg" edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
 
-      <ScreenHeader title="Уведомления" onBack={safeBack} />
+      <ScreenHeader
+        title="Уведомления"
+        onBack={safeBack}
+        rightComponent={
+          <Pressable
+            className="px-2 py-2"
+            onPress={() => router.push('/(authenticated)/notification-settings' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Настройки уведомлений"
+            hitSlop={8}
+          >
+            <Text className="text-sm font-medium text-text-primary">Настройки</Text>
+          </Pressable>
+        }
+      />
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
