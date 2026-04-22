@@ -312,31 +312,6 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         />
         <Divider expanded={expanded} />
 
-        {/* ── Аккаунт ── */}
-        <NavItem
-          icon={require('../../../assets/images/menu_user_2.png')}
-          label="Профиль"
-          path="/user"
-          active={isActive('/user')}
-          expanded={expanded}
-        />
-        <NavItem
-          icon={require('../../../assets/images/menu_invite_user_2.png')}
-          label="Пригласить друга"
-          path="/invite-user"
-          active={isActive('/invite-user')}
-          expanded={expanded}
-        />
-        <NavItem
-          icon={require('../../../assets/images/menu_contacts_2.png')}
-          label="Обратная связь"
-          path="/(authenticated)/contacts"
-          active={isActive('/(authenticated)/contacts')}
-          expanded={expanded}
-        />
-
-        <Divider expanded={expanded} />
-
         {/* ── Услуги / инструменты ── */}
 
         {/* Наши услуги — раскрывается */}
@@ -420,6 +395,32 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
             ))}
           </>
         )}
+
+        <Divider expanded={expanded} />
+
+        {/* ── Аккаунт ── bottom-pinned; user-related shortcuts sit at the
+             end of the sidebar, classic "profile at the bottom" pattern. */}
+        <NavItem
+          icon={require('../../../assets/images/menu_user_2.png')}
+          label="Профиль"
+          path="/user"
+          active={isActive('/user')}
+          expanded={expanded}
+        />
+        <NavItem
+          icon={require('../../../assets/images/menu_invite_user_2.png')}
+          label="Пригласить друга"
+          path="/invite-user"
+          active={isActive('/invite-user')}
+          expanded={expanded}
+        />
+        <NavItem
+          icon={require('../../../assets/images/menu_contacts_2.png')}
+          label="Обратная связь"
+          path="/(authenticated)/contacts"
+          active={isActive('/(authenticated)/contacts')}
+          expanded={expanded}
+        />
 
         {/* Bottom padding so last item isn't hidden */}
         <View style={{ height: 24 }} />
