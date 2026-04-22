@@ -45,7 +45,7 @@ Use legacy apps as reference to ensure nothing useful is missed.
 |---------------|------------------|-----------|-------|
 | Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting, cursor lock after "+7" |
 | PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: 4 separate OTP-style digit fields, auto-advance, backspace, paste support |
-| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar |
+| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar, equal-height cards per row (via `fillHeight` on `AutoListItem`) |
 | Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | ✅ Done | `.web.tsx`: functional component, 8 tabs split into `web/` sub-components, HTML file upload, browser download, responsive tab bar |
 | Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | ✅ Done | `.web.tsx`: wraps DriversTab in WebAppLayout |
 | INN (`Inn.js`) | `screens/inn/InnScreen.tsx` | ✅ Done | `.web.tsx`: INN binding + RNIS check, latin→cyrillic |

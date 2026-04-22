@@ -9,19 +9,29 @@ interface AutoListItemProps {
   onMark: (item: AutoItem, index: number) => void;
   onShowHideTab: (tabName: string, index: number) => void;
   onOrderOsagoPolicy?: (item: AutoItem) => void;
+  /**
+   * Stretch the card vertically to fill the parent cell. Used by the web
+   * grid (`AutoListScreen.web`) so every card in a row has the same height
+   * as the tallest one. The card's own margins are dropped — the parent
+   * cell is expected to provide spacing.
+   */
+  fillHeight?: boolean;
 }
 
-export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab, onOrderOsagoPolicy }: AutoListItemProps) => {
-  // Определяем стиль элемента (отмечен или нет)
+export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab, onOrderOsagoPolicy, fillHeight }: AutoListItemProps) => {
+  // Определяем стиль элемента (отмечен или нет).
+  // В grid-режиме (fillHeight=true) карточка растягивается и сама не даёт
+  // отступов — их добавляет обёрточная ячейка. На мобиле (single column)
+  // margins работают как вертикальный разделитель между карточками списка.
   const itemStyle = {
     padding: 20,
-    marginBottom: 10,
-    marginLeft: 10,
-    marginRight: 10,
     borderRadius: 10,
     backgroundColor: item.marked ? '#E9E9E9' : '#FFFFFF',
     borderWidth: 1,
     borderColor: '#B8B8B8',
+    ...(fillHeight
+      ? { flex: 1 }
+      : { marginBottom: 10, marginLeft: 10, marginRight: 10 }),
   };
 
   // Получить цвет для текста
@@ -54,7 +64,10 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
   );
 
   return (
-    <Pressable onPress={() => onMark(item, index)}>
+    <Pressable
+      onPress={() => onMark(item, index)}
+      style={fillHeight ? { flex: 1 } : undefined}
+    >
       <View style={itemStyle}>
         {/* Заголовок - номер авто */}
         <View style={{ flexDirection: "row", alignItems: 'center' }}>
@@ -454,10 +467,11 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
   );
 }, (prevProps, nextProps) => {
   // Кастомная функция сравнения для React.memo
-  // Рендерим заново только если изменились данные элемента или индекс
+  // Рендерим заново только если изменились данные элемента, индекс или flag растягивания
   return (
     prevProps.item === nextProps.item &&
-    prevProps.index === nextProps.index
+    prevProps.index === nextProps.index &&
+    prevProps.fillHeight === nextProps.fillHeight
   );
 });
 

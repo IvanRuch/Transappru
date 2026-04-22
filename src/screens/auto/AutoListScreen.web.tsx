@@ -75,9 +75,15 @@ export default function AutoListScreen() {
     showAlert(ok ? 'Заявка отправлена' : 'Ошибка', msg);
   }, [autoActions]);
 
-  // Fixed %-width cell — last row stays left-aligned (no stretching).
+  // Grid cell: fixed %-width so the last row stays left-aligned (no stretching).
+  // `alignSelf: 'stretch'` + inner `fillHeight` on AutoListItem together make
+  // every card in a row match the tallest card's height.
   const cellStyle = useMemo(
-    () => ({ width: `${100 / columns}%` as const, padding: 4 }),
+    () => ({
+      width: `${100 / columns}%` as const,
+      padding: 6,
+      alignSelf: 'stretch' as const,
+    }),
     [columns],
   );
 
@@ -86,6 +92,7 @@ export default function AutoListScreen() {
       <AutoListItem
         item={item}
         index={index}
+        fillHeight
         onPress={handleItemPress}
         onMark={handleItemMark}
         onShowHideTab={autoListHook.showHideTab}
@@ -226,7 +233,7 @@ export default function AutoListScreen() {
           // key forces remount when column count changes (RN requirement for numColumns)
           key={String(columns)}
           numColumns={columns}
-          columnWrapperStyle={columns > 1 ? { justifyContent: 'flex-start', flexWrap: 'wrap' } : undefined}
+          columnWrapperStyle={columns > 1 ? { justifyContent: 'flex-start', alignItems: 'stretch', flexWrap: 'wrap' } : undefined}
           data={autoListHook.autoList}
           renderItem={renderItem}
           keyExtractor={(item, idx) => item.id || String(idx)}

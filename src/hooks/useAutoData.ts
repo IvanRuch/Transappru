@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import axios from 'axios';
 import api from '../services/api';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
@@ -425,17 +426,41 @@ export function useAutoData() {
     }));
   }, []);
 
+  // Latest-wins AbortController: on web, useFocusEffect fires this on every
+  // route focus. If the backend is slow (ivan.trans-konsalt.ru sometimes
+  // stalls beyond the 30s axios timeout), stacking requests blocks the UI
+  // for the full timeout. A new trigger cancels the old request and replaces
+  // it with a fresh one. The same controller is aborted on hook unmount.
+  const updateUserAbortRef = useRef<AbortController | null>(null);
+
   const updateUserDataOnly = useCallback(async () => {
     const token = await AsyncStorage.getItem('token');
     if (!token) return;
-    
-    api.post('/get-auto-list', { token, auto_list_limit: 0 }).then(res => {
-        if (res.data.user_data) {
-            setUserData(res.data.user_data);
-            if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
-        }
-    }).catch(e => console.log('UserData update error', e));
+
+    updateUserAbortRef.current?.abort();
+    const controller = new AbortController();
+    updateUserAbortRef.current = controller;
+
+    try {
+      const res = await api.post(
+        '/get-auto-list',
+        { token, auto_list_limit: 0 },
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) return;
+      if (res.data.user_data) {
+        setUserData(res.data.user_data);
+        if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
+      }
+    } catch (e) {
+      if (axios.isCancel(e)) return;
+      console.log('UserData update error', e);
+    } finally {
+      if (updateUserAbortRef.current === controller) updateUserAbortRef.current = null;
+    }
   }, []);
+
+  useEffect(() => () => updateUserAbortRef.current?.abort(), []);
 
   return {
     autoList,
