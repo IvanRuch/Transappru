@@ -166,4 +166,43 @@ accelerate session degradation. Use sparingly.
 - Before `/compact` or session end: ensure all changes are committed, then
   update `Writerside/topics/project-dashboard.md` with current state.
 
+## Git workflow (branches vs direct master)
+
+Default project policy — feature branch + PR for anything non-trivial.
+Direct commits to master are allowed only for the narrow exceptions below.
+
+**Direct to master — OK for:**
+- Typos, single-line fixes, docs-only updates
+- Hotfix in production (speed > ceremony, fix-forward)
+- Rollback / revert of a recent broken commit
+
+**Feature branch + PR — REQUIRED for:**
+- Multi-file changes (>3 files) — consistent with the Plan Mode rule
+- Redesigns or any UX change — PR body MUST include before/after screenshots
+- New features, new ADRs
+- Any write operation against `payment_db` (data-risk)
+- Experiments / prototypes (can be closed without merging)
+
+**Branch naming:**
+- `feat/<short-title>` — new capability
+- `fix/<short-title>` — bug fix
+- `refactor/<short-title>` — structure change, no behaviour change
+- `redesign/<screen-or-area>` — UI/UX work
+- `chore/<short-title>` — tooling, docs, infra
+- `experiment/<short-title>` — exploratory, may be abandoned
+
+**PR conventions:**
+- Title follows Conventional Commits (`feat:`, `fix:`, `refactor:`, etc.)
+- Keep title short (< 70 chars). Details go in the body.
+- Body MUST have: summary, what changes, what stays the same, verify checklist
+- UI changes MUST include before/after screenshots (mobile + web if both affected)
+- Open as `--draft` if work is incomplete; `gh pr ready` when done
+- Squash-merge into master for linear history (`gh pr merge --squash`)
+- Delete the branch after merge
+
+**Supporting infra:**
+- `/pr-open` — opens a draft PR with an auto-generated structured body
+- `.github/workflows/verify.yml` — runs TS + ESLint on every PR
+- Active plan files in `.claude/plans/` should be linked from the PR body
+
 ## Corrections (accumulated)

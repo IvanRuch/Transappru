@@ -213,6 +213,7 @@ Claude Code мержит оба файла. Hooks держим в `settings.json
 | `/start-web` | Старт web-сессии: dev-web + ADR + web-файлы + plans | Да |
 | `/gap-check` | Отчёт за день + промпт на завтра | Да |
 | `/design-review [mode]` | UI/UX аудит через Playwright | Да |
+| `/pr-open [title]` | Открыть draft PR с авто-собранным structured body | Нет (вызывает `gh pr create`) |
 
 ### Шаблон команды
 
@@ -404,6 +405,40 @@ Writerside/
 - Документация включается в тот же коммит что и код
 - После задачи — предложить коммит, но не пушить без подтверждения
 
+### Git workflow: branch + PR vs direct master
+
+Дифференцированная политика (детали — в `.claude/rules.md` → "Git workflow"):
+
+| Тип изменения | Workflow |
+|---|---|
+| Typo, 1-строчный фикс, docs-only, hotfix | Direct to master |
+| Multi-file (>3), редизайн, новая фича, ADR, write-операция | **Branch + PR (обязательно)** |
+
+**Branch naming:** `feat/…`, `fix/…`, `refactor/…`, `redesign/…`, `chore/…`, `experiment/…`.
+
+**PR обязательно содержит:**
+- Conventional-Commits title (< 70 chars)
+- Body: summary → changes by area → what stays → linked plan → verify checklist
+- Для UI-изменений — before/after скриншоты (mobile + web)
+- Открывается как `--draft`, `gh pr ready` по готовности
+- Merge: `gh pr merge --squash` (линейная история)
+
+Команда `/pr-open` генерирует structured body автоматически.
+
+### CI — verify на PR
+
+`.github/workflows/verify.yml` запускается на каждом pull_request к master:
+
+- **frontend job** (если изменились `src/`, `app/`, `package.json`, `tsconfig`, tailwind):
+  `npx tsc --noEmit` + `npx expo lint` + `npm test`
+- **backend job** (если изменилось `payment-service/`):
+  `ruff check app/`
+- **paths-filter** автоматически пропускает job если файлы не трогались
+- **concurrency** отменяет предыдущий прогон при новом push в ту же ветку
+- Label `skip-ci` на PR отключает проверки (для docs-only изменений)
+
+Локальный эквивалент: `/verify`. Запускать перед `gh pr ready`.
+
 ## 9. agnix — валидация конфигурации
 
 ```bash
@@ -459,7 +494,8 @@ agnix --dry-run --show-fixes .
 - [ ] Создать `.claude/settings.local.json` (per-user permissions, gitignored)
 - [ ] Создать `.claude/plans/` с `README.md` для Plan Mode артефактов
 - [ ] Создать `.mcp.json` (PostgreSQL + Playwright + Context7)
-- [ ] Создать slash-команды: `/status`, `/verify`, `/test-backend`, `/build`, `/start`, `/start-web`, `/gap-check`, `/design-review`
+- [ ] Создать slash-команды: `/status`, `/verify`, `/test-backend`, `/build`, `/start`, `/start-web`, `/gap-check`, `/design-review`, `/pr-open`
+- [ ] Создать `.github/workflows/verify.yml` (TS + ESLint + ruff на PR)
 - [ ] Создать кастомные скиллы: `writerside-docs.md`, `<db-name>.md`
 - [ ] Установить внешние скиллы: `npx -y skills add <source> -y`
 - [ ] Создать Writerside: `writerside.cfg`, `*.tree`, скелетные топики

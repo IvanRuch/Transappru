@@ -1,0 +1,98 @@
+name: Verify PR
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: TypeScript + ESLint (mobile/web)
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'skip-ci') == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect frontend changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'src/**'
+              - 'app/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig.json'
+              - 'tailwind.config.*'
+              - 'babel.config.*'
+              - 'metro.config.*'
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.frontend == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.changes.outputs.frontend == 'true'
+        run: npm ci --prefer-offline --no-audit
+
+      - name: TypeScript check
+        if: steps.changes.outputs.frontend == 'true'
+        run: npx tsc --noEmit --pretty
+
+      - name: ESLint
+        if: steps.changes.outputs.frontend == 'true'
+        run: npx expo lint
+
+      - name: Jest
+        if: steps.changes.outputs.frontend == 'true'
+        run: npm test -- --ci --passWithNoTests
+
+      - name: Skip (no frontend changes)
+        if: steps.changes.outputs.frontend == 'false'
+        run: echo "No frontend files changed — skipping frontend checks."
+
+  backend:
+    name: Ruff (payment-service)
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'skip-ci') == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect backend changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'payment-service/**'
+
+      - name: Set up Python
+        if: steps.changes.outputs.backend == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        if: steps.changes.outputs.backend == 'true'
+        run: pip install ruff
+
+      - name: Ruff check
+        if: steps.changes.outputs.backend == 'true'
+        working-directory: payment-service
+        run: ruff check app/
+
+      - name: Skip (no backend changes)
+        if: steps.changes.outputs.backend == 'false'
+        run: echo "No backend files changed — skipping backend checks."
