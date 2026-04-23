@@ -1,46 +1,58 @@
 End-of-day developer report + startup prompt for tomorrow.
-This command MUST NOT modify files — only read and report.
+READ-ONLY. This command MUST NOT modify files.
 
-## Sources (read in parallel)
+## Sources (launch in parallel)
 
-1. Today's commits: `git log --since="00:00" --oneline`
-2. Changed files today: `git log --since="00:00" --name-only --pretty=format:""`
-3. Uncommitted work: `git diff --stat`
-4. Project dashboard: `Writerside/topics/project-dashboard.md`
+1. `Bash` — today's commits:
+   ```bash
+   git log --since="00:00" --oneline
+   ```
+2. `Bash` — changed files today:
+   ```bash
+   git log --since="00:00" --name-only --pretty=format:"" | sort -u | sed '/^$/d'
+   ```
+3. `Bash` — uncommitted work:
+   ```bash
+   git diff --stat && echo --- && git status -s
+   ```
+4. `Read` — `Writerside/topics/project-dashboard.md`
+5. `Grep` — `TODO|FIXME|HACK` across today's changed files (use file list from step 2)
 
-## Output sections (keep total under 40 lines)
+## Output (≤40 lines total)
 
 ### 1. Что сделано сегодня
 
-Group today's commits by area:
-- **Mobile (src/, app/)**: ...
-- **Backend (payment-service/)**: ...
-- **Web (transappweb/)**: ...
-- **Docs (Writerside/, docs/)**: ...
+Group commits by area:
+- **Mobile (src/, app/):** ...
+- **Backend (payment-service/):** ...
+- **Web-specific (.web.tsx):** ...
+- **Docs (Writerside/):** ...
 
 ### 2. Что осталось незакрытым
 
-- Uncommitted changes
-- TODOs found in today's changed files (grep for TODO/FIXME/HACK)
+- Uncommitted files (count + top 5)
+- TODO/FIXME/HACK found today (file:line + note)
+- Failing tests (if known from session)
 
 ### 3. Карта прогресса
 
-Summary from project-dashboard.md (if exists)
+1-3 line summary from `project-dashboard.md`.
 
 ### 4. Рекомендация на завтра
 
-Next logical task based on what was done and what remains.
+Next logical task based on today's work and open items.
 
 ### 5. Файлы сессии
 
-List of all files modified today (for compaction context).
+Full list of files modified today (for compaction context).
 
 ### 6. Промпт для первой сессии завтра
 
 ```
-Задача: [next task]
-Контекст: [what was done today]
-Образец: [reference file if any]
-Незакрытое: [open items]
-Предусловия: [Docker up? npm install? etc.]
+Задача: <next task>
+Контекст: <what was done today, 1 line>
+Образец: <reference file>
+Незакрытое: <open items>
+Предусловия: <Docker up? npm install? env vars?>
+Команды для старта: /start or /start-web, then /status
 ```

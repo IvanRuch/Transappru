@@ -1,56 +1,66 @@
 Technical verification of changed files.
-This command MUST NOT modify files — only read and report.
+READ-ONLY. This command MUST NOT modify files.
 
-Argument: $ARGUMENTS (default: today's commits; `HEAD~3`: last 3 commits; `staged`: only staged files)
+Argument: `$ARGUMENTS`
+- empty (default) — today's commits
+- `HEAD~N` — last N commits
+- `staged` — only staged files
 
 ## Scope selection
 
-Determine which files changed based on $ARGUMENTS:
-- Default (empty): `git log --since="00:00" --name-only --pretty=format:""`
+Based on `$ARGUMENTS`:
+- Default: `git log --since="00:00" --name-only --pretty=format:""`
 - `HEAD~N`: `git diff --name-only HEAD~N`
 - `staged`: `git diff --cached --name-only`
 
-## Checks
+Group changed files by area: `src/` + `app/` (mobile/web), `payment-service/`, other.
+Run only the checks relevant to the areas that changed.
 
-### 1. TypeScript (for src/ and app/ files)
+## Checks (run relevant ones in parallel)
 
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && npx tsc --noEmit --pretty
-```
-
-### 2. ESLint (for changed .ts/.tsx files)
+### TypeScript (when `src/` or `app/` changed)
 
 ```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && npx expo lint
+npx tsc --noEmit --pretty 2>&1 | tail -20
 ```
 
-### 3. Python lint (for payment-service/ files)
+### ESLint (when `.ts` / `.tsx` changed)
 
 ```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd/payment-service && ruff check app/
+npx expo lint 2>&1 | tail -20
 ```
 
-### 4. Test coverage (payment-service only)
+### Python lint (when `payment-service/` changed)
 
-For each changed endpoint in `payment-service/app/controllers/`, search `tests/` for matching test file.
-Write operations without tests → flag as missing.
+```bash
+cd payment-service && ruff check app/
+```
 
-### 5. Security patterns
+### Test coverage (payment-service writes)
 
-- Search changed files for hardcoded secrets (API keys, tokens, passwords)
-- Check that .env files are not staged
-- Verify payment amounts validated server-side
+For each changed file in `payment-service/app/controllers/`:
+- `Grep` for matching test in `payment-service/tests/` by endpoint path
+- Write operations (INSERT/UPDATE/DELETE) without a test → flag as missing
 
-## Output: Verdict table
+### Security (on all changed files)
+
+Use `Grep` with these patterns (changed files only):
+- Secrets: `(api[_-]?key|token|password|secret)\s*=\s*["'][^"']+["']` (case-insensitive)
+- Non-HTTPS payment URLs: `http://.*(kazna|payment|pay)`
+- Staged `.env`: run `git diff --cached --name-only | grep -E "\\.env"`
+
+## Output: verdict table
 
 ```
-## Verify: [scope]
+## Verify: <scope>
 
-| Check      | Status | Details           |
-|------------|--------|-------------------|
-| TypeScript | ✅/❌  | N errors          |
-| ESLint     | ✅/❌  | N warnings        |
-| Ruff       | ✅/❌  | N issues          |
-| Tests      | ✅/⚠️  | N endpoints untested |
-| Security   | ✅/❌  | details           |
+| Check      | Status | Details                |
+|------------|--------|------------------------|
+| TypeScript | ✅/❌  | N errors               |
+| ESLint     | ✅/⚠️  | N warnings             |
+| Ruff       | ✅/❌  | N issues               |
+| Tests      | ✅/⚠️  | N endpoints untested   |
+| Security   | ✅/❌  | clean / <details>      |
+
+<if any failure: top 3 findings with file:line>
 ```

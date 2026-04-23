@@ -1,49 +1,42 @@
 Session kickoff — read project state and orient for the next task.
-This command MUST NOT modify files — only read and report.
+READ-ONLY. This command MUST NOT modify files.
 
-## Sources to read (in parallel)
+Use `/start` for generic sessions, `/start-web` when the next task is web-specific.
 
-1. `Writerside/topics/project-dashboard.md` — current focus, progress
-2. `Writerside/topics/dev-web.md` — web feature parity checklist
-3. Recent git activity:
+## How to execute
 
-```bash
-git log -5 --oneline
-```
+**Launch ALL reads in a SINGLE message as parallel tool calls.**
+Do NOT read sequentially.
 
-4. Uncommitted work:
+### Reads (parallel)
 
-```bash
-git diff --stat
-```
+1. `Read` — `Writerside/topics/project-dashboard.md` (current focus, progress)
+2. `Bash` — `git log -5 --oneline && echo --- && git diff --stat`
+3. `Bash` — `ls -1 .claude/plans/*.md 2>/dev/null` (list active plans; if present, read them)
+4. `Bash` — `cd payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || echo "docker: not running"`
 
-5. Active plan files (if any):
+Do NOT re-read `CLAUDE.md` or `.claude/rules.md` — already auto-loaded.
 
-```bash
-ls -la .claude/plans/*.md 2>/dev/null && echo "---" && head -30 .claude/plans/*.md 2>/dev/null || echo "No active plans"
-```
-
-6. Docker status:
-
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd/payment-service && docker compose ps 2>/dev/null || echo "Docker not running"
-```
-
-## Output format (under 20 lines)
+## Output (≤20 lines)
 
 ```
 ## Session Start
 
-**Focus:** [current focus from dashboard]
-**Uncommitted:** [file count or "clean"]
-**Docker:** [running/stopped]
-**Active plan:** [plan name + summary or "none"]
+**Focus:** <from dashboard>
+**Uncommitted:** <file count or "clean">
+**Docker:** <running/stopped>
+**Active plan:** <name + 1-line summary or "none">
 
 ### Recent
-<last 3 commits one-liner>
+<last 3 commits, one line each>
 
-### Pending Work
-[From dashboard, plan file, or user's last direction]
-**What to do:** [1 sentence]
-**Reference:** [closest existing code to look at]
+### Next Task
+**What:** <one sentence>
+**Reference:** <closest existing file to look at>
+
+### Session Hints
+<pick any that apply>
+- Multi-file (>3) — use Plan Mode first
+- Research-heavy — use `Task` + `Explore` subagent
+- Web-specific task — consider `/start-web` instead
 ```

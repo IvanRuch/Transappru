@@ -1,65 +1,75 @@
-Visual UI/UX design review using Playwright MCP for screenshots and analysis.
+UI/UX design review via Playwright MCP.
 
-Argument: $ARGUMENTS (default: review all available pages)
+**Context cost warning:** Playwright snapshots are text (cheap); screenshots are images (expensive).
+Default to snapshot-only. Take screenshots ONLY for visual issues that cannot be judged from text
+(layout, colors, overlap, z-index, actual rendering). One screenshot per page, not per state.
 
-## Modes
+Argument: `$ARGUMENTS`
+- empty — review Expo Web at `localhost:8081`
+- `expo-web` — same as empty
+- `web` — review `transappweb` at `localhost:3000` (legacy reference, usually not needed)
+- `component:<name>` — review one component (search `src/components/`)
+- `compare` — mobile viewport (375×812) vs desktop (1440×900) — visual comparison, screenshots needed
 
-- No argument: review web version at localhost:8081 (Expo web)
-- `web`: transappweb at localhost:3000
-- `expo-web`: Expo web at localhost:8081
-- `component:<name>`: review specific component (search in src/components/)
-- `compare`: side-by-side comparison of mobile web vs desktop web
+## Prerequisite
 
-## Prerequisites
+Dev server must be running. If `browser_navigate` fails, warn and stop — do NOT start servers automatically.
 
-Check that the dev server is running before proceeding. If not running, warn the user.
+## Default flow (text-only, context-cheap)
 
-## Steps
+For each page to review:
+1. `browser_navigate` to the URL
+2. `browser_snapshot` (text a11y tree) — use this to judge structure, ARIA, hierarchy, content
+3. Only if the user asked for visual review OR you see a potential visual issue that can't be confirmed from the tree:
+   - `browser_take_screenshot` — one shot, viewport
+4. `browser_close` when done (frees the session)
 
-1. Navigate to each page using Playwright MCP (`browser_navigate`)
-2. Take screenshot (`browser_take_screenshot`)
-3. Get accessibility snapshot (`browser_snapshot`)
+## Review checklist
 
-## Analysis checklist
+### Accessibility (from snapshot)
 
-### Accessibility (WCAG AA)
-- Color contrast ratio >= 4.5:1 for text
-- Touch targets >= 44x44px
 - ARIA labels on interactive elements
-- Keyboard navigability
-- Focus indicators visible
+- Heading hierarchy (h1 → h2 → h3 contiguous)
+- Form fields have associated labels
+- Buttons have accessible names
+- Focus order is logical
+- `role="dialog"` on modals, `aria-modal="true"`, focus trap
 
-### Design Quality
-- Typography hierarchy (headings, body, captions)
-- Color consistency with app theme
-- Spacing and alignment (8px grid)
-- Layout responsiveness
-- State handling (loading, empty, error)
-- Visual hierarchy and information density
+### Design quality (from snapshot + optional screenshot)
 
-## Pages to check
+- Typography hierarchy (headings, body, captions distinct)
+- Color consistency with app theme (check Tailwind tokens in code, not pixel values)
+- Spacing / 8px grid (visible in screenshot only)
+- State handling visible: loading, empty, error
+- Touch targets ≥ 44×44 px (web) — check CSS in code if unsure
 
-| Page        | Route/URL            | What to verify              |
-|-------------|----------------------|-----------------------------|
-| Auth        | /                    | Login flow, phone input     |
-| PIN         | /pin                 | PIN entry, keypad layout    |
-| Auto list   | /(authenticated)/    | Vehicle cards, empty state  |
-| Charges     | /charges             | Fine list, selection UX     |
-| Payment     | /fine-payment        | Payment flow, amounts       |
+## Default pages (if scope not specified)
 
-## Output: Design Review Report
+| Page      | Route           | Focus                         |
+|-----------|-----------------|-------------------------------|
+| Auth      | `/`             | Phone input, submit button    |
+| PIN       | `/pin`          | Keypad layout, error state    |
+| Auto list | `/(authenticated)/` | Vehicle cards, empty state |
+| Charges   | `/charges`      | Fine list, selection          |
+| Payment   | `/fine-payment` | Amount display, confirm CTA   |
+
+Review them one by one. Do NOT load them all in parallel (session ordering matters).
+
+## Output
 
 ```
-## Design Review: [scope]
+## Design Review: <scope>
 
-### Accessibility: [score/5]
-- [findings]
+### Accessibility: <score/5>
+- <finding 1>
+- <finding 2>
 
-### Design Quality: [score/5]
-- [findings]
+### Design Quality: <score/5>
+- <finding 1>
+- <finding 2>
 
 ### Priority Improvements
-1. [highest impact change]
-2. ...
-3. ...
+1. <highest impact change + file path>
+2. <next>
+3. <next>
 ```

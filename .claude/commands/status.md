@@ -1,37 +1,41 @@
-Quick project health check — run all diagnostics in parallel and report a compact summary.
-This command MUST NOT modify files — only read and report.
+Quick project health check — run diagnostics in parallel and report a compact summary.
+READ-ONLY. This command MUST NOT modify files.
 
-## Run in parallel
+## How to execute
 
-1. **Git status**:
+**Launch ALL checks in a SINGLE message as parallel Bash calls.**
 
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && git status -s && echo "---" && git log -3 --oneline
-```
-
-2. **TypeScript check**:
+1. **Git**:
 
 ```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && npx tsc --noEmit --pretty 2>&1 | tail -5
+git status -s && echo --- && git log -3 --oneline
 ```
 
-3. **Docker services** (payment-service):
+2. **TypeScript** (last 5 lines of output only — avoids log spam):
 
 ```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd/payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Docker not running"
+npx tsc --noEmit --pretty 2>&1 | tail -5
 ```
 
-## Output format
+3. **Docker services**:
 
-Compact status card — under 15 lines:
+```bash
+cd payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "docker: not running"
+```
+
+## Output (≤15 lines)
 
 ```
 ## Status
 
-| Check      | Result                    |
-|------------|---------------------------|
-| Git        | clean / N uncommitted     |
-| TypeScript | 0 errors / N errors       |
-| Docker     | N/N services up / down    |
-| Last 3     | <commit summaries>        |
+| Check      | Result                     |
+|------------|----------------------------|
+| Git        | clean / N uncommitted      |
+| TypeScript | 0 errors / N errors        |
+| Docker     | N/N services up / stopped  |
+
+### Recent commits
+<last 3 commits, one line each>
+
+<if TypeScript has errors, list top 3 with file:line>
 ```

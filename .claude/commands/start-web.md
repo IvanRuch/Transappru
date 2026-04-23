@@ -1,62 +1,59 @@
 Web session kickoff — read web project state and orient for the next task.
-This command MUST NOT modify files — only read and report.
+READ-ONLY. This command MUST NOT modify files.
+
+Use `/start-web` (not `/start`) when the next task is web-specific.
 
 ## Context
 
-Web version uses **Expo Web** from the shared `/src/` codebase (ADR-001).
-Platform-specific screens use `.web.tsx` overrides. Layout: `_layout.web.tsx` wraps in `WebAppLayout`.
+Web = **Expo Web** from the shared `/src/` codebase (ADR-001).
+Platform-specific screens use `.web.tsx` overrides.
+Authenticated layout: `app/(authenticated)/_layout.web.tsx` wraps in `<WebAppLayout>`.
 
-## Sources to read (in parallel)
+## How to execute
 
-1. `Writerside/topics/dev-web.md` — feature parity checklist, shared hooks, Yandex Maps, CI/CD
-2. `Writerside/topics/project-dashboard.md` — overall progress
-3. `Writerside/topics/decision-log.md` — architectural decisions (ADR-001 through ADR-004)
-4. `.claude/rules.md` — session management, WebAppLayout rule, mobile/web parity
-5. Recent git activity:
+**Launch ALL reads/greps in a SINGLE message as parallel tool calls.**
+Do NOT read files sequentially — batch them.
 
-```bash
-git log -5 --oneline
-```
+### Reads (parallel)
 
-6. Uncommitted work:
+1. `Read` — `Writerside/topics/dev-web.md` (feature parity checklist, shared hooks)
+2. `Read` — `Writerside/topics/project-dashboard.md` (overall progress)
+3. `Grep` — `^## ADR-00[1-4]` in `Writerside/topics/decision-log.md` with `-A 8` context
+4. `Glob` — `src/screens/**/*.web.tsx` (count web screens)
+5. `Glob` — `app/**/*.web.tsx` (count web routes)
+6. `Bash` — `git log -5 --oneline && echo --- && git diff --stat`
+7. `Bash` — `ls -1 .claude/plans/*.md 2>/dev/null` (active plans)
+8. `Bash` — `cd payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || echo "docker: not running"`
 
-```bash
-git diff --stat
-```
+Do NOT re-read `.claude/rules.md` or `CLAUDE.md` — already in context.
 
-7. Active plan files:
-
-```bash
-ls -la .claude/plans/*.md 2>/dev/null && echo "---" && head -30 .claude/plans/*.md 2>/dev/null || echo "No active plans"
-```
-
-8. List web-specific screen files:
-
-```bash
-echo "=== .web.tsx screens ===" && find src/screens -name "*.web.tsx" | sort && echo "=== .web.tsx routes ===" && find app -name "*.web.tsx" | sort
-```
-
-## Output format (under 25 lines)
+## Output (≤25 lines)
 
 ```
 ## Web Session Start
 
-**Stack:** Expo Web (React Native Web), TypeScript, Expo Router
-**Last commit:** [date + message]
-**Uncommitted:** [file count or "clean"]
-**Active plan:** [plan name + summary or "none"]
+**Stack:** Expo Web (RNW) · TypeScript · Expo Router
+**Last commit:** <date + message>
+**Uncommitted:** <file count or "clean">
+**Docker:** <running/stopped>
+**Active plan:** <name + 1-line summary or "none">
 
 ### Feature Parity
-[Summary from dev-web.md checklist — what's done, what's missing]
+<1-3 bullets from dev-web.md — done / missing>
 
 ### Web-Specific Files
-[count] .web.tsx screens, [count] .web.tsx routes
+<N> `.web.tsx` screens · <M> `.web.tsx` routes
 
 ### Shared Hooks
-[list from dev-web.md — useAuthFlow, usePinConfirm, etc.]
+<first 5 from dev-web.md hooks list>
 
 ### Next Task
-[From plan file, dashboard, or user's direction]
-**What to do:** [1 sentence]
-**Key files:** [paths to start from]
+**What:** <one sentence from plan/dashboard/user>
+**Key files:** <2-3 paths to start from>
+
+### Session Hints
+<pick any that apply>
+- Multi-file (>3) — use Plan Mode first
+- Research-heavy — use `Task` + `Explore` subagent
+- Long session expected — consider `/compact focus on <task>` later
 ```

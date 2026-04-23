@@ -1,36 +1,52 @@
-Run Expo/EAS build verification.
+Run Expo / EAS build verification.
 
-Argument: $ARGUMENTS (optional: `ios`, `android`, `web`, `check`, or blank for typecheck only)
-
-## Modes
-
-- No argument or `check`: TypeScript check + ESLint only (fastest)
-
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && npx tsc --noEmit && npx expo lint
-```
-
-- `ios`: EAS build for iOS
-
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && eas build --platform ios --profile development --local
-```
-
-- `android`: EAS build for Android
-
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && eas build --platform android --profile development --local
-```
-
-- `web`: Expo web export
-
-```bash
-cd /Volumes/HP_P800/grizodubov/IdeaProjects/TransApp_upd && npx expo export --platform web
-```
+Argument: `$ARGUMENTS`
+- empty or `check` — TypeScript + ESLint only (fastest)
+- `web` — Expo Web export
+- `ios` — EAS local iOS build (development profile)
+- `android` — EAS local Android build (development profile)
 
 ## Steps
 
-1. Always run TypeScript check first
-2. If platform specified, run the corresponding build
-3. Report build result and any errors
-4. For build failures, identify the root cause and suggest fixes
+1. Always run TypeScript check first — abort build on TS errors.
+2. Then run the platform-specific command (if any).
+3. Report pass/fail; on failure: root cause + suggested fix.
+
+## Commands
+
+### check (default)
+
+```bash
+npx tsc --noEmit && npx expo lint
+```
+
+### web
+
+```bash
+npx tsc --noEmit && npx expo export --platform web
+```
+
+### ios
+
+```bash
+npx tsc --noEmit && eas build --platform ios --profile development --local
+```
+
+### android
+
+```bash
+npx tsc --noEmit && eas build --platform android --profile development --local
+```
+
+## Output
+
+```
+## Build: <mode>
+
+| Step       | Status | Time |
+|------------|--------|------|
+| TypeScript | ✅/❌  | Ns   |
+| <build>    | ✅/❌  | Ns   |
+
+<on failure: top 3 errors with file:line and suggested fix>
+```
