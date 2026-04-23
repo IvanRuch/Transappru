@@ -1,3 +1,7 @@
+---
+description: Quick project health check (git + TypeScript + Docker) in parallel
+---
+
 Quick project health check — run diagnostics in parallel and report a compact summary.
 READ-ONLY. This command MUST NOT modify files.
 

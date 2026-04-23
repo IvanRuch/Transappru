@@ -1,3 +1,7 @@
+---
+description: Session kickoff — read project state and orient for the next task
+---
+
 Session kickoff — read project state and orient for the next task.
 READ-ONLY. This command MUST NOT modify files.
 

@@ -40,10 +40,24 @@ See `.claude/skills/payment-db.md` for full schema reference.
 
 ## Business Rules
 
-- Secrets (KAZNA_SECRET_KEY, KAZNA_TOKEN) — ONLY in .env, never in code
+- Secrets (KAZNA_SECRET_KEY, KAZNA_TOKEN) — ONLY in `.env`, never in code (see root `.claude/rules.md` Payment Security)
 - Commission = kazna_percent + transapp_percent (0.1%)
 - Amounts converted to kopecks server-side (×100)
+- Amounts MUST be validated server-side — never trust client-supplied values
 - Kazna API: request signing via `cryptography` library
+
+## Transactions & Error Handling (writes)
+
+For any endpoint that performs INSERT/UPDATE/DELETE on `payment_db`:
+
+- Wrap DB writes in `async with in_transaction():` (Tortoise) — rollback on any error
+- Validate input with Pydantic v2 model BEFORE touching the DB
+- On Kazna API failure, persist the attempt with `kazna_status="failed"` + reason — never leave a silent hole
+- Surface user-facing errors via Litestar `HTTPException(status_code, detail)` — do not leak stack traces
+- Return deterministic status codes: `400` invalid input, `402` payment declined, `409` duplicate UIN, `500` Kazna/DB errors
+- Log with structured fields (transaction_id, uin, status) — avoid f-string logs without context
+
+Write-operation TDD rule (from root CLAUDE.md): test first, then implement.
 
 ## Testing
 

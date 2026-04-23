@@ -134,8 +134,6 @@ These are mistakes made and corrected during the Pass pilot. Do NOT repeat.
 5. **Don't leave class components in a functional codebase** when converting a screen pair. Convert to functional + hook during the same migration.
 6. **Don't ignore the project's declared stack.** Before styling a component, check `tailwind.config.js` and existing NativeWind screens (`ChargesScreen.tsx`, `PassScreen.*`). Don't reinvent StyleSheet.
 
-## Naming Conventions
-
 ## TypeScript
 
 - Strict mode enabled, path alias `@/*` → `./*`

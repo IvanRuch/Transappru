@@ -1,3 +1,8 @@
+---
+description: Run Expo / EAS build verification (check | web | ios | android)
+argument-hint: [check | web | ios | android]
+---
+
 Run Expo / EAS build verification.
 
 Argument: `$ARGUMENTS`

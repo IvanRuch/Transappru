@@ -1,3 +1,7 @@
+---
+description: Web session kickoff — read web project state and orient for the next task
+---
+
 Web session kickoff — read web project state and orient for the next task.
 READ-ONLY. This command MUST NOT modify files.
 

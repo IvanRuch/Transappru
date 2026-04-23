@@ -1,3 +1,7 @@
+---
+description: End-of-day developer report + startup prompt for tomorrow
+---
+
 End-of-day developer report + startup prompt for tomorrow.
 READ-ONLY. This command MUST NOT modify files.
 

@@ -1,3 +1,8 @@
+---
+description: Run payment-service pytest suite inside Docker and analyze results
+argument-hint: [empty | tests/test_foo.py | tests/test_foo.py::test_bar]
+---
+
 Run payment-service test suite inside Docker and analyze results.
 
 Argument: `$ARGUMENTS` — optional test file or pattern (e.g. `tests/test_payment.py` or `tests/test_payment.py::test_foo`)

@@ -1,3 +1,8 @@
+---
+description: Verify changed files (TypeScript, ESLint, Ruff, tests, security)
+argument-hint: [empty | HEAD~N | staged]
+---
+
 Technical verification of changed files.
 READ-ONLY. This command MUST NOT modify files.
 

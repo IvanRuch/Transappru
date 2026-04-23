@@ -1,3 +1,8 @@
+---
+description: UI/UX design review via Playwright (snapshot-first, screenshot on demand)
+argument-hint: [empty | expo-web | web | component:<name> | compare]
+---
+
 UI/UX design review via Playwright MCP.
 
 **Context cost warning:** Playwright snapshots are text (cheap); screenshots are images (expensive).
