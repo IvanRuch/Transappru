@@ -42,28 +42,15 @@ When compacting, ALWAYS preserve:
 - Active task context and pending TODO items
 - Which Writerside topics were updated
 
-## Context & session hygiene (MANDATORY)
-
-Long sessions degrade quality. Actively protect the context window:
-
-- **Research / multi-file search → use subagent.** Launch `Task` with
-  `subagent_type=Explore` (or `general-purpose`) instead of reading many files
-  in the main session. Only the subagent's summary enters the main context.
-- **Multi-file changes (>3 files) → Plan Mode first.** Investigate and present
-  a plan for approval before editing.
-- **Proactive compaction.** After a large exploration or every ~30 messages,
-  suggest `/compact focus on <current task>` with explicit focus.
-- **Proactive `/clear`.** When the user switches to an unrelated task,
-  suggest committing and running `/clear` instead of continuing.
-- **Read before edit.** Always re-read a file in the current session before
-  editing it. Do not trust "memory" of file contents.
-- **Prefer text over images.** `browser_snapshot` over `browser_take_screenshot`.
-  Use Playwright only when visual verification is actually required.
-- **Use `context7` MCP** for library docs instead of reading `node_modules`.
-
 ## Project rules (ALWAYS read)
 
-See `.claude/rules.md`
+See `.claude/rules.md` — full cross-cutting ruleset: scope discipline,
+Playwright usage, read-before-edit, context hygiene (subagent for research,
+Plan Mode for multi-file changes, proactive `/compact focus on <task>` and
+`/clear`), mobile/web parity, payment security, and more.
+
+Session state between compactions is auto-saved to `.claude/session-state.md`
+by the `PreCompact` hook — `/start` reads it back on next session.
 
 ## Coding conventions (auto-loaded per directory)
 

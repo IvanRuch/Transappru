@@ -50,6 +50,9 @@ old-project
 # Claude Code local settings (machine-specific paths)
 .claude/settings.local.json
 
+# Claude Code session state (auto-written by PreCompact hook, per-session)
+.claude/session-state.md
+
 # Playwright MCP (test artifacts)
 .playwright-mcp/
 

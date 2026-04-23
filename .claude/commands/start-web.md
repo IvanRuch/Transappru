@@ -22,12 +22,13 @@ Do NOT read files sequentially — batch them.
 
 1. `Read` — `Writerside/topics/dev-web.md` (feature parity checklist, shared hooks)
 2. `Read` — `Writerside/topics/project-dashboard.md` (overall progress)
-3. `Grep` — `^## ADR-00[1-4]` in `Writerside/topics/decision-log.md` with `-A 8` context
-4. `Glob` — `src/screens/**/*.web.tsx` (count web screens)
-5. `Glob` — `app/**/*.web.tsx` (count web routes)
-6. `Bash` — `git log -5 --oneline && echo --- && git diff --stat`
-7. `Bash` — `ls -1 .claude/plans/*.md 2>/dev/null` (active plans)
-8. `Bash` — `cd payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || echo "docker: not running"`
+3. `Read` — `.claude/session-state.md` IF EXISTS (auto-saved by PreCompact hook — previous session's state)
+4. `Grep` — `^## ADR-00[1-4]` in `Writerside/topics/decision-log.md` with `-A 8` context
+5. `Glob` — `src/screens/**/*.web.tsx` (count web screens)
+6. `Glob` — `app/**/*.web.tsx` (count web routes)
+7. `Bash` — `git log -5 --oneline && echo --- && git diff --stat`
+8. `Bash` — `ls -1 .claude/plans/*.md 2>/dev/null | grep -v README` (active plans; if any, read their Status line)
+9. `Bash` — `cd payment-service && docker compose ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || echo "docker: not running"`
 
 Do NOT re-read `.claude/rules.md` or `CLAUDE.md` — already in context.
 
@@ -51,13 +52,16 @@ Do NOT re-read `.claude/rules.md` or `CLAUDE.md` — already in context.
 ### Shared Hooks
 <first 5 from dev-web.md hooks list>
 
+### Carried over from previous session
+<if session-state.md exists: 1-2 lines summary, otherwise omit this block>
+
 ### Next Task
 **What:** <one sentence from plan/dashboard/user>
 **Key files:** <2-3 paths to start from>
 
 ### Session Hints
 <pick any that apply>
-- Multi-file (>3) — use Plan Mode first
+- Multi-file (>3) — use Plan Mode first; save approved plan to `.claude/plans/`
 - Research-heavy — use `Task` + `Explore` subagent
 - Long session expected — consider `/compact focus on <task>` later
 ```

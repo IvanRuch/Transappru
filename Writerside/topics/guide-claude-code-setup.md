@@ -74,12 +74,21 @@ Preserve: modified files, test status, active task, pending TODOs
 
 ### `.claude/rules.md` — кросс-правила
 
-- Security (секреты только в .env, валидация на сервере)
-- Port mapping (какой порт что делает)
-- Platform-specific files (проверять оба варианта при изменении)
-- Corrections — накапливаются по мере работы, добавлять только с подтверждения пользователя
+Auto-loaded в каждую сессию. Типичные блоки:
 
-## 3. PostToolUse хуки
+- **Security** — секреты только в `.env`, серверная валидация
+- **Port mapping** — какой порт что делает
+- **Platform-specific files** — проверять оба варианта при изменении (`.tsx` + `.web.tsx`)
+- **Scope discipline** — не делать drive-by рефакторы / лишние изменения
+- **Playwright usage** — `browser_snapshot` (text) по умолчанию, screenshot только при визуальной необходимости
+- **Read before edit** — всегда re-read файл в текущей сессии перед правкой
+- **Context hygiene** — subagent для research, Plan Mode для >3 файлов, проактивный `/compact focus on <task>` и `/clear`
+- **Critical thinking** — не соглашаться автоматически, предлагать альтернативы
+- **Corrections** — накапливаются по мере работы, добавлять только с подтверждения пользователя
+
+## 3. Hooks
+
+### PostToolUse хуки
 
 Три хука из `.claude/settings.local.json`, секция `hooks.PostToolUse`:
 
@@ -144,6 +153,42 @@ Preserve: modified files, test status, active task, pending TODOs
 > Хуки для Python-только проекта: убрать typecheck-tsx.sh.
 > Хуки для TS-только проекта: убрать lint-python.sh.
 
+### PreCompact hook — сохранение состояния сессии
+
+`.claude/hooks/pre-compact.sh` запускается перед автоматической компактацией
+диалога и пишет `.claude/session-state.md` (git-ignored):
+
+- текущая ветка
+- незакоммиченные изменения (`git status -s`)
+- последние 5 коммитов
+- файлы, изменённые сегодня
+
+Следующая сессия читает этот файл через `/start` — позволяет продолжить
+с того места, где остановились, без ручного восстановления контекста.
+
+```json
+"PreCompact": [
+  {
+    "hooks": [
+      { "type": "command",
+        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-compact.sh" }
+    ]
+  }
+]
+```
+
+### Plans directory (`.claude/plans/`)
+
+Директория для сохранённых планов из Plan Mode. Правило: любое изменение
+>3 файлов начинается с Plan Mode. Утверждённый план сохраняется сюда
+отдельным `.md` файлом, чтобы следующая сессия могла продолжить исполнение
+без повторного исследования.
+
+- Формат имени: `YYYY-MM-DD-short-title.md`
+- Статус: `draft | in-progress | completed | abandoned`
+- Файлы трекаются в git (совместная память команды)
+- `/start` и `/start-web` подхватывают активные планы на старте
+
 ## 4. Custom Slash Commands
 
 Размещаются в `.claude/commands/<name>.md`. Доступны через `/<name>`.
@@ -156,31 +201,44 @@ Preserve: modified files, test status, active task, pending TODOs
 | `/verify [scope]` | Проверка изменённых файлов (TS + lint + tests + security) | Да |
 | `/test-backend [pattern]` | Запуск pytest в Docker | Да |
 | `/build [platform]` | Expo/EAS build или typecheck | Да |
-| `/start` | Старт сессии: dashboard + git log + docker | Да |
+| `/start` | Старт сессии: dashboard + session-state + git log + docker | Да |
+| `/start-web` | Старт web-сессии: dev-web + ADR + web-файлы + plans | Да |
 | `/gap-check` | Отчёт за день + промпт на завтра | Да |
 | `/design-review [mode]` | UI/UX аудит через Playwright | Да |
 
 ### Шаблон команды
 
 ```markdown
+---
+description: Короткое описание (показывается в /help)
+argument-hint: [hint для input-box]
+---
+
 Описание что делает команда.
 Указать MUST NOT modify files если read-only.
 
 Argument: $ARGUMENTS (описание)
 
-## Steps
-1. Что запустить (bash команды)
+## How to execute
+
+**Launch ALL reads in a SINGLE message as parallel tool calls.**
+(для read-heavy команд — экономит контекст)
+
+## Steps / Reads
+1. Что запустить (Read / Bash / Glob / Grep)
 2. Что проанализировать
 
 ## Output format
-Формат вывода (таблица, карточка, отчёт)
+Формат вывода (таблица, карточка, отчёт). Ограничить строки.
 ```
 
 ### Советы
 
 - Все диагностические команды должны быть **read-only**
-- Указывать абсолютные пути в bash-командах
-- Ограничивать вывод (under 15/40 lines)
+- YAML frontmatter (`description`, `argument-hint`) — улучшает UX в `/help`
+- Явная инструкция "parallel tool calls" в read-heavy командах
+- Не re-read `CLAUDE.md` / `.claude/rules.md` — они авто-загружены
+- Ограничивать вывод логов через `| tail -N` — не забивать контекст
 - `$ARGUMENTS` — аргументы, переданные пользователем
 
 ## 5. Skills
