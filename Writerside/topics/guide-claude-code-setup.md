@@ -88,9 +88,22 @@ Auto-loaded в каждую сессию. Типичные блоки:
 
 ## 3. Hooks
 
+### Разделение settings.json / settings.local.json
+
+Best-practice разделение конфигурации на два файла:
+
+| Файл | Что содержит | Git |
+|------|-------------|:---:|
+| `.claude/settings.json` | Shared hooks (команда получает при клонировании) | tracked |
+| `.claude/settings.local.json` | Per-user permissions (абсолютные пути, MCP allow-list) | gitignored |
+
+Claude Code мержит оба файла. Hooks держим в `settings.json`, чтобы каждый
+новый клон репо получил `PreCompact` / `PostToolUse` хуки автоматически —
+без ручной настройки.
+
 ### PostToolUse хуки
 
-Три хука из `.claude/settings.local.json`, секция `hooks.PostToolUse`:
+Три хука из `.claude/settings.json`, секция `hooks.PostToolUse`:
 
 ### typecheck-tsx.sh — TypeScript guard
 
@@ -127,7 +140,7 @@ Auto-loaded в каждую сессию. Типичные блоки:
 # Тихо падает если сервер не запущен
 ```
 
-### Настройка в settings.local.json
+### Настройка в settings.json (tracked)
 
 ```json
 {
@@ -144,6 +157,11 @@ Auto-loaded в каждую сессию. Типичные блоки:
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/lint-python.sh" }]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [{ "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-compact.sh" }]
       }
     ]
   }
@@ -165,17 +183,7 @@ Auto-loaded в каждую сессию. Типичные блоки:
 
 Следующая сессия читает этот файл через `/start` — позволяет продолжить
 с того места, где остановились, без ручного восстановления контекста.
-
-```json
-"PreCompact": [
-  {
-    "hooks": [
-      { "type": "command",
-        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pre-compact.sh" }
-    ]
-  }
-]
-```
+Регистрация уже включена в блок `settings.json` выше.
 
 ### Plans directory (`.claude/plans/`)
 
@@ -445,15 +453,17 @@ agnix --dry-run --show-fixes .
 - [ ] Написать `CLAUDE.md` (root) с Documentation Update Rule, TDD, Commits, Compaction
 - [ ] Написать sub-CLAUDE.md для каждого суб-проекта
 - [ ] Написать `.claude/rules.md` (security, ports, platform files)
-- [ ] Создать хуки: `typecheck-tsx.sh`, `lint-python.sh`, `post-tool-call.py`
+- [ ] Создать хуки: `typecheck-tsx.sh`, `lint-python.sh`, `post-tool-call.py`, `pre-compact.sh`
 - [ ] Сделать хуки executable: `chmod +x .claude/hooks/*.sh`
-- [ ] Создать `.claude/settings.local.json` (permissions + hooks)
+- [ ] Создать `.claude/settings.json` (shared hooks, tracked)
+- [ ] Создать `.claude/settings.local.json` (per-user permissions, gitignored)
+- [ ] Создать `.claude/plans/` с `README.md` для Plan Mode артефактов
 - [ ] Создать `.mcp.json` (PostgreSQL + Playwright + Context7)
-- [ ] Создать slash-команды: `/status`, `/verify`, `/test-backend`, `/build`, `/start`, `/gap-check`, `/design-review`
+- [ ] Создать slash-команды: `/status`, `/verify`, `/test-backend`, `/build`, `/start`, `/start-web`, `/gap-check`, `/design-review`
 - [ ] Создать кастомные скиллы: `writerside-docs.md`, `<db-name>.md`
 - [ ] Установить внешние скиллы: `npx -y skills add <source> -y`
 - [ ] Создать Writerside: `writerside.cfg`, `*.tree`, скелетные топики
-- [ ] Добавить `.claude/settings.local.json` в `.gitignore`
+- [ ] Добавить в `.gitignore`: `.claude/settings.local.json`, `.claude/session-state.md`
 - [ ] Запустить `agnix .` для валидации
 - [ ] Перезапустить Claude Code для подхвата конфигурации
 
