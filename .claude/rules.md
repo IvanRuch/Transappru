@@ -123,4 +123,47 @@ When the user proposes a UI element, behaviour, or technical approach:
    dependency, search for something equivalent already in the project
    (`src/components/`, `src/hooks/`, `src/utils/`, `tailwind.config.js`).
 
+## Scope discipline (do not make unrequested changes)
+
+- Touch ONLY files directly required by the task
+- No drive-by refactors, no "while we're here" improvements
+- Do NOT add docstrings, comments, or type annotations to code you didn't change
+- Do NOT add error handling / validations for scenarios that can't happen
+- Do NOT create helpers / abstractions for a single use-site
+- If tempted to refactor adjacent code — ASK first, don't just do it
+- 3 similar lines are better than a premature abstraction
+
+## Playwright / browser usage (keep context lean)
+
+Playwright snapshots and screenshots consume large amounts of context and
+accelerate session degradation. Use sparingly.
+
+- Use Playwright ONLY when:
+  - the user explicitly asks to check the UI
+  - verifying a visual / layout bug
+  - testing an interactive flow that cannot be verified from code
+- Do NOT take screenshots after every code change
+- For logic / data verification — read the code, do not screenshot
+- Prefer `browser_snapshot` (text) over `browser_take_screenshot` (image)
+- One snapshot per verification step, not a series
+
+## Read before edit
+
+- NEVER propose changes to a file without reading it first in the current session
+- Do not rely on "memory" of file contents from earlier turns — re-read if unsure
+- For large files, use `Read` with `offset`/`limit` or `Grep` with `-C` instead of reading in full
+
+## Context hygiene (long sessions)
+
+- Use `Task` tool with `Explore` / `general-purpose` subagent for research,
+  multi-file searches, and log analysis. Subagent runs in its own context window
+  and returns only the summary.
+- Use **Plan Mode** before multi-file (>3 files) implementation work.
+- Every ~30 messages or after a large exploration, proactively suggest
+  `/compact focus on <current task>` with an explicit focus.
+- Between independent tasks suggest `/clear` — do not let one session bleed
+  into the next.
+- Before `/compact` or session end: ensure all changes are committed, then
+  update `Writerside/topics/project-dashboard.md` with current state.
+
 ## Corrections (accumulated)
