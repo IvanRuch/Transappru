@@ -17,6 +17,8 @@ COPY app.json ./
 COPY tsconfig.json ./
 COPY babel.config.js ./
 COPY metro.config.js ./
+COPY tailwind.config.js ./
+COPY global.css ./
 COPY plugins/ ./plugins/
 
 # Build Expo Web (produces dist/ with static files)
