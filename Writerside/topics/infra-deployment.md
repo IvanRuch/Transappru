@@ -338,13 +338,39 @@ first successful `docker push` — until then there is no entity to attach a
 policy to, and the management console doesn't render the relevant tab on an
 empty registry. Two ways to set the policy:
 
-1. **Post-first-deploy (recommended):** trigger one `deploy-web.yml` run, let
-   it push images and create repo `transapp-web`, then in the console:
-   Container Registry → registry `transapp` → repository row `transapp-web` →
-   "Политики жизненного цикла" → Создать.
+1. **UI under an admin account (recommended):** in the YC Console, navigate
+   Container Registry → registry `transapp` → repository row `transapp-web`
+   → "Политики жизненного цикла" → Создать. **Use a personal YC account**
+   (the human admin of the folder), not the deployer service account — the
+   CI service account intentionally lacks lifecycle-policy management
+   permissions (see "Why not via CI service account" below).
 2. **Pre-deploy via CLI:** `yc container repository lifecycle-policy create`
    accepts `--repository-name`; if the repo doesn't exist, the command creates
-   it empty and attaches the policy. Requires `yc` CLI installed and logged in.
+   it empty and attaches the policy. Requires `yc` CLI installed and logged in
+   as the human admin (or any principal with `container-registry.editor` on
+   the registry).
+
+### Why not via CI service account
+
+Attempting `yc container repository lifecycle-policy create` while
+authenticated as the deployer SA (`ajev4eihrb827f5hf7oq`) returns
+`PermissionDenied`. **This is correct security model**, not a misconfiguration.
+The SA's role set (`container-registry.images.{pusher,puller}`,
+`compute.editor`, `certificate-manager.certificates.downloader`, `vpc.user`,
+`vpc.publicAdmin`, `iam.serviceAccounts.user`) intentionally excludes:
+
+- `container-registry.editor` (would allow deleting the policy or images)
+- `resource-manager.admin` (would allow self-promoting via
+  `add-access-binding`)
+
+If lifecycle policy ever needs to be re-created or modified by automation
+(rare — it's typically a one-time setup), the proper path is: **temporarily**
+grant `container-registry.editor` on the registry to the SA, run the
+operation, **immediately revoke**. Don't leave the elevated role attached.
+
+For the initial setup of `transapp-web` policy on 2026-04-28 we used the
+human-admin UI path — five minutes of clicking, zero permission expansion
+on the SA, no re-revoke needed.
 
 ### Recommended policy for `transapp-web` (ready-to-paste)
 
@@ -638,11 +664,10 @@ infra moves. Status updated 2026-04-26.
 | Static public IP reserved in YC | ✅ done (2026-04-26) | `81.26.191.68` (resource id `fl884aq6ria0hhp849m2`). Standalone, unattached — `ping` does not respond (expected; YC does not route to detached static IPs until a VM picks them up). Goes into `YC_VM_PUBLIC_IP` secret + A-record `transapp-dev.ru → 81.26.191.68` |
 | Subnet identified | ✅ done (2026-04-26) | `fl8702klmck8qe2lgmfn` — name `network-ru-central1-d`, status Active, folder `b1g2p4bd4r3v0ggge11d`. Default subnet in zone `ru-central1-d` (matches `vm-zone-id` hardcoded in `deploy-web.yml:103`). Shared with tradesu (co-tenancy by design). Goes into `YC_SUBNET_ID` secret |
 | Container Registry created | ✅ done (2026-04-26) | Dedicated registry `transapp` (id `crp5r94toq386vkahvml`) in folder `b1g2p4bd4r3v0ggge11d`. Separate from tradesu CR for clean isolation. Goes into `YC_REGISTRY_ID` secret. Image paths: `cr.yandex/crp5r94toq386vkahvml/transapp-web:<sha>-{nginx,payment}` |
-| Container Registry lifecycle policy | ❌ pending (post-first-deploy) | Repository `transapp-web` does not exist until first `docker push`. Policy must target a `repositoryId`/`repositoryName` — so UI tab "Политики" is not visible on a new registry. **Plan:** after the first successful `deploy-web.yml` smoke run creates the repo, set policy via console (Container Registry → transapp → repository transapp-web → Lifecycle policies → Создать). **Alternative (pre-deploy):** `yc container repository lifecycle-policy create --registry-id crp5r94toq386vkahvml --repository-name transapp-web --rules <file> --active` — CLI auto-creates an empty repo. **Ready-to-paste rules (4 entries):** see § "Recommended policy for `transapp-web` (ready-to-paste)" earlier in this doc — both UI form fields and equivalent JSON are pre-filled with the SHA-specific regex per service (`^[a-f0-9]{40}-nginx$`, `^[a-f0-9]{40}-payment$`) plus untagged-cleanup and protective-tags rules. Same shape as the validated `tradesu-moderator` policy. |
 | Certificate Manager cert for `transapp-dev.ru` | ✅ done (2026-04-26) | id `fpqj50bofmtu8012f0k0` (Let's Encrypt via DNS-01). Goes into `YC_CERT_ID` secret. Auto-renewal CNAME `_acme-challenge.transapp-dev.ru → fpqj50bofmtu8012f0k0.cm.yandexcloud.net.` is permanent — must not be deleted. Verified `dig +short transapp-dev.ru A @8.8.8.8 → 81.26.191.68`, A-record propagated |
 | GitHub secrets populated | ✅ done (2026-04-28) | All 16 entries set: 10 YC-side (`YC_FOLDER_ID`, `YC_VM_PUBLIC_IP`, `YC_CERT_ID`, `YC_SUBNET_ID`, `YC_REGISTRY_ID`, `YC_SERVICE_ACCOUNT_ID`, `YC_VM_NAME`, `YC_VM_USERNAME`, `YC_VM_SSH`, `YC_SA_JSON_CREDENTIALS`) + 3 Postgres (`PG_USER=transapp_payment`, `PG_NAME=transapp_payment`, `PG_PASSWORD` = 43-char base64-from-`openssl rand -base64 32 \| tr -d '\n/'`, **stored in 1Password** before `unset PG_PWD` — recovery without it requires Postgres-volume reset) + 3 Kazna sandbox (`KAZNA_API_URL=https://demopay.oplatagosuslug.ru/api/kazna/2.2`, `KAZNA_SECRET_KEY=SA9QXHKV`, `KAZNA_TOKEN=testservice`). Verified: `gh secret list -R TransKonsalt/TransApp` returns 16 names. Ready for smoke deploy via `gh workflow run deploy-web.yml`. |
 | `deploy-web.yml` smoke test (workflow_dispatch) | ✅ done (2026-04-28) | Run #25062188504 finished green after 5 iterations: (1) `npm ci` ERESOLVE on `@types/react-dom` (fixed in PR #1 commit 1) → (2) `npm ci` ERESOLVE on `react-test-renderer` patch-version mismatch + Firebase async-storage peer-dep (fixed in PR #1 commit 1 with overrides) → (3) Expo export missed `tailwind.config.js` + `global.css` (fixed in PR #1 commit 2) → (4) `yc-coi-deploy` PERMISSION_DENIED on VPC network (added `vpc.publicAdmin` to SA) → (5) PERMISSION_DENIED on service account (added `iam.serviceAccounts.user` to SA) → success. VM id `fv42gattub1fh05eaip5` created, IP `81.26.191.68` attached, both containers running. Verified: `curl -I https://transapp-dev.ru/` returns HTTP 200 + nginx 1.29.8; `curl -X POST https://transapp-dev.ru/payment-api/api/calculate-commission -d '{"amount":500}'` returns valid JSON with kazna+transapp commissions. SSL cert from Yandex Certificate Manager working end-to-end. Final SA role set: 7 roles (`container-registry.images.{pusher,puller}`, `compute.editor`, `certificate-manager.certificates.downloader`, `vpc.user`, `vpc.publicAdmin`, `iam.serviceAccounts.user`). |
-| Container Registry lifecycle policy | ❌ pending (post-first-deploy) — repo now exists | Repository `cr.yandex/crp5r94toq386vkahvml/transapp-web` was created automatically during the first successful deploy. Now eligible for the 4-rule lifecycle policy in § "Recommended policy for `transapp-web` (ready-to-paste)". |
+| Container Registry lifecycle policy | ✅ done (2026-04-28) | Created via UI under personal admin account (SA intentionally lacks `container-registry.editor` — see § "Why not via CI service account"). Name `cleanup-default`, status Active, 4 rules per § "Recommended policy for `transapp-web` (ready-to-paste)". First lifecycle check (id `crp5lpr4spivbho2qn9o`, 19:19 MSK) reported **0 matching images** — both deployed images (`<sha>-nginx` + `<sha>-payment` from first deploy) are <30 days old and within `retained_top: 10` per-service. Policy is dormant on a fresh repo by design; will start retiring oldest sha/service pairs once we exceed 10 SHAs per service AND those images cross 30 days. |
 | First GitHub Release | ❌ pending | Phase 2, after `app.transapp.ru` cohabitation is wired |
 | Payment endpoint path conventions | ⚠️ technical debt | Working path is `/payment-api/api/calculate-commission` — double `/api` prefix because nginx proxies `/payment-api/` → payment-service container, and Litestar app routes are themselves under `/api/`. Client code should be configured to call this path; for cleanliness, future iteration can either drop the `/api` prefix from Litestar routes OR switch nginx to strip `/payment-api/` before proxying. Not blocking. |
 
