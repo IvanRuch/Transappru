@@ -31,6 +31,7 @@
     </toc-element>
 
     <toc-element toc-title="Infrastructure">
+        <toc-element topic="infra-deployment.md"/>
         <toc-element topic="infra-docker.md"/>
         <toc-element topic="infra-eas-build.md"/>
         <toc-element topic="infra-firebase.md"/>

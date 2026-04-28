@@ -63,6 +63,23 @@ with GitHub Actions CI/CD. Architecture modeled after `tradesu-moderator` projec
 - Old `deploy.yml` (payment-only SSH deploy) kept for backward compatibility
 - GitHub Secrets must be configured before first deploy
 
+**Update (2026-04-26) — factual correction:** the original wording "Payment
+service was deployed as a standalone container via SSH" was aspirational, not
+accurate. A direct audit on this date established that:
+
+- `deploy.yml` triggered on push 3 times (2026-01-15, 2026-04-14, 2026-04-23)
+  and **all 3 runs failed at the first step** because no GitHub Secrets exist
+  in the repository (`gh api .../actions/secrets` → `total_count: 0`).
+- `deploy-web.yml` (this ADR's pipeline) has **never been triggered** — no
+  GitHub Releases were ever created.
+- DNS for `payment.transapp.ru` does not resolve (NXDOMAIN). The hardcoded
+  `PROD_PAYMENT_API_URL` in `src/services/api.ts:18` points at a host that has
+  never existed.
+- Therefore, the first run of `deploy-web.yml` will be the **first time
+  payment-service has ever been exposed to the public internet** — this is a
+  clean start, not a migration. See ADR-006 and `infra-deployment.md` for the
+  current plan and inventory.
+
 ---
 
 ### ADR-003: Extract shared hooks to eliminate mobile/web screen duplication (2026-04-14)
@@ -172,3 +189,106 @@ Add two cross-cutting utilities:
 - Next screens in queue: `NotificationListScreen` → `DriverListScreen` → `NotificationSettingsScreen`
   → `ChargesScreen` → `UserScreen` → `PaymentConfirmScreen` → `InnScreen` → `AutoListScreen`
   → `AuthScreen`/`PinScreen` (special 2-col layout) → `PassYaMapScreen` (special: map)
+
+---
+
+### ADR-006: First production deployment treated as a clean start (2026-04-26)
+
+**Context:** ADR-002 (2026-04-14) committed to a Yandex Cloud COI VM deploy
+pipeline modelled after `tradesu-moderator`. A factual audit on 2026-04-26
+revealed that nothing from that pipeline has ever reached production:
+
+- 0 secrets in repo / org / environments
+- `deploy.yml` (legacy SSH path): 3 failed runs, never succeeded
+- `deploy-web.yml` (COI VM path): never triggered
+- DNS `payment.transapp.ru`: does not exist
+- payment-service has only ever run on a developer laptop via the local
+  `payment-service/docker-compose.yml`
+
+**Decision:** Treat the upcoming first deploy as a greenfield setup, not a
+migration. Provision Yandex Cloud resources from scratch, populate GitHub
+Secrets, configure DNS, then trigger `deploy-web.yml` manually for a smoke
+test before tagging the first GitHub Release.
+
+**Rationale:**
+- No live users on the new payment endpoint → no risk of data loss or
+  customer impact during the first attempt
+- No legacy server to keep alive → no blue/green orchestration needed
+- Single-VM topology from `deploy-web.yml` is acceptable for unknown-low traffic
+- Codifying infra in Terraform now would block on understanding YC ergonomics
+  the project does not yet have — defer until after first manual provisioning,
+  then `yc terraform import`
+
+**Consequences:**
+- Old `deploy.yml` is officially superseded; it currently auto-fails on every
+  push to `payment-service/**` and floods the Actions tab with red badges. It
+  will be removed (or downgraded to `workflow_dispatch`-only with a no-op job)
+  during deploy preparation.
+- Mobile prod build's hardcoded `https://payment.transapp.ru/api`
+  (`src/services/api.ts:18`) will need to match whatever domain we issue the
+  cert for. If we keep that domain, no code change is needed; otherwise an
+  EAS rebuild is required.
+- All adopt-from-tradesu improvements (Writerside in nginx, healthcheck step,
+  read-only DB user) are tracked as backlog in `infra-deployment.md` rather
+  than blocking the first deploy.
+- Open questions and required GitHub secrets/YC resources are catalogued in
+  `infra-deployment.md` as the single source of truth; this ADR records the
+  approach, that doc records the live state.
+
+**DNS / domain follow-up (2026-04-26):** clean-start staging will live on
+`transapp-dev.ru`, registered the same day with NS delegated to Yandex Cloud
+DNS (`ns1/ns2.yandexcloud.net`). Production cohabitation under `transapp.ru`
+(planned subdomain `app.transapp.ru`) is a Phase-2 task that requires one
+DNS-record addition by the colleague who controls the fastdns24 zone — the
+same colleague who runs the legacy server `185.76.253.6` (mobile + web + main
+API). Cutover from `lk.transapp.ru` to our stack is Phase 3, weeks after
+Phase 2 stabilises. NS migration of `transapp.ru` itself is explicitly out of
+scope — too much collateral risk to MX, SPF, UniSender, and the legacy site.
+Full plan, status, and live checklist live in `infra-deployment.md` § "DNS
+strategy and cohabitation plan".
+
+---
+
+### ADR-007: Database-per-service naming for payment Postgres (2026-04-28)
+
+**Context:** Choosing `PG_NAME` for the payment-service Postgres at first
+deploy. Forward-compatibility question raised: the legacy Perl backend at
+`transapp.ru/api` may eventually be rewritten in Python and migrate onto our
+infrastructure — should the database name be project-wide (`transapp`) to
+accept future tenants, or service-specific (`transapp_payment`)?
+
+**Decision:** Service-specific name `transapp_payment`. When/if a Python
+backend migrates over, it gets **its own database** (`transapp_main` in the
+same Postgres instance, or a managed Yandex Postgres cluster — to be decided
+at that point), not a shared schema with payment.
+
+**Rationale:**
+- **Database-per-service** is the standard production pattern. Cohabiting
+  two services in one database creates four kinds of coupling that all turn
+  into problems eventually: schema (migration tools clash on the
+  `migrations` table), permissions (SQL-injection in one service = read of
+  the other's data), resources (heavy report query in main backend stalls
+  payment transactions during checkout), recovery (`pg_restore` is per-db).
+- **Financial-data isolation matters.** Payment service touches money;
+  blast-radius for a compromise must be minimal.
+- **Hypothetical future flexibility from a generic `transapp` name is
+  illusory.** A real future migration of main-backend onto our infra will
+  almost certainly choose either managed Postgres (no shared instance) or a
+  separate `CREATE DATABASE` (no shared db). Neither path benefits from a
+  pre-baked generic name today.
+- **Prevents accidental dev↔staging cross-contamination.** Local dev uses
+  `payment_db` (per `payment-service/docker-compose.yml`); staging uses
+  `transapp_payment`. If staging credentials leak into a developer `.env`,
+  connection fails fast (database doesn't exist) instead of writing test
+  data into prod.
+
+**Consequences:**
+- `PG_NAME = transapp_payment` (and `PG_USER = transapp_payment`) in GitHub
+  secrets. No further action needed for staging.
+- When Python-backend migration becomes a project: provision a new database
+  alongside payment, not a schema inside it. Managed Yandex Postgres is
+  preferable for main-backend production workload; the in-VM Postgres in
+  `docker-compose.yc.yaml` was sized for payment-service alone (4 GB RAM
+  shared with nginx + payment-service).
+- This decision documented to prevent the future maintainer from "merging"
+  the two databases on a refactoring whim.

@@ -47,6 +47,11 @@ google-services.json
 GoogleService-Info.plist
 old-project
 
+# Local-only secrets (Yandex Cloud SA JSON keys, ad-hoc credentials, etc.)
+# Files here MUST never reach the remote — copy values into GitHub Secrets and
+# (ideally) delete locally afterwards.
+.secrets/
+
 # Claude Code local settings (machine-specific paths)
 .claude/settings.local.json
 
