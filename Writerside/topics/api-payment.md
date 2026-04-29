@@ -17,6 +17,19 @@
 
 > **Важно:** наш Litestar контроллер внутри держит routes под префиксом `/api/...` (см. `payment-service/app/controllers/payment.py:112`). Префикс `/payment-api/` добавляется и снимается **на стороне nginx** при проксировании. Локально (без nginx) используется голый `/api/...`.
 
+## Live OpenAPI docs
+
+С 2026-04-29 Litestar автогенерирует OpenAPI 3.1.0 spec из аннотаций контроллеров. Доступы:
+
+| Что | Путь |
+|-----|------|
+| Сырой OpenAPI JSON | `/payment-api/schema/openapi.json` (prod) / `/api/schema/openapi.json` (local) |
+| Swagger UI | `/payment-api/schema/swagger` |
+| Scalar UI | `/payment-api/schema/scalar` |
+| HTML index всех UI | `/payment-api/schema` |
+
+Использовать вместо ручного поддержания примеров `curl` ниже когда добавляются новые endpoint-ы — Pydantic-схемы → OpenAPI типы автоматически.
+
 ## Endpoints
 
 ### POST /api/init-payment
