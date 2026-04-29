@@ -2,7 +2,7 @@
 const { 
   withGradleProperties, 
   withDangerousMod 
-} = require('@expo/config-plugins');
+} = require('expo/config-plugins');
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');

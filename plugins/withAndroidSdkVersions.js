@@ -1,5 +1,5 @@
 /* eslint-env node */
-const { withProjectBuildGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle } = require('expo/config-plugins');
 
 /**
  * Добавляет определение версий SDK в корневой build.gradle

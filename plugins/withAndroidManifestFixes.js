@@ -1,5 +1,5 @@
 /* eslint-env node */
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require('expo/config-plugins');
 
 /**
  * Исправляет различные настройки в AndroidManifest.xml

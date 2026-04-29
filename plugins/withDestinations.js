@@ -1,6 +1,6 @@
 /* eslint-env node */
-// @expo/config-plugins is in devDependencies
-const { withXcodeProject, withInfoPlist } = require('@expo/config-plugins');
+// Use expo/config-plugins (sub-export of expo) — Expo deprecates direct @expo/config-plugins install
+const { withXcodeProject, withInfoPlist } = require('expo/config-plugins');
 
 /**
  * Настраивает Destinations для iOS проекта (только iPhone, без iPad, Apple Watch, Apple TV, Vision Pro)

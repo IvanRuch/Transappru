@@ -1,6 +1,6 @@
 /* eslint-env node */
-// @expo/config-plugins is in devDependencies
-const { withInfoPlist } = require('@expo/config-plugins');
+// Use expo/config-plugins (sub-export of expo) — Expo deprecates direct @expo/config-plugins install
+const { withInfoPlist } = require('expo/config-plugins');
 
 /**
  * Добавляет Background Modes для push-уведомлений и background fetch

@@ -1,4 +1,4 @@
-const { withEntitlementsPlist } = require('@expo/config-plugins');
+const { withEntitlementsPlist } = require('expo/config-plugins');
 
 /**
  * Автоматически устанавливает aps-environment в зависимости от профиля сборки

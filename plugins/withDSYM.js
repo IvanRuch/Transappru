@@ -1,6 +1,6 @@
 /* eslint-env node */
-// @expo/config-plugins is in devDependencies
-const { withXcodeProject } = require('@expo/config-plugins');
+// Use expo/config-plugins (sub-export of expo) — Expo deprecates direct @expo/config-plugins install
+const { withXcodeProject } = require('expo/config-plugins');
 
 /**
  * Включает генерацию dSYM файлов для production builds

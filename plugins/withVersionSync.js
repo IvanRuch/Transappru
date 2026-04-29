@@ -1,5 +1,5 @@
 /* eslint-env node */
-const { withXcodeProject, withInfoPlist } = require('@expo/config-plugins');
+const { withXcodeProject, withInfoPlist } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 

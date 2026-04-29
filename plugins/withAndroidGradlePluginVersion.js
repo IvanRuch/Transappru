@@ -1,5 +1,5 @@
 /* eslint-env node */
-const { withProjectBuildGradle } = require('@expo/config-plugins');
+const { withProjectBuildGradle } = require('expo/config-plugins');
 
 /**
  * Config plugin to explicitly set Android Gradle Plugin version in build.gradle

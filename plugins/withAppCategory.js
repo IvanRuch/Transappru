@@ -1,5 +1,5 @@
 /* eslint-env node */
-const { withXcodeProject } = require('@expo/config-plugins');
+const { withXcodeProject } = require('expo/config-plugins');
 
 /**
  * Настраивает App Category для iOS проекта
