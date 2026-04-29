@@ -173,6 +173,13 @@ values (any non-empty strings), run dev server:
 cp .env.example .env
 # Replace empty values with anything non-empty so isFirebaseWebConfigured() returns true
 $EDITOR .env
+
+# Render the FCM service worker from its template using the .env values.
+# Required even with fake values — the SW file has to physically exist
+# on disk for `expo start --web` to serve it from /firebase-messaging-sw.js;
+# otherwise SW registration fails with 404 and the banner just fails silently.
+npm run gen:sw
+
 npx expo start --web --clear
 ```
 
@@ -193,50 +200,46 @@ phase verifies UX paths and state transitions only.
 
 ### Phase 2 — End-to-end with real Firebase
 
-Requires the 3 project-private secrets from a real Firebase project
-(Web App + VAPID key). Easiest path: ask a teammate with Firebase
-Console access to send a test message via the GUI. Manual flow:
+Requires the 6 real values in `.env` from the project's Firebase
+Web App and VAPID key. Once those are filled in:
 
 ```bash
-# Set REAL secrets in .env, then
-npx expo start --web --clear
-# Sign in, click "Включить" on banner, grant permission.
-# DevTools console → '[push.web] FCM token (DEV only): eN4...' — copy.
+npm run gen:sw                # regenerate SW with real config
+npx expo start --web --clear  # OR: npm run web:fresh (does both)
 ```
 
-**Foreground**: while the tab is active, Firebase Console → Cloud
-Messaging → "Send test message" → paste token → Send. The in-app
-banner (`<InAppNotification/>`) surfaces immediately.
+Sign in, click «Включить» on the banner, grant permission. The
+DevTools Console will print the full FCM token under `__DEV__`:
 
-**Background**: minimise / switch tabs, then send the same test
-message. OS-level notification (via `firebase-messaging-sw.js` →
-`self.registration.showNotification`) appears.
+```
+[push.web] FCM token (DEV only): eN4ABcDef...
+```
 
-### curl test (no Firebase Console GUI access)
+Copy that token, then send yourself a test push.
 
-The legacy `https://fcm.googleapis.com/fcm/send` endpoint with
-`Authorization: key=<server_key>` was deprecated in June 2024. Use
-the HTTP v1 API:
+**Easiest path** — if anyone on the team has Firebase Console access,
+Cloud Messaging → "Send test message" → paste token → Send.
+
+**Self-serve path** — service account JSON is enough, no Console
+access needed. Place the JSON at `.secrets/firebase-server-account.json`
+(`.secrets/` is gitignored, see ADR notes), then:
 
 ```bash
-ACCESS_TOKEN=$(gcloud auth application-default print-access-token)
-PROJECT_ID="<your-firebase-project-id>"
-FCM_TOKEN="<token-from-console>"
-
-curl -X POST "https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"message\": {
-      \"token\": \"${FCM_TOKEN}\",
-      \"notification\": {
-        \"title\": \"Test push\",
-        \"body\": \"Hello from curl\"
-      },
-      \"webpush\": { \"fcm_options\": { \"link\": \"/auto-list\" } }
-    }
-  }"
+npm run test:push -- "<FCM_TOKEN>" "Hello from terminal"
+# OR with a custom title:
+npm run test:push -- "<FCM_TOKEN>" "Body text" "Custom title"
 ```
+
+This uses `firebase-admin` (devDependency) and the HTTP v1 API under
+the hood, so it stays valid after the legacy `fcm/send` endpoint
+deprecation (June 2024).
+
+**Foreground vs background**:
+
+- Tab in foreground → in-app banner via `NotificationContext` → mirrors mobile UX.
+- Tab in background / minimised → OS-level notification via
+  `firebase-messaging-sw.js`. Click focuses the existing tab or opens
+  `/auto-list`.
 
 ### Phase 3 — Docker smoke (full prod-like build)
 

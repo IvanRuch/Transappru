@@ -34,6 +34,12 @@ yarn-error.*
 .env
 .env*.local
 
+# Generated FCM service worker (rendered from
+# public/firebase-messaging-sw.template.js by `npm run gen:sw` locally,
+# or by sed in nginx/Dockerfile.prod during production builds). Never
+# commit — config drifts between dev/prod and there's no value in versioning it.
+public/firebase-messaging-sw.js
+
 # typescript
 *.tsbuildinfo
 
