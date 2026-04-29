@@ -106,3 +106,59 @@ jobs:
           vm-public-ip: ${{ secrets.YC_VM_PUBLIC_IP }}
           user-data-path: './yandex-cloud/user-data.yaml'
           docker-compose-path: './yandex-cloud/docker-compose.yc.yaml'
+
+  smoke:
+    name: Post-deploy smoke
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    # Give the COI VM ~60s to settle (containers pull, nginx becomes ready,
+    # SSL certs fetched from Yandex Certificate Manager).
+    steps:
+      - name: Wait for VM to be reachable
+        run: sleep 60
+
+      - name: Frontend smoke — homepage returns 200 with Expo bundle markers
+        run: |
+          set -euo pipefail
+          response=$(curl -sf -o /tmp/index.html -w '%{http_code}' \
+            https://transapp-dev.ru/)
+          test "$response" = "200" || { echo "Expected 200, got $response"; exit 1; }
+          # Sanity-check we got an Expo Web SPA, not a default nginx page or
+          # a 404 disguised as 200.
+          grep -q '<div id="root">' /tmp/index.html \
+            || { echo "Homepage missing Expo root div"; exit 2; }
+          echo "OK: Expo Web SPA served on https://transapp-dev.ru/"
+
+      - name: Backend smoke — /payment-api/calculate-commission returns valid JSON
+        run: |
+          set -euo pipefail
+          body=$(curl -sf -X POST \
+            -H 'Content-Type: application/json' \
+            -d '{"amount":500}' \
+            https://transapp-dev.ru/payment-api/calculate-commission)
+          echo "$body"
+          # Spot-check expected fields exist (jq not installed by default;
+          # use grep instead).
+          echo "$body" | grep -q '"kazna_commission":' \
+            || { echo "Missing kazna_commission in response"; exit 3; }
+          echo "$body" | grep -q '"transapp_commission":' \
+            || { echo "Missing transapp_commission in response"; exit 4; }
+          echo "OK: payment-service reachable through nginx with valid response"
+
+      - name: Liveness smoke — nginx /health returns 200
+        run: |
+          set -euo pipefail
+          code=$(curl -sf -o /dev/null -w '%{http_code}' https://transapp-dev.ru/health)
+          test "$code" = "200" || { echo "Expected 200, got $code"; exit 5; }
+          echo "OK: nginx /health probe returns 200"
+
+      - name: Regression smoke — old double-prefix path stays gone (404)
+        run: |
+          set -euo pipefail
+          # The 2026-04-29 path-cleanup PR collapsed /payment-api/api/... → /payment-api/...
+          # If this ever returns 200 again, the nginx proxy_pass regressed.
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -X POST -H 'Content-Type: application/json' -d '{"amount":1}' \
+            https://transapp-dev.ru/payment-api/api/calculate-commission)
+          test "$code" = "404" || { echo "Old double-prefix path back from the dead, got $code"; exit 6; }
+          echo "OK: legacy /payment-api/api/... correctly returns 404"

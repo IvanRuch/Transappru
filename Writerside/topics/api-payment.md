@@ -57,6 +57,14 @@ Calculate commission for multi-payment.
 
 Check payment status by transaction UUID. **Это основной способ узнать статус платежа** — endpoint сам ходит в Kazna `paymentInfo` и отдаёт свежий результат (см. ADR-008).
 
+### GET /health *(liveness probe)*
+
+Returns `{"status": "ok"}` immediately, without DB or any external dependency. Used by Docker `HEALTHCHECK` (`payment-service/Dockerfile.prod:46`), Kubernetes liveness probes, Yandex Cloud Monitoring uptime checks. **Liveness must NOT touch the DB** — see rationale in `app/controllers/health.py`. Mounted at root (not под `/api/`), чтобы не пересекаться с application API surface.
+
+### GET /health/ready *(readiness probe)*
+
+Returns `{"status":"ok"}` (200) только если `SELECT 1` против Postgres-коннекта успешен; иначе HTTP 503 с `{"detail":"db_unavailable: ..."}`. Используется в load-balancer probes, чтобы дрейнить под при потере DB-коннекта без убийства процесса.
+
 ### POST /api/notify *(reserved до Phase 3 cutover)*
 
 Kazna webhook callback (server-to-server). **Сегодня внешний трафик не получает** — Kazna его не вызывает, потому что URL канала `notify` у Kazna для нашего payment-service не зарегистрирован (см. `dev-payment-flow.md` → раздел про два push-канала Kazna). Реализация (`payment-service/app/controllers/payment.py:419-458`) полностью рабочая, покрыта unit-тестами в `payment-service/tests/test_notify_endpoint.py` и активируется в Phase 3 — когда мы попросим менеджера Kazna зарегистрировать наш URL.

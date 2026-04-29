@@ -9,6 +9,7 @@ from litestar.status_codes import HTTP_400_BAD_REQUEST
 
 from app.config.db import close_db, init_db
 from app.config.settings import settings
+from app.controllers.health import HealthController
 from app.controllers.payment import PaymentController
 
 # Настройка логгера
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Настройка CORS
 cors_config = CORSConfig(allow_origins=["*"])
+
 
 @asynccontextmanager
 async def db_lifespan(app: Litestar) -> AsyncGenerator[None, None]:
@@ -29,11 +31,16 @@ async def db_lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     finally:
         await close_db()
 
-def validation_exception_handler(request: Request, exc: ValidationException) -> Response:
+
+def validation_exception_handler(
+    request: Request, exc: ValidationException
+) -> Response:
     """
     Логируем ошибки валидации Pydantic.
     """
-    logger.error(f"Validation failed for {request.method} {request.url.path}: {exc.detail} - {exc.extra}")
+    logger.error(
+        f"Validation failed for {request.method} {request.url.path}: {exc.detail} - {exc.extra}"
+    )
     return Response(
         content={
             "status_code": HTTP_400_BAD_REQUEST,
@@ -43,8 +50,9 @@ def validation_exception_handler(request: Request, exc: ValidationException) -> 
         status_code=HTTP_400_BAD_REQUEST,
     )
 
+
 app = Litestar(
-    route_handlers=[PaymentController],
+    route_handlers=[HealthController, PaymentController],
     lifespan=[db_lifespan],
     cors_config=cors_config,
     debug=settings.DEBUG,
