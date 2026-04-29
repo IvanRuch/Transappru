@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import axios from 'axios';
 import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
+import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
 const AUTO_LIST_LIMIT = 10;
@@ -195,31 +196,37 @@ export function useAutoData() {
         setAnnounceOurServicesVisible(true);
       }
 
-      const newItems = data.auto_list || [];
+      const newItems: AutoItem[] = data.auto_list || [];
       
       // Загрузка деталей для элементов
       loadDetailsForItems(token, newItems);
 
-      // Обновление списка
+      // Обновление списка. Сортируем по основной цифровой части ГРЗ —
+      // legacy backend выдаёт лексикографический порядок, а менеджеры
+      // попросили сортировать по цифрам. Делаем на фронте; функция
+      // идемпотентна, если бэкенд однажды начнёт сортировать сам.
       if (requestOffset === 0) {
-        setAutoList(newItems);
-        
+        const sortedNewItems = sortAutoListByPlateNumber(newItems);
+        setAutoList(sortedNewItems);
+
         // Кэширование полного списка
-        const isFullList = !requestFilters.autoStr && 
-                          !requestFilters.autoCancelled && 
-                          !requestFilters.autoPassEnded && 
+        const isFullList = !requestFilters.autoStr &&
+                          !requestFilters.autoCancelled &&
+                          !requestFilters.autoPassEnded &&
                           !requestFilters.autoPassEnds;
-        
+
         if (isFullList) {
-          setCachedFullList(newItems);
+          setCachedFullList(sortedNewItems);
           setCacheTimestamp(Date.now());
         }
       } else {
-        // Добавляем только уникальные элементы (на всякий случай)
+        // Добавляем только уникальные элементы (на всякий случай) и
+        // re-сортируем весь набор, чтобы догруженная страница встала
+        // в правильное место по цифрам, а не приклеилась в конец.
         setAutoList(prev => {
             const existingIds = new Set(prev.map(i => i.id));
             const uniqueNewItems = newItems.filter((i: AutoItem) => !existingIds.has(i.id));
-            return [...prev, ...uniqueNewItems];
+            return sortAutoListByPlateNumber([...prev, ...uniqueNewItems]);
         });
       }
 
