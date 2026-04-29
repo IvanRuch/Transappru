@@ -17,8 +17,8 @@ Established by direct inspection on **2026-04-26** (gh CLI + DNS lookups + workf
 
 | Asset | Path | Purpose |
 |-------|------|---------|
-| Legacy deploy workflow | `.github/workflows/deploy.yml` | SSH-based single-container payment-service deploy. Triggers on `push` to `payment-service/**`. **Has never succeeded.** |
-| New deploy workflow | `.github/workflows/deploy-web.yml` | COI-VM deploy of nginx (Expo Web) + payment-service + Postgres via `yc-actions/yc-coi-deploy@v2`. Triggers on `release: [created]` or manual. **Has never been triggered.** |
+| Deploy workflow | `.github/workflows/deploy-web.yml` | COI-VM deploy of nginx (Expo Web) + payment-service + Postgres via `yc-actions/yc-coi-deploy@v2`. Triggers on `release: [created]` or manual. First successful run 2026-04-28; smoke verified end-to-end. |
+| ~~Legacy SSH deploy workflow~~ | ~~`.github/workflows/deploy.yml`~~ | **Deleted 2026-04-29** (open question #6 closed). Was SSH-based single-container deploy via `appleboy/ssh-action`; never produced a working deploy across 4 historical runs (2026-01-15, 2026-04-14, 2026-04-23, 2026-04-29). Strategy supplanted by `deploy-web.yml` declarative COI-VM provisioning. References to it in Phase 2/3 docs may still exist as historical context. |
 | Verify workflow | `.github/workflows/verify.yml` | PR-time gate: `tsc`, ESLint, Jest, Ruff. Not deploy-related. |
 | Compose template | `yandex-cloud/docker-compose.yc.yaml` | Rendered by `yc-coi-deploy` inside the VM. Three services: `payment-db` (Postgres 15), `payment-service`, `nginx`. |
 | Cloud-init | `yandex-cloud/user-data.yaml` | Creates non-root sudo user with SSH key on the COI VM. |
@@ -40,9 +40,9 @@ Established by direct inspection on **2026-04-26** (gh CLI + DNS lookups + workf
 | Post-deploy healthcheck step | Neither workflow probes `/health` after deploy |
 | Staging environment | Single-VM, single-environment configuration |
 
-### Why the legacy `deploy.yml` always fails
+### ~~Why the legacy `deploy.yml` always fails~~ — deleted 2026-04-29
 
-Latest failed run (2026-04-23): **`Error: Input required and not supplied: yc-sa-json-credentials`**. The action `yc-actions/yc-cr-login@v1` aborts on the first step because the secret is empty. This is structural: with zero secrets in the repo, every workflow that references `${{ secrets.* }}` will fail the same way.
+Historical record: across 4 runs (2026-01-15, 2026-04-14, 2026-04-23, 2026-04-29) every run aborted at `yc-actions/yc-cr-login@v1` with `Error: Input required and not supplied: yc-sa-json-credentials`. With the deploy.yml-specific secrets (`SSH_HOST`, `SSH_USERNAME`, `SSH_KEY`, `ENV_FILE`) never populated and the strategy supplanted by `deploy-web.yml`, the workflow file was removed (open question #6 → resolved). New pushes to `master` no longer trigger the noisy auto-failure.
 
 ### What the dashboard previously claimed
 
@@ -146,10 +146,7 @@ PAYMENT_IMAGE, NGINX_IMAGE          — derived in workflow, but env names are
                                       referenced inside docker-compose.yc.yaml
 ```
 
-**The legacy `deploy.yml` references additional secrets that are out of scope of
-the new pipeline:** `SSH_HOST`, `SSH_USERNAME`, `SSH_KEY`, `ENV_FILE`,
-`YC_REGISTRY_ID` (different format). None of them are populated; the workflow
-should be removed or archived (see Open Questions below).
+~~The legacy `deploy.yml` referenced additional secrets that are out of scope of the new pipeline.~~ **Deleted 2026-04-29** — see "Why the legacy `deploy.yml` always fails" section above for historical context.
 
 ---
 
@@ -176,9 +173,7 @@ Steps, in order:
 3. **GitHub Secrets** — populate all entries from the list above. Verify with
    `gh secret list -R TransKonsalt/TransApp` (should reflect names + updated_at,
    never values).
-4. **Decommission `deploy.yml`** — see Open Questions; safest to delete or
-   convert to `workflow_dispatch`-only with a dummy job that prints
-   `legacy — superseded by deploy-web.yml`.
+4. ~~**Decommission `deploy.yml`**~~ — **done 2026-04-29**, file deleted.
 5. **Manual smoke test of `deploy-web.yml`** — trigger via "Run workflow"
    button (the `workflow_dispatch` path), not by creating a release. This
    validates secrets/credentials before tagging anything.
@@ -629,12 +624,7 @@ infra moves. Status updated 2026-04-26.
 5. **Terraform now or later?** Recommendation: provision once manually for
    speed, codify in Terraform afterwards using `yc-cli terraform import`. This
    defers IaC complexity until the resources actually exist.
-6. **`deploy.yml` — delete or archive?** It is officially legacy per ADR-002,
-   it auto-triggers on every push to `payment-service/**` and **always** fails.
-   Three options:
-   - Delete (cleanest; no false-positive failure emails)
-   - Convert to `workflow_dispatch`-only (preserves history, removes the noise)
-   - Leave (current state; floods CI tab with red badges)
+6. ~~**`deploy.yml` — delete or archive?**~~ ✅ **Closed 2026-04-29: deleted.** Across 4 historical runs (2026-01-15 → 2026-04-29) every run aborted at `yc-actions/yc-cr-login@v1` for missing `yc-sa-json-credentials`; SSH-deploy strategy was supplanted by declarative `yc-coi-deploy@v2` in `deploy-web.yml`; ничего ценного не теряется. Pushes to master с изменениями в `payment-service/**` больше не порождают автоматический red-badge.
 7. **Who is the on-call for prod incidents?** Single-person team currently;
    monitoring / alerting story is empty. At minimum, configure Yandex Cloud
    Monitoring or a uptime-robot HTTP probe before going public.
