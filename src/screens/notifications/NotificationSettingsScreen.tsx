@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ScreenHeader } from '../../components/common';
 import { NotificationSettingGroup } from '../../components/notifications';
+import { WebPushSettingsCard } from '../../components/web/WebPushSettingsCard';
 import { useNotificationSettings } from '../../hooks/useNotificationSettings';
 import { showAlert } from '../../utils/alert';
 
@@ -40,6 +41,8 @@ export default function NotificationSettingsScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingVertical: 12, paddingHorizontal: 16 }}>
+          {/* Web-only master toggle for browser push permission. Auto-hides on native. */}
+          <WebPushSettingsCard />
           {settings.map(item => (
             <NotificationSettingGroup
               key={item.notification_type}

@@ -3,6 +3,24 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
+# Firebase Web push config — three project-private values from GitHub
+# Secrets, three derivable from google-services.json. All are exposed
+# to the Expo build via EXPO_PUBLIC_* env vars (Metro inlines those
+# into the JS bundle at build time).
+ARG FIREBASE_WEB_API_KEY=""
+ARG FIREBASE_WEB_APP_ID=""
+ARG FIREBASE_WEB_VAPID_KEY=""
+ARG FIREBASE_WEB_PROJECT_ID=""
+ARG FIREBASE_WEB_MESSAGING_SENDER_ID=""
+ARG FIREBASE_WEB_STORAGE_BUCKET=""
+
+ENV EXPO_PUBLIC_FIREBASE_WEB_API_KEY=$FIREBASE_WEB_API_KEY \
+    EXPO_PUBLIC_FIREBASE_WEB_APP_ID=$FIREBASE_WEB_APP_ID \
+    EXPO_PUBLIC_FIREBASE_WEB_VAPID_KEY=$FIREBASE_WEB_VAPID_KEY \
+    EXPO_PUBLIC_FIREBASE_WEB_PROJECT_ID=$FIREBASE_WEB_PROJECT_ID \
+    EXPO_PUBLIC_FIREBASE_WEB_MESSAGING_SENDER_ID=$FIREBASE_WEB_MESSAGING_SENDER_ID \
+    EXPO_PUBLIC_FIREBASE_WEB_STORAGE_BUCKET=$FIREBASE_WEB_STORAGE_BUCKET
+
 # Copy package files first for better caching
 COPY package.json package-lock.json* ./
 
@@ -21,8 +39,24 @@ COPY tailwind.config.js ./
 COPY global.css ./
 COPY plugins/ ./plugins/
 # Static assets — Expo Router 6 copies everything in /public/ to /dist/
-# verbatim (favicon.ico, apple-touch-icon.png, manifest.webmanifest, robots.txt).
+# verbatim (favicon.ico, apple-touch-icon.png, manifest.webmanifest, robots.txt,
+# firebase-messaging-sw.js).
 COPY public/ ./public/
+
+# Render the FCM service worker from its template, substituting the same
+# Firebase config that the JS bundle uses. The template uses __PLACEHOLDER__
+# tokens (rather than $VAR) so it's harmless if the template ever ships
+# unsubstituted — placeholders aren't valid Firebase config and the SDK
+# fails closed. Generated file is what ships to /dist/; we delete the
+# template to avoid serving it at /firebase-messaging-sw.template.js.
+RUN sed -e "s|__FIREBASE_API_KEY__|$EXPO_PUBLIC_FIREBASE_WEB_API_KEY|g" \
+        -e "s|__FIREBASE_APP_ID__|$EXPO_PUBLIC_FIREBASE_WEB_APP_ID|g" \
+        -e "s|__FIREBASE_PROJECT_ID__|$EXPO_PUBLIC_FIREBASE_WEB_PROJECT_ID|g" \
+        -e "s|__FIREBASE_MESSAGING_SENDER_ID__|$EXPO_PUBLIC_FIREBASE_WEB_MESSAGING_SENDER_ID|g" \
+        -e "s|__FIREBASE_STORAGE_BUCKET__|$EXPO_PUBLIC_FIREBASE_WEB_STORAGE_BUCKET|g" \
+        public/firebase-messaging-sw.template.js \
+        > public/firebase-messaging-sw.js \
+    && rm public/firebase-messaging-sw.template.js
 
 # Build Expo Web (produces dist/ with static files)
 RUN npx expo export --platform web

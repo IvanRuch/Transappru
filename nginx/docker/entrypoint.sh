@@ -141,6 +141,12 @@ http {
             add_header Cache-Control "public, max-age=3600";
             include /etc/nginx/security-headers.partial.conf;
         }
+        location = /firebase-messaging-sw.js {
+            default_type application/javascript;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Service-Worker-Allowed "/";
+            include /etc/nginx/security-headers.partial.conf;
+        }
 
         # Main TransApp API proxy
         location /api/ {

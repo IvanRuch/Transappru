@@ -10,6 +10,7 @@ import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
 import NetworkStatusBanner from '@/src/components/NetworkStatusBanner';
 import { DynamicTitle } from '@/src/components/web/DynamicTitle';
+import { PushPermissionPrompt } from '@/src/components/web/PushPermissionPrompt';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import '../global.css';
 
@@ -111,6 +112,7 @@ function AppContent({ token }: { token: string | null }) {
     <>
       <DynamicTitle />
       <NetworkStatusBanner />
+      <PushPermissionPrompt />
       <NotificationOverlay />
       <Stack
         screenOptions={{

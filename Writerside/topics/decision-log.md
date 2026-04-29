@@ -357,3 +357,70 @@ polling-подхода и для триггера Phase 3.
 URL для канала `notify`, и push-канал стабилизируется по latency и delivery
 rate. Тогда polling переключается с «основного источника правды» на
 «periodic reconciler» (раз в N минут, чтобы догнать пропущенный push).
+
+### ADR-009: Web push restored via hybrid soft-prompt + GitHub Secrets config (2026-04-29)
+
+**Context.** Mobile push (FCM via `@react-native-firebase/messaging`)
+работает полностью. Web push в этом проекте — **намеренная no-op
+заглушка** в `src/hooks/usePushNotifications.web.ts` (4 строки). В
+legacy `transappweb/` web push был реализован: SW + foreground через
+`firebase/messaging` modular SDK + token sync на тот же
+`/set-fcmtoken`. При миграции на Expo Web этот кусок отрезали; коллега
+обратил внимание что фича была.
+
+**Decision.** Вернуть web push, **но не как 1:1 копию legacy**, а с
+тремя архитектурными апдейтами:
+
+1. **Hybrid soft-prompt UX**, а не immediate `Notification.requestPermission()`.
+   Баннер на `/auto-list` через 10 с после входа (`Включить` / `Позже` / `✕`)
+   + permanent toggle в `/notification-settings`. Native browser dialog
+   срабатывает только после клика «Включить», т.е. в момент когда
+   пользователь явно сигнализирует интерес.
+2. **14-дневный snooze** на `Позже`. localStorage timestamp;
+   `dismiss()` делает permanent (snooze 100 лет = effectively forever).
+3. **Конфигурация через GitHub Secrets**, а не hardcoded как в legacy.
+   6 значений (3 project-private: apiKey/appId/VAPID; 3 derivable из
+   `google-services.json`) проходят через `--build-arg` в
+   `nginx/Dockerfile.prod` → `EXPO_PUBLIC_*` ENV → Metro inlining →
+   bundle. Тот же набор substitutes placeholder-ов в SW шаблоне
+   (`firebase-messaging-sw.template.js` → `*.js` через `sed` в build step).
+
+**Why not just port legacy.** (a) Legacy показывал native dialog сразу
+при загрузке `Pin.js:104` — конверсия ~5-15% (web.dev / NN/g данные)
+потому что пользователь жмёт Block в стрессе от логина; после Block
+permission permanent, нельзя re-prompt. (b) Legacy hardcoded
+firebaseConfig в JS файле — приемлемо для **public** apiKey/appId
+(они и так видны в client bundle), но плохая привычка для
+multi-tenant и multi-environment. GitHub Secrets дают единый pattern
+для всех проектных credentials.
+
+**Why frontend, not backend.** Backend `/set-fcmtoken` уже принимает
+тот же payload что mobile — добавили лишь `device_info` с пометкой
+веб-юзер-агента. Никакой работы на legacy backend `transapp.ru` не
+нужно (он не в нашем repo).
+
+**Why `Notification.permission` + custom state machine instead of just
+the browser API.** Browser API только три состояния
+(`default`/`granted`/`denied`) и не помнит «user said NOT NOW».
+14-дневный snooze требует свой state. Pure function `deriveState` →
+8 unit тестов, изоляция от React rendering.
+
+**Browser support.** Chrome / Edge / Yandex Browser / Firefox (≥ 80%
+российского web-трафика) ✅. Safari macOS — Web Push standard, не FCM
+→ `isSupported()` returns false → банер скрыт. Safari iOS — только в
+installed PWA (не в обычном табе) → банер скрыт. Это **правильное**
+поведение, не bug.
+
+**Graceful degradation.** Если 3 required GitHub Secrets не выставлены
+(typical local dev / pre-secret deploy) — `isFirebaseWebConfigured()`
+возвращает false, банер скрыт, `usePushNotifications.web.ts` exits
+early, нет ошибок в консоли. PR можно мержить и деплоить до того как
+коллега сгенерирует Web App + VAPID в Firebase Console — фича просто
+ждёт активации.
+
+**Reverses if:** браузеры стандартизуют push в обход Firebase (W3C
+Push API + own Push Service per-vendor consolidation), либо backend
+переходит на single per-user channel — тогда FCM dependency можно
+снять и заменить на нативный Web Push (но затраты миграции скорее всего
+не оправдают выигрыш). Также reverses при значительной просадке
+delivery rate FCM web — мониторить через analytics после выкатки.
