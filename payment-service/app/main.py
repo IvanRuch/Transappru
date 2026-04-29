@@ -1,14 +1,15 @@
+import logging
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 from litestar import Litestar, Request, Response
 from litestar.config.cors import CORSConfig
 from litestar.exceptions import ValidationException
 from litestar.status_codes import HTTP_400_BAD_REQUEST
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-import logging
 
-from app.config.db import init_db, close_db
-from app.controllers.payment import PaymentController
+from app.config.db import close_db, init_db
 from app.config.settings import settings
+from app.controllers.payment import PaymentController
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)

@@ -292,3 +292,68 @@ at that point), not a shared schema with payment.
   shared with nginx + payment-service).
 - This decision documented to prevent the future maintainer from "merging"
   the two databases on a refactoring whim.
+
+---
+
+### ADR-008: Polling-based payment status until Phase 3 (2026-04-29)
+
+**Context:** При проектировании потока «как Mobile/Web узнают финальный
+статус платежа» возникает выбор: ждать push-уведомления `notify` от Kazna
+(server-to-server webhook на наш `/api/notify`), либо периодически опрашивать
+Kazna методом `paymentInfo/{paymentID}` через наш `GET /api/payment-status/{id}`.
+
+Сегодня (2026-04-29) URL канала `notify` для нашего payment-service у Kazna
+не зарегистрирован — есть только subscribeNotify URL у legacy backend
+(`https://transapp.ru/api/kazna-api-update-fines`, рабочая гипотеза).
+Чтобы получать `notify`, нужно отдельным письмом попросить менеджера Kazna
+прописать наш URL — это часть Phase 3 cutover-а, не часть этой итерации.
+
+**Decision:** До Phase 3 — **polling через `GET /api/payment-status/{id}`**.
+Endpoint сам ходит в Kazna `paymentInfo/{paymentID}`, получает свежий статус,
+обновляет нашу БД и отдаёт результат клиенту (см.
+`payment-service/app/controllers/payment.py:114-143`). Push-канал `notify`
+остаётся реализованным, но не используется до Phase 3.
+
+**Rationale:**
+- **Сама Kazna в PDF (раздел 3.4) рекомендует polling как fallback:**
+  «Доставка информации о конечном статусе платежа по `notify` не является
+  гарантированной, для получения статуса платежа необходимо использовать
+  метод `paymentinfo`». То есть polling — не временный костыль, а
+  официально валидный паттерн в этой экосистеме.
+- **Минимизирует поверхность сегодняшней зависимости от Kazna-портала.**
+  Если бы мы полагались на `notify`, любой обрыв push-канала на стороне
+  Kazna (изменения IP-вайтлиста, миграция домена, baseURL drift)
+  превращался бы в инцидент со скрытым проявлением (статусы перестают
+  обновляться, пользователи видят «зависший» pending). Polling даёт
+  предсказуемые латентности (сами выбираем интервал) и понятный failure
+  mode (Kazna API возвращает 5xx → клиент видит «попробуйте позже»).
+- **Не требует координации с менеджером Kazna для разработки/стейджа.**
+  Можно ставить новые VM, менять домены, переезжать инфру — никаких
+  whitelisted IP, никаких регистраций URL. Это особенно ценно в текущей
+  фазе, когда staging ещё стабилизируется.
+- **Идемпотентно по природе.** Каждый poll — независимый GET; повторение
+  ничего не ломает, нет проблемы exactly-once delivery, которая бы
+  возникла при push-обработке.
+
+**Consequences:**
+- `/api/notify` остаётся реализованным и покрывается unit-тестами
+  (`payment-service/tests/test_notify_endpoint.py`) — чтобы Phase 3 cutover
+  не упёрся в протухший «спящий» код.
+- Клиент (Mobile/Web) реализует polling-цикл с разумным интервалом и
+  верхней границей (например, 1× в 3-5 секунд до 2-3 минут после редиректа
+  из WebView). Терминальные статусы (`auth`, `cancel`, `refunded`) —
+  останов цикла. См. `payment-service/app/controllers/payment.py:120` —
+  если статус уже терминальный, идём в БД, а не в Kazna.
+- В `dev-payment-flow.md` нарисованы две диаграммы: «текущая, polling-based»
+  и «Phase 3, push-based» — переход одной в другую и есть смысл Phase 3.
+
+**Open question:** Тарификация Kazna `paymentInfo`. Подозрение
+(2026-04-29): polling-запросы могут тарифицироваться per-call, и при росте
+объёма платежей это станет невыгоднее push-канала. Уточнить у менеджера
+Kazna стоимость и лимиты — это пригодится для оценки масштабируемости
+polling-подхода и для триггера Phase 3.
+
+**Reverses if:** при Phase 3 cutover-е менеджер Kazna зарегистрирует наш
+URL для канала `notify`, и push-канал стабилизируется по latency и delivery
+rate. Тогда polling переключается с «основного источника правды» на
+«periodic reconciler» (раз в N минут, чтобы догнать пропущенный push).

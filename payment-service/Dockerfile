@@ -18,9 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Копируем файлы зависимостей
 COPY pyproject.toml README.md ./
 
-# Устанавливаем зависимости
+# Устанавливаем зависимости (including dev extras for pytest in the container).
+# This is the dev image (Dockerfile, used by docker-compose.yml). The prod
+# image (Dockerfile.prod) deliberately stays slim and does not pull dev deps.
 RUN pip install --upgrade pip && \
-    pip install .
+    pip install ".[dev]"
 
 # Копируем код приложения (для продакшена)
 COPY . .

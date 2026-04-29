@@ -1,15 +1,16 @@
-from litestar import Controller, post, get
-from litestar.exceptions import NotAuthorizedException, HTTPException, NotFoundException
-from litestar.datastructures import State
-from litestar.connection import Request
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import uuid
 import logging
-from app.services.kazna import kazna_service
-from app.services.commission import commission_service
-from app.models import PaymentTransaction, PaymentTransactionItem
+import uuid
+from typing import Any, Dict, List, Optional
+
+from litestar import Controller, get, post
+from litestar.connection import Request
+from litestar.exceptions import HTTPException, NotAuthorizedException, NotFoundException
+from pydantic import BaseModel
+
 from app.config.settings import settings
+from app.models import PaymentTransaction, PaymentTransactionItem
+from app.services.commission import commission_service
+from app.services.kazna import kazna_service
 
 # Настройка логгера
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def get_user_friendly_error(kazna_message: str) -> str:
     """Возвращает понятное сообщение об ошибке или оригинал, если перевода нет."""
     if "не найдено" in kazna_message and "УИН" in kazna_message:
         return ERROR_MESSAGES["Начисление с УИН .* не найдено"]
-        
+
     return ERROR_MESSAGES.get(kazna_message, kazna_message)
 
 # DTOs
@@ -127,7 +128,7 @@ class PaymentController(Controller):
         if transaction.kazna_payment_id:
             try:
                 kazna_info = await kazna_service.get_payment_info(transaction.kazna_payment_id)
-                
+
                 if "status" in kazna_info:
                     new_status = kazna_info["status"]["name"]
                     if new_status != transaction.kazna_status:
@@ -155,15 +156,15 @@ class PaymentController(Controller):
             transapp_percent=data.transapp_percent,
             transapp_min=data.transapp_min_amount
         )
-        
+
         return {"status": "ok", "message": f"Rate for {data.service_type} updated"}
 
     @post("/calculate-commission")
     async def calculate_commission(self, data: CalculateCommissionRequest) -> CommissionResponse:
         amount_cents = int(data.amount * 100)
-        
+
         details = await commission_service.get_commission_details(amount_cents, data.depType)
-        
+
         return CommissionResponse(
             amount=data.amount,
             kazna_commission=details["kazna"] / 100.0,
@@ -178,24 +179,24 @@ class PaymentController(Controller):
         total_amount_cents = 0
         total_kazna_commission = 0
         total_transapp_commission = 0
-        
+
         first_kazna_percent = 0.0
         first_transapp_percent = 0.0
-        
+
         grouped_details: Dict[str, Dict[str, Any]] = {}
-        
+
         for i, charge in enumerate(data.charges):
             amount_cents = int(charge.amount * 100)
             details = await commission_service.get_commission_details(amount_cents, charge.depType)
-            
+
             total_amount_cents += amount_cents
             total_kazna_commission += details["kazna"]
             total_transapp_commission += details["transapp"]
-            
+
             if i == 0:
                 first_kazna_percent = details["kazna_percent"]
                 first_transapp_percent = details["transapp_percent"]
-                
+
             if charge.depType not in grouped_details:
                 grouped_details[charge.depType] = {
                     "amount": 0,
@@ -204,7 +205,7 @@ class PaymentController(Controller):
                     "kazna_percent": details["kazna_percent"],
                     "transapp_percent": details["transapp_percent"]
                 }
-            
+
             grouped_details[charge.depType]["amount"] += amount_cents
             grouped_details[charge.depType]["commission"] += (details["kazna"] + details["transapp"])
             grouped_details[charge.depType]["count"] += 1
@@ -239,7 +240,7 @@ class PaymentController(Controller):
         payer_params = {
             "fio": data.fio or "Пользователь TransApp",
         }
-        
+
         if data.email:
             payer_params["email"] = data.email
 
@@ -261,7 +262,7 @@ class PaymentController(Controller):
             uin_count=1,
             kazna_status="created"
         )
-        
+
         # Создаем запись для отслеживания статуса УИН
         await PaymentTransactionItem.create(
             transaction=transaction,
@@ -281,7 +282,7 @@ class PaymentController(Controller):
                 dep_type=data.depType,
                 kvit=data.kvit
             )
-            
+
             logger.info(f"Kazna API response for {order_id}: {kazna_response}")
             print(f"Kazna API response for {order_id}: {kazna_response}")
 
@@ -302,18 +303,18 @@ class PaymentController(Controller):
                 elif "error" in kazna_response:
                     error_data = kazna_response["error"]
                     raw_error_msg = error_data.get('message', 'Unknown error')
-                
+
                 user_error_msg = get_user_friendly_error(raw_error_msg)
-                
+
                 transaction.kazna_status = "error"
                 await transaction.save()
                 logger.error(f"Kazna API Error: {raw_error_msg}")
-                
+
                 raise HTTPException(status_code=400, detail=user_error_msg)
 
         except HTTPException as e:
             raise e
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error processing payment {order_id}")
             transaction.kazna_status = "failed"
             await transaction.save()
@@ -323,7 +324,7 @@ class PaymentController(Controller):
     async def init_multi_payment(self, data: InitMultiPaymentRequest) -> PaymentInitiateResponse:
         logger.info(f"Init multi payment request: {data}")
         print(f"Init multi payment request: {data}")
-        
+
         amount_cents = int(data.amount * 100)
         total_sum_cents = await commission_service.calculate_total_sum(amount_cents, data.depType)
         order_id = str(uuid.uuid4())
@@ -331,7 +332,7 @@ class PaymentController(Controller):
         payer_params = {
             "fio": data.fio or "Пользователь TransApp",
         }
-        
+
         if data.email:
             payer_params["email"] = data.email
 
@@ -356,7 +357,7 @@ class PaymentController(Controller):
             uin_count=len(data.uins),
             kazna_status="created"
         )
-        
+
         # Создаем записи для каждого УИН для отслеживания статуса
         # Предполагаем равномерное распределение суммы (можно улучшить, передавая суммы отдельно)
         amount_per_uin = data.amount / len(data.uins) if data.uins else 0
@@ -379,7 +380,7 @@ class PaymentController(Controller):
                 dep_type=data.depType,
                 kvit=data.kvit
             )
-            
+
             logger.info(f"Kazna API response for {order_id}: {kazna_response}")
             print(f"Kazna API response for {order_id}: {kazna_response}")
 
@@ -400,9 +401,9 @@ class PaymentController(Controller):
                 elif "error" in kazna_response:
                     error_data = kazna_response["error"]
                     raw_error_msg = error_data.get('message', 'Unknown error')
-                
+
                 user_error_msg = get_user_friendly_error(raw_error_msg)
-                
+
                 transaction.kazna_status = "error"
                 await transaction.save()
                 logger.error(f"Kazna API Error: {raw_error_msg}")
@@ -410,7 +411,7 @@ class PaymentController(Controller):
 
         except HTTPException as e:
             raise e
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error processing payment {order_id}")
             transaction.kazna_status = "failed"
             await transaction.save()
@@ -428,7 +429,7 @@ class PaymentController(Controller):
             return {"status": "error", "message": "Invalid signature"}
 
         transaction = await PaymentTransaction.filter(id=data.orderID).first()
-        
+
         if not transaction:
             return {"status": "ok"}
 
@@ -437,7 +438,7 @@ class PaymentController(Controller):
             transaction.kazna_payment_id = str(data.paymentID)
 
         await transaction.save()
-        
+
         # Обновляем статус всех УИНов в транзакции
         items = await PaymentTransactionItem.filter(transaction=transaction).all()
 

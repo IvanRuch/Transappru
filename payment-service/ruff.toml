@@ -2,6 +2,14 @@
 select = ["E", "F", "I", "W", "N"]
 ignore = ["E501"]
 
+[lint.per-file-ignores]
+# Pydantic models in payment.py mirror Kazna API JSON field names verbatim
+# (depType, paymentID, orderID, cancelReason, cancelCode, supplierBillID, ...).
+# These MUST stay camelCase to match the wire contract — renaming them would
+# break parsing of incoming/outgoing JSON. N815 (mixed-case-in-class-scope)
+# is therefore not applicable to this file.
+"app/controllers/payment.py" = ["N815"]
+
 [lint.isort]
 known-first-party = ["app"]
 

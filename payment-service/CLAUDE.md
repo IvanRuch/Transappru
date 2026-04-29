@@ -35,8 +35,8 @@ See `.claude/skills/payment-db.md` for full schema reference.
 - `POST /api/init-multi-payment` — multi-UIN payment
 - `POST /api/calculate-commission` — commission preview
 - `POST /api/calculate-multi-commission` — multi-item commission
-- `GET /api/payment-status/{id}` — check payment status
-- `POST /api/notify` — Kazna webhook callback
+- `GET /api/payment-status/{id}` — check payment status (основной способ — polling, см. ADR-008)
+- `POST /api/notify` — Kazna webhook callback **(reserved до Phase 3 cutover, внешний трафик не получает)**
 
 ## Business Rules
 

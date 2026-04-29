@@ -1,5 +1,6 @@
 from tortoise import fields, models
 
+
 class PaymentTransaction(models.Model):
     """
     Модель для хранения транзакций оплаты.
@@ -7,19 +8,19 @@ class PaymentTransaction(models.Model):
     id = fields.UUIDField(pk=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
-    
+
     amount = fields.DecimalField(max_digits=10, decimal_places=2)
     description = fields.TextField(null=True)
-    
+
     kazna_payment_id = fields.CharField(max_length=100, null=True, index=True)
     kazna_status = fields.CharField(max_length=50, default="created")
-    
+
     # Храним список УИНов как строку для совместимости/быстрого просмотра,
-    uin = fields.TextField() 
-    
+    uin = fields.TextField()
+
     # Количество УИНов в транзакции
     uin_count = fields.IntField(default=1)
-    
+
     class Meta:
         table = "payment_transactions"
 
@@ -32,16 +33,16 @@ class PaymentTransactionItem(models.Model):
     """
     id = fields.IntField(pk=True)
     transaction = fields.ForeignKeyField('models.PaymentTransaction', related_name='items', on_delete=fields.CASCADE)
-    
+
     uin = fields.CharField(max_length=50, index=True)
     amount = fields.DecimalField(max_digits=10, decimal_places=2)
-    
+
     # Статус оплаты конкретного УИН
     status = fields.CharField(max_length=50, default="pending")  # pending, paid, failed, cancelled
-    
+
     # Дата и время оплаты (когда Казна подтвердила)
     paid_at = fields.DatetimeField(null=True)
-    
+
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
