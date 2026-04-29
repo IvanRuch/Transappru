@@ -9,9 +9,8 @@ import { ScreenHeader } from '../../components/common';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from "expo-document-picker";
 import axios from "axios";
-import RNFS from '../../utils/fileSystem';
+import { downloadFile as platformDownloadFile } from '../../utils/fileDownload';
 import { router } from 'expo-router';
-//import RNFetchBlob from 'rn-fetch-blob'
 
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
@@ -179,142 +178,15 @@ class Auto extends React.Component<AutoProps, AutoState> {
     }
   }
 
-  /* Файлы */
-  downloadFile = (item: any) => {
-    console.log('downloadFile')
-
-    console.log('item')
-    console.log(item)
-
-    /*
-    let dirs = RNFetchBlob.fs.dirs
-
-    console.log('dirs')
-    console.log(dirs)
-
-    RNFetchBlob
-    .config({
-      path : dirs.DocumentDir + '/' + item.filename
-    })
-    .fetch('GET', item.file_mini)
-    .then((res) => {
-      // the path should be dirs.DocumentDir + 'path-to-file.anything'
-      console.log('The file saved to ', res.path())
-    })
-    */
-
-    /*
-    let dirs = RNFetchBlob.fs.dirs
-
-    console.log('dirs')
-    console.log(dirs)
-
-    RNFetchBlob
-    .config({
-      // response data will be saved to this path if it has access right.
-      //path : dirs.DocumentDir + '/' + item.filename
-      path : dirs.DownloadDir + '/' + item.filename
-    })
-    .fetch('GET', item.file_mini)
-    .then((res) => {
-      // the path should be dirs.DocumentDir + 'path-to-file.anything'
-      console.log('The file saved to ', res.path())
-    })
-    */
-
-
-    console.log('RNFS.DocumentDirectoryPath = ' + RNFS.DocumentDirectoryPath)
-    console.log('RNFS.ExternalDirectoryPath = ' + RNFS.ExternalDirectoryPath)
-    console.log('RNFS.DownloadDirectoryPath = ' + RNFS.DownloadDirectoryPath)
-    console.log('RNFS.ExternalStorageDirectoryPath = ' + RNFS.ExternalStorageDirectoryPath)
-
-    let toFile = `${RNFS.DocumentDirectoryPath}/${item.filename}`;
-    //let toFile = `${RNFS.DownloadDirectoryPath}/${item.filename}`;
-    //let toFile = `${RNFS.ExternalStorageDirectoryPath}/Download/${item.filename}`;
-    console.log('toFile = ' + toFile)
-
-    RNFS.downloadFile({
-        fromUrl: item.request_uri,
-        toFile: toFile,
-    }).promise.then((r) => {
-      console.log('promise.then')
-      console.log('r')
-      console.log(r)
-    }).catch((err) => {
-      console.log(err.message);
-    });;
-
-    /*
-    let path = RNFS.DocumentDirectoryPath + '/test000.txt';
-
-    RNFS.writeFile(path, 'Hello', 'utf8')
-      .then((success) => {
-        console.log('FILE WRITTEN!');
-      })
-      .catch((err) => {
-        console.log(err.message);
-      });
-
-    RNFS.readDir(RNFS.DocumentDirectoryPath)
-    .then((result) => {
-
-      for(var i=0; i<result.length; i++)
-      {
-        console.log('result[' + i + ']');
-        console.log(result[i]);
-      }
-
-
-
-      // stat the first file
-      //return Promise.all([RNFS.stat(result[0].path), result[0].path]);
-    })
-    */
-
-    /*
-    RNFS.readDir(RNFS.ExternalDirectoryPath)
-    .then((result) => {
-      console.log('GOT RESULT', result);
-
-      // stat the first file
-      //return Promise.all([RNFS.stat(result[0].path), result[0].path]);
-    })
-    .then((statResult) => {
-
-    })
-    .then((contents) => {
-      // log the file contents
-      console.log(contents);
-    })
-    .catch((err) => {
-      console.log(err.message, err.code);
-    });
-    */
-
-    /*
-    let toFile = `${RNFS.DocumentDirectoryPath}/${item.filename}`;
-    console.log('toFile = ' + toFile)
-
-
-
-    RNFS.downloadFile({
-        fromUrl: item.request_uri,
-        //toFile: `${RNFS.DocumentDirectoryPath}/react-native.png`,
-        //toFile: `${RNFS.ExternalDirectoryPath}/react-native.png`,
-        //toFile: `${RNFS.DocumentDirectoryPath}/react-native.png`,
-        //toFile: RNFS.DocumentDirectoryPath + '/' + item.filename`,
-        //toFile: `${RNFS.DocumentDirectoryPath}/${item.filename}`,
-        toFile: `${RNFS.ExternalDirectoryPath}/${item.filename}`,
-    }).promise.then((r) => {
-      //this.setState({ isDone: true })
-
-      console.log('promise.then')
-      console.log('r')
-      console.log(r)
-    });
-    */
-
-  }
+  /* Файлы — скачать прикреплённый файл (фото, документ и т.п.) */
+  downloadFile = async (item: any) => {
+    try {
+      const result = await platformDownloadFile(item.request_uri, item.filename);
+      console.log('downloadFile saved to:', result.uri);
+    } catch (err: any) {
+      console.log('downloadFile failed:', err?.message ?? err);
+    }
+  };
 
   /* удаление файла */
   delAutoFile = (value: any) => {

@@ -5,7 +5,7 @@
  *  - Broken into sub-components per tab (see ./web/)
  *  - No SafeAreaView, StatusBar, ScreenHeader
  *  - HTML <input> for STS and file upload
- *  - window.open for file download (replaces RNFS)
+ *  - Browser-native <a download> for file download (see utils/fileDownload.web.ts)
  *  - Responsive tab bar via useWebLayout
  */
 import React, { useMemo } from 'react';
