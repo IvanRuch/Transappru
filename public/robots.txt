@@ -1,0 +1,9 @@
+# TransApp web robots policy
+# Staging (transapp-dev.ru) is gated behind auth on every meaningful page,
+# so indexing is allowed but yields almost nothing public. When public landing
+# pages are added, narrow this with explicit Disallow rules.
+
+User-agent: *
+Allow: /
+
+# Sitemap will be added when public pages exist.

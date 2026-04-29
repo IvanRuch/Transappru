@@ -104,6 +104,11 @@ http {
         ssl_session_timeout 10m;
 
         add_header Strict-Transport-Security "max-age=31536000" always;
+        # Other security headers (X-Frame-Options, X-Content-Type-Options,
+        # Referrer-Policy, Permissions-Policy, CSP). HSTS lives directly on
+        # the server because it is HTTPS-only — the rest are scheme-agnostic
+        # and shared with the HTTP fallback config.
+        include /etc/nginx/security-headers.partial.conf;
 
         root /usr/share/nginx/html;
         index index.html;
@@ -112,6 +117,29 @@ http {
         location /static/ {
             expires 1y;
             add_header Cache-Control "public, immutable";
+            include /etc/nginx/security-headers.partial.conf;
+        }
+
+        # Favicon set + PWA assets
+        location = /favicon.ico {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            include /etc/nginx/security-headers.partial.conf;
+        }
+        location ~ ^/(favicon-(?:16|32)|apple-touch-icon|icon-(?:192|512))\.png$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            include /etc/nginx/security-headers.partial.conf;
+        }
+        location = /manifest.webmanifest {
+            default_type application/manifest+json;
+            add_header Cache-Control "public, max-age=3600";
+            include /etc/nginx/security-headers.partial.conf;
+        }
+        location = /robots.txt {
+            default_type text/plain;
+            add_header Cache-Control "public, max-age=3600";
+            include /etc/nginx/security-headers.partial.conf;
         }
 
         # Main TransApp API proxy
@@ -146,6 +174,7 @@ http {
             access_log off;
             return 200 'ok';
             add_header Content-Type text/plain;
+            include /etc/nginx/security-headers.partial.conf;
         }
 
         # SPA fallback
@@ -158,6 +187,7 @@ http {
             add_header Cache-Control "no-cache, no-store, must-revalidate";
             add_header Pragma "no-cache";
             add_header Expires "0";
+            include /etc/nginx/security-headers.partial.conf;
         }
     }
 }

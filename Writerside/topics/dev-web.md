@@ -242,6 +242,37 @@ Layout fixes:
 - Organization list with switch support — uses shared `OrgListItem` (see below)
 - Services dropdown (expandable)
 - Responsive: collapses below 900px viewport width
+- Modal-based actions (no route change) reuse the mobile components:
+  `RnisCheckModal`, `AddAccountModal`, `InviteUserModal`, `ContactsModal`
+  ("Обратная связь"). All four are mounted by the sidebar; data feeds
+  from the same `/get-auto-list` payload `loadData()` already pulls
+  (`user_data.manager_data`, `user_data.tech_support_data`, `id`, `inn`).
+
+### Modal style canon
+
+Web modals share one visual language (centered card on a translucent
+overlay, `borderRadius: 25`, web `boxShadow: '0 8px 32px rgba(0,0,0,0.18)'`
+with native shadow fallback via `Platform.select`, `animationType="fade"`,
+ESC-to-close on web). Reference implementation: `AddAutoModal.tsx`. Same
+structure used by `AddAccountModal`, `RnisCheckModal`, `InviteUserModal`,
+and the web variant of `ContactsModal`.
+
+`maxWidth` is content-driven:
+
+| Modal | maxWidth | Why |
+|-------|----------|-----|
+| Single-input flows (AddAuto, AddAccount, RnisCheck) | `400` | one column, comfortable on phone-width viewport too |
+| Long-form (InviteUser) | `440` | three fields + description block |
+| Multi-card (ContactsModal.web) | `480` | two cards × 3 actions with separators — `400` was cramped |
+
+When a modal needs a bottom-sheet shape on native (e.g. action sheets
+with horizontal action rows), keep that as `Component.tsx` and add a
+matching `Component.web.tsx` that uses the centered-card canon. Metro
+picks the right variant per platform automatically — no `Platform.OS`
+forking inside one file. Verified: a mobile `Modal.tsx` does **not**
+leak into the web JS bundle when a sibling `Modal.web.tsx` exists
+(grep `/_expo/static/js/web/*.js` for the bottom-sheet's unique style
+markers like `justifyContent:"flex-end",margin:0` — zero matches).
 
 ### Sidebar data freshness
 
@@ -369,3 +400,164 @@ See `.env.production.example` for the full list. Key secrets:
 | 7 | **GitHub Secrets** — configure all secrets listed in `.env.production.example` | Pending |
 | 8 | **DNS** — point domain to VM public IP | Pending |
 | 9 | **First deploy** — trigger workflow, verify full auth flow via browser | Pending |
+
+## Web `<head>` & static assets
+
+Expo Router 6 ships with a default HTML template (charset, viewport, default
+title only). For SEO, social previews and PWA we override it via
+`app/+html.tsx` — the standard Expo Router extension point for the web root
+HTML. The file renders once per route at build time when `web.output` is
+`"static"` in `app.json`. Docs:
+[expo router static rendering](https://docs.expo.dev/router/reference/static-rendering/#root-html).
+
+`app/+html.tsx` defines:
+
+- `lang="ru"` on `<html>`
+- `<meta name="description">`, `<meta name="robots">` (the `<title>` is
+  intentionally not in `+html.tsx`, see "Per-route titles" below)
+- `<meta name="theme-color" content="#000000">` and the four
+  `apple-mobile-web-app-*` meta tags for iOS standalone mode
+- Open Graph (`og:type`, `og:locale`, `og:title`, `og:description`,
+  `og:image`, `og:site_name`) — used by Telegram, WhatsApp, Slack previews
+- Twitter Card (`twitter:card="summary"`, `twitter:title`, `twitter:image`)
+- Five icon links: `favicon-16.png`, `favicon-32.png`, `favicon.ico`
+  (legacy fallback), `apple-touch-icon.png` (180×180), `manifest.webmanifest`
+- `<ScrollViewStyleReset/>` from `expo-router/html` — required to keep
+  RNWeb scroll containers behaving correctly inside the static HTML.
+
+### Per-route browser tab titles (`DynamicTitle`)
+
+Expo Router's internal `react-helmet-async` always injects an empty
+`<title data-rh="true">` as the **first** child of `<head>`. Per HTML5
+spec, browsers use only the first `<title>` they see — so a static
+`<title>` placed in `+html.tsx` would lose to the empty helmet tag and
+the tab would fall back to displaying the URL ("`localhost:8081/auto-list`").
+
+Solution: feed the title through helmet via `expo-router/head` instead.
+`src/components/web/DynamicTitle.tsx` calls `usePathname()`, looks up the
+current route in a `STATIC_TITLES` map (with a few `DYNAMIC_TITLES`
+regex entries for things like `/auto/[id]`), and renders
+`<Head><title>...</title></Head>`. Helmet swaps the empty placeholder for
+this value — single, correct `<title>` tag.
+
+Mounted in `app/_layout.tsx` **above** the splash early-return so static
+SSG and the splash screen both carry a valid title.
+
+| Route | Title |
+|-------|-------|
+| `/` | `TransApp — управление автопарком и штрафами` (default fallback) |
+| `/auto-list` | `Автопарк — TransApp` |
+| `/charges` | `Штрафы — TransApp` |
+| `/drivers` | `Водители — TransApp` |
+| `/notifications` | `Уведомления — TransApp` |
+| `/auto/[id]` | `Авто — TransApp` |
+| ... | (full list in `STATIC_TITLES` lookup) |
+
+Adding a new route means one line in the lookup table — no need to touch
+any screen file.
+
+**SSG caveat**: `usePathname()` inside `_layout.tsx` (above `<Stack>`) is
+route-agnostic at build time, so every route's static HTML carries the
+**default** title. After client hydration helmet re-evaluates with the
+real `pathname` and the tab title flips to the per-route value within
+milliseconds. SEO crawlers receive the default — still a valid,
+non-empty title (much better than the empty fallback that used to
+surface as the URL).
+
+### Static files (`public/`)
+
+Expo Router 6 copies everything from the project-root `public/` directory
+verbatim into `dist/` at build time — **no plugin or config needed**, just
+create files in `public/`. This is the canonical mechanism for non-bundled
+assets (favicons, web manifest, robots.txt, future sitemap.xml). The
+`Dockerfile.prod` web-builder stage explicitly `COPY public/ ./public/` so
+the assets reach the build container.
+
+Current static asset set (all in `public/`):
+
+| File | Source | Purpose |
+|------|--------|---------|
+| `favicon-32.png`, `favicon-16.png` | `sips -Z` from `transappweb/public/img/favicon.png` | Browser tab icons |
+| `favicon.ico` | copy of `favicon-32.png` | Legacy fallback for `/favicon.ico` |
+| `apple-touch-icon.png` (180×180) | resized from same source | iOS Safari home-screen |
+| `icon-192.png`, `icon-512.png` | resized from same source | PWA install icons + maskable |
+| `manifest.webmanifest` | hand-written JSON | PWA manifest (name, theme_color, icons, start_url, display, scope) |
+| `robots.txt` | hand-written | SEO crawl policy (currently `Allow: /`) |
+
+If you need to regenerate icons from a new source PNG, run:
+
+```bash
+SRC=transappweb/public/img/favicon.png   # or any new source ≥ 512×512
+sips -Z 32  "$SRC" --out public/favicon-32.png
+sips -Z 16  "$SRC" --out public/favicon-16.png
+sips -Z 180 "$SRC" --out public/apple-touch-icon.png
+sips -Z 192 "$SRC" --out public/icon-192.png
+sips -Z 512 "$SRC" --out public/icon-512.png
+cp public/favicon-32.png public/favicon.ico
+```
+
+`sips` is built into macOS. ImageMagick (`convert`) works equivalently.
+
+## Nginx security headers
+
+`nginx/security-headers.partial.conf` holds the shared header set. It is
+`include`-d by both nginx configs:
+
+- `nginx/nginx.prod.conf` — HTTP fallback
+- `nginx/docker/entrypoint.sh` — HTTPS config generated at boot when
+  `YC_CERT_ID` is set (the heredoc that writes `/etc/nginx/nginx.conf`).
+
+The Dockerfile copies the partial to `/etc/nginx/security-headers.partial.conf`,
+which is the path both configs reference.
+
+**Why a partial?** nginx does **not** inherit `add_header` across nested
+blocks: as soon as a child `location` introduces even one `add_header`, all
+parent headers are silently dropped. So the partial is `include`-d into
+every location that owns `add_header` directives (favicon, manifest,
+robots, /static/, /index.html, /health) plus the `server` block default.
+
+### Header set
+
+| Header | Value | Rationale |
+|--------|-------|-----------|
+| `Strict-Transport-Security` | `max-age=31536000` | HTTPS-only, in `entrypoint.sh` directly (not the partial) |
+| `X-Frame-Options` | `SAMEORIGIN` | Clickjacking defense (legacy browsers) |
+| `X-Content-Type-Options` | `nosniff` | Prevent MIME-type sniffing |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Modern default — full URL same-origin, origin-only cross-origin |
+| `Permissions-Policy` | `geolocation=(), microphone=(), camera=(), payment=(self)` | Disable unused powerful APIs; payment from self only |
+| `Content-Security-Policy` | see partial | Layered defense — see below |
+
+### CSP rationale
+
+The CSP is **pragmatic, not strict**, because Expo Web bundles use eval-style
+constructs (Function constructor in React reconciler, Metro bundle init) and
+NativeWind / RNWeb inject inline styles in the DOM:
+
+- `script-src 'self' 'unsafe-inline' 'unsafe-eval'` — required by Expo runtime
+- `style-src 'self' 'unsafe-inline'` — required by RNWeb / NativeWind
+- `img-src 'self' data: blob: https:` — wide because images come from many
+  sources (avatars, Yandex map tiles, payment-service, third-party icons)
+- `connect-src` — staging endpoints + Yandex Maps tiles + Kazna sandbox +
+  websocket fallback (`wss:`)
+- `frame-ancestors 'none'` — clickjacking defense (the strict equivalent of
+  `X-Frame-Options`)
+- `base-uri 'self'`, `form-action 'self'` — restrict tag injection abuse
+
+If a CSP violation is observed in production console, ease the specific
+directive in the partial (it is the single source of truth for both HTTP and
+HTTPS). Tightening the policy further (nonce-based scripts, per-route hashes)
+is a follow-up that requires moving Expo Web off `'unsafe-eval'`, which is
+non-trivial.
+
+### Local smoke test
+
+```bash
+docker build -f nginx/Dockerfile.prod -t transapp-web-test .
+# Run on the payment-service network so upstream resolves
+docker run -d --rm -p 8088:80 --network payment-service_default \
+  --name transapp-web-smoke transapp-web-test
+curl -sI http://localhost:8088/                   # all 5 headers + CSP
+curl -sI http://localhost:8088/manifest.webmanifest  # MIME + cache + CSP
+curl -sI http://localhost:8088/favicon.ico        # year cache + CSP
+docker stop transapp-web-smoke
+```

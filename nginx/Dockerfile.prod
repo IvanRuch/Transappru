@@ -20,6 +20,9 @@ COPY metro.config.js ./
 COPY tailwind.config.js ./
 COPY global.css ./
 COPY plugins/ ./plugins/
+# Static assets — Expo Router 6 copies everything in /public/ to /dist/
+# verbatim (favicon.ico, apple-touch-icon.png, manifest.webmanifest, robots.txt).
+COPY public/ ./public/
 
 # Build Expo Web (produces dist/ with static files)
 RUN npx expo export --platform web
@@ -33,6 +36,8 @@ RUN apk add --no-cache curl jq && \
 
 # Copy nginx config (HTTP fallback, overwritten by entrypoint for HTTPS)
 COPY nginx/nginx.prod.conf /etc/nginx/nginx.conf
+# Security headers partial — included by both the HTTP and HTTPS configs
+COPY nginx/security-headers.partial.conf /etc/nginx/security-headers.partial.conf
 
 # Copy SSL entrypoint script
 COPY nginx/docker/entrypoint.sh /docker-entrypoint-yc.sh

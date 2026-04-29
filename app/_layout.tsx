@@ -9,6 +9,7 @@ import { NotificationProvider, useNotification } from '@/src/contexts/Notificati
 import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
 import NetworkStatusBanner from '@/src/components/NetworkStatusBanner';
+import { DynamicTitle } from '@/src/components/web/DynamicTitle';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import '../global.css';
 
@@ -72,18 +73,23 @@ export default function RootLayout() {
   }, [appIsReady]);
 
   if (!appIsReady) {
-    // Показываем простой splash с текстом пока приложение загружается
+    // Показываем простой splash с текстом пока приложение загружается.
+    // DynamicTitle рендерим уже здесь, чтобы и SSR-output, и сплеш-экран
+    // имели корректный <title> во вкладке (на SSR appIsReady = false).
     return (
-      <SafeAreaView style={styles.splashContainer}>
-        <View style={{ 
-          flex: 1, 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
-        }}>
-          <Text style={styles.splashTitle}>TransApp</Text>
-        </View>
-      </SafeAreaView>
+      <>
+        <DynamicTitle />
+        <SafeAreaView style={styles.splashContainer}>
+          <View style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0
+          }}>
+            <Text style={styles.splashTitle}>TransApp</Text>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
@@ -103,6 +109,7 @@ function AppContent({ token }: { token: string | null }) {
 
   return (
     <>
+      <DynamicTitle />
       <NetworkStatusBanner />
       <NotificationOverlay />
       <Stack

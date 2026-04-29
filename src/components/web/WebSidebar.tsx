@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,17 +24,21 @@ import { navigateToInn as navigateToInnRequest } from '../../utils/navigateToInn
 import { OrgListItem, type OrgListItemData } from '../sidebar';
 import { RnisCheckModal, AddAccountModal } from '../inn';
 import { InviteUserModal } from '../user';
+import { ContactsModal } from '../auto/modals';
+import type { ManagerData } from '../../types/auto';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface UserData {
+  id?: string;
   firm?: string;
   inn?: string;
   phone?: string;
   user_auto_count?: number | string;
   notification_unviewed_count?: number;
   other_user_notification_unviewed_count?: number;
-  manager_data?: { mobile_phone?: string };
+  manager_data?: ManagerData;
+  tech_support_data?: ManagerData;
 }
 
 type OtherUser = OrgListItemData;
@@ -130,6 +135,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const [rnisModalOpen,  setRnisModalOpen]  = useState(false);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
+  const [contactsOpen,   setContactsOpen]   = useState(false);
 
   // ── fetch sidebar data ──────────────────────────────────────────────────────
   // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
@@ -438,8 +444,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         <NavItem
           icon={require('../../../assets/images/menu_contacts_2.png')}
           label="Обратная связь"
-          path="/(authenticated)/contacts"
-          active={isActive('/(authenticated)/contacts')}
+          onPress={() => setContactsOpen(true)}
           expanded={expanded}
         />
 
@@ -486,6 +491,28 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
       <InviteUserModal
         visible={inviteOpen}
         onClose={() => setInviteOpen(false)}
+      />
+
+      {/* Contacts modal — manager + tech support, with phone/email/WhatsApp/
+          Telegram actions. Same modal AutoListScreen uses on mobile/web,
+          fed from /get-auto-list payload that loadData() already pulls. */}
+      <ContactsModal
+        visible={contactsOpen}
+        managerData={userData.manager_data || {}}
+        techSupportData={userData.tech_support_data}
+        techSupportName={userData.tech_support_data?.name}
+        userId={userData.id}
+        userInn={userData.inn}
+        onClose={() => setContactsOpen(false)}
+        onContactPhone={(phone) => {
+          if (!phone || phone === '+7' || phone.length < 5) return;
+          Linking.openURL(`tel:${phone}`).catch(() => {});
+        }}
+        onContactEmail={(email, subject, body) => {
+          if (!email) return;
+          const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+          Linking.openURL(url).catch(() => {});
+        }}
       />
     </View>
   );
