@@ -6,7 +6,7 @@
  * centered card. Agreements/privacy/wait-confirmation modals are shared
  * cross-platform components.
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 
 import { useAuthFlow } from '../../hooks/useAuthFlow';
@@ -32,6 +32,31 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
 
   const disabled = !phoneValid;
   const buttonDisabled = disabled || !checked || isSubmitting;
+
+  // Capture-phase Enter handler covering the whole auth card. The
+  // agreements checkbox is rendered via <Pressable role="checkbox"> by
+  // AgreementsCheckbox, and react-native-web's Pressable triggers
+  // onPress on Enter in bubble phase — without capturing first, an
+  // Enter pressed while the checkbox holds focus would un-check the
+  // agreement (and then gate the submit) instead of submitting the
+  // form. Capture phase + stopPropagation prevents Pressable from ever
+  // seeing that key event. Gated by `buttonDisabled` so it cannot fire
+  // when the visible button is greyed out — mouse-click and keyboard
+  // paths read the same condition.
+  const formRef = useRef<View>(null);
+  useEffect(() => {
+    const node = formRef.current as unknown as HTMLDivElement | null;
+    if (!node) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      if (buttonDisabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleSubmit();
+    };
+    node.addEventListener('keydown', handler, true);
+    return () => node.removeEventListener('keydown', handler, true);
+  }, [buttonDisabled, handleSubmit]);
 
   const formatPhone = (d: string) => {
     if (!d) return '';
@@ -72,6 +97,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
       />
 
       <AuthCardLayout>
+        <View ref={formRef}>
         <Text className="text-[22px] font-bold text-text-primary mb-1.5 text-center select-none">
           Введите номер телефона
         </Text>
@@ -153,6 +179,7 @@ export default function AuthScreen({ initialSessionData }: AuthScreenProps) {
           onOpenAgreement={() => setModalUserAgreement(true)}
           onOpenPrivacy={() => setModalPrivacyPolicy(true)}
         />
+        </View>
       </AuthCardLayout>
     </>
   );

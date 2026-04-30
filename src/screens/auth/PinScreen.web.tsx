@@ -61,8 +61,17 @@ export default function PinScreen() {
       inputRefs.current[index - 1]?.focus();
     } else if (e.key === 'ArrowRight' && index < 3) {
       inputRefs.current[index + 1]?.focus();
+    } else if (e.key === 'Enter') {
+      // Submit when all 4 digits are entered, regardless of which field
+      // currently has focus. Mirrors the `disabled` prop on the button so
+      // the gating cannot drift between mouse-click and keyboard paths.
+      const fullCode = digits.join('');
+      if (/^\d{4}$/.test(fullCode)) {
+        e.preventDefault();
+        submitPin(fullCode);
+      }
     }
-  }, [digits]);
+  }, [digits, submitPin]);
 
   return (
     <>

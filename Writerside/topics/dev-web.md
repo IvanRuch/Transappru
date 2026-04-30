@@ -236,6 +236,69 @@ Layout fixes:
 - Lighter overlay: `rgba(0,0,0,0.2)`, `boxShadow` on web for floating card effect
 - `animationType="fade"` instead of `"slide"`
 
+## Form submit on Enter (web)
+
+Web users expect Enter to submit a single-action form once it's valid.
+Manager team flagged this missing on the auth screens. Implemented for
+all three submit-style auth/registration forms (search/filter inputs
+intentionally excluded — there's no submit there).
+
+| Screen | File | Trigger | Gating | Action |
+|---|---|---|---|---|
+| Phone entry | `screens/auth/AuthScreen.web.tsx` | **Capture-phase** `keydown` listener on a `<View ref={formRef}>` wrapping the whole card (see "Checkbox edge case" below) | `!buttonDisabled` (= `phoneValid && checked && !isSubmitting`) | `handleSubmit()` |
+| SMS PIN | `screens/auth/PinScreen.web.tsx` | Enter branch in existing `handleDigitKeyDown` (any of 4 fields) | full code matches `/^\d{4}$/` | `submitPin(code)` |
+| INN | `screens/inn/InnScreen.web.tsx` via `InnInput` | `onSubmitEditing` (RN Web maps Enter → onSubmitEditing) | `innValid` | `handleBindInn()` |
+| Plate (RNIS check) | `screens/inn/InnScreen.web.tsx` via `PlateField` (region field) | `onSubmitEditing` on the region `<TextInput>` | `rnisButtonEnabled` | `handleCheckRnis()` |
+
+**Pattern rules:**
+1. Every Enter handler reads the **same gate** as the visible button's
+   `disabled` prop. Mouse-click and keyboard paths cannot drift apart.
+2. `e.preventDefault()` before invoking the handler — keeps page-level
+   forms (if any are added later) from double-firing.
+3. For shared components (`InnInput`, `PlateField`) the prop is the
+   standard RN `onSubmitEditing` — additive, optional. Native callers
+   that don't pass it see no behaviour change.
+4. Reference implementation for ad-hoc HTML inputs: `PassScreen.web.tsx`
+   (`onInputKeyDown` in the address autocomplete).
+
+### Checkbox edge case (AuthScreen)
+
+`AgreementsCheckbox` is a shared component built on
+`<Pressable accessibilityRole="checkbox">`. On web, react-native-web
+renders Pressable as a focusable `<div>` whose own `keydown` handler
+treats Enter as "press" → fires `onToggle`. So if the user clicks the
+checkbox to mark consent (focus jumps from the phone input to the
+checkbox `<div>`) and then presses Enter, Pressable un-checks the
+agreement **before** any handler on the input runs — the form ends up
+gated, not submitted.
+
+Fix: AuthScreen attaches a **capture-phase** `keydown` listener to a
+`<View ref={formRef}>` wrapping the whole card. Capture fires before
+any descendant's bubble handler, so we `preventDefault() +
+stopPropagation()` and call `handleSubmit()` ourselves. Pressable
+never sees the event; the checkbox stays in whatever state it was.
+
+```tsx
+const formRef = useRef<View>(null);
+useEffect(() => {
+  const node = formRef.current as unknown as HTMLDivElement | null;
+  if (!node) return;
+  const handler = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' || buttonDisabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handleSubmit();
+  };
+  node.addEventListener('keydown', handler, true); // capture
+  return () => node.removeEventListener('keydown', handler, true);
+}, [buttonDisabled, handleSubmit]);
+```
+
+Same pattern would apply to any future form whose layout mixes plain
+inputs with Pressable buttons that should not steal Enter. PinScreen
+and InnScreen don't need it — those forms have no focusable
+non-submit interactive elements between input and submit.
+
 ## Sidebar (WebSidebar.tsx)
 
 - "Как работать" link conditionally shown only when `onboarding_expired === 0`

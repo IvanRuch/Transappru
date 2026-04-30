@@ -12,6 +12,13 @@ interface InnInputProps {
   autoFocus?: boolean;
   /** Optional container override (margins, width, etc.). */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Called when the user presses the on-screen "Done" key (native) or
+   * Enter (web — react-native-web maps Enter to onSubmitEditing). Callers
+   * are expected to gate the submit themselves; the input does not check
+   * validity. Optional — when omitted, behaviour is unchanged.
+   */
+  onSubmitEditing?: () => void;
 }
 
 /**
@@ -32,7 +39,7 @@ interface InnInputProps {
  *   - `AddAccountModal` (web sidebar quick action)
  */
 export default function InnInput({
-  value, onChangeText, placeholder, autoFocus, style,
+  value, onChangeText, placeholder, autoFocus, style, onSubmitEditing,
 }: InnInputProps) {
   const inputRef = useRef<any>(null);
   useSafariAutofillFix([inputRef]);
@@ -50,6 +57,8 @@ export default function InnInput({
         placeholder={placeholder ?? 'ИНН организации'}
         placeholderTextColor="#B8B8B8"
         style={styles.input}
+        onSubmitEditing={onSubmitEditing}
+        returnKeyType={onSubmitEditing ? 'done' : undefined}
       />
     </View>
   );

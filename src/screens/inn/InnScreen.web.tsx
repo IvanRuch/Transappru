@@ -74,6 +74,7 @@ export default function InnScreen() {
                 onChangeText={changeInn}
                 autoFocus
                 style={{ marginBottom: 16 }}
+                onSubmitEditing={() => { if (innValid) handleBindInn(); }}
               />
 
               <Pressable
@@ -107,6 +108,7 @@ export default function InnScreen() {
                 region={autoNumberRegion}
                 onChangeRegion={changeAutoNumberRegion}
                 label="Государственный регистрационный знак"
+                onSubmitEditing={() => { if (rnisButtonEnabled) handleCheckRnis(); }}
               />
 
               <Pressable

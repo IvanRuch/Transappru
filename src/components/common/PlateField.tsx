@@ -12,6 +12,14 @@ interface PlateFieldProps {
   label?: string;
   /** Optional style override for the outer card (e.g. centering, margins). */
   style?: StyleProp<ViewStyle>;
+  /**
+   * Called when the user presses Enter on the region field (web — mapped
+   * by react-native-web from Enter to onSubmitEditing) or "Done" on the
+   * native keyboard. The region input is the natural last step of plate
+   * entry. Callers are expected to gate validity themselves. Optional —
+   * when omitted, behaviour is unchanged.
+   */
+  onSubmitEditing?: () => void;
 }
 
 /**
@@ -34,7 +42,7 @@ interface PlateFieldProps {
  * `useInnBinding`). This component is presentation-only.
  */
 export default function PlateField({
-  base, region, onChangeBase, onChangeRegion, label, style,
+  base, region, onChangeBase, onChangeRegion, label, style, onSubmitEditing,
 }: PlateFieldProps) {
   const baseRef = useRef<any>(null);
   const regionRef = useRef<any>(null);
@@ -75,6 +83,8 @@ export default function PlateField({
               placeholderTextColor="#B8B8B8"
               onChangeText={onChangeRegion}
               value={region}
+              onSubmitEditing={onSubmitEditing}
+              returnKeyType={onSubmitEditing ? 'done' : undefined}
             />
             <View style={styles.regionBottom}>
               <Text style={styles.regionText}>RUS</Text>
