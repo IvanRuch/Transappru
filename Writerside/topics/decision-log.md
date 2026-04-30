@@ -424,3 +424,138 @@ Push API + own Push Service per-vendor consolidation), либо backend
 снять и заменить на нативный Web Push (но затраты миграции скорее всего
 не оправдают выигрыш). Также reverses при значительной просадке
 delivery rate FCM web — мониторить через analytics после выкатки.
+
+---
+
+### ADR-010: patch-package + JVM system property для node-PATH в Gradle (2026-04-30)
+
+**Context.** При открытии проекта в Android Studio из Dock/Finder
+Gradle sync падал на плагине `expo-autolinking-settings` с ошибкой
+вида `Cannot run program "node": error=2, No such file or directory`.
+Из терминала (`./gradlew ...`) сборка работала — проблема проявлялась
+только при GUI-запуске Studio.
+
+Корневая причина — двухуровневая:
+
+1. **macOS GUI launch не наследует shell PATH.** Приложения,
+   запускаемые через launchd (Finder, Dock, Spotlight), получают
+   минимальный системный PATH (`/usr/bin:/bin:/usr/sbin:/sbin`) и
+   **не видят** `~/.zprofile` / `~/.zshrc` / `nvm`-shim'ов, где
+   обычно живёт node. Из терминала PATH собирается shell-ом, поэтому
+   `which node` работает, а Studio-из-Dock — нет.
+2. **Gradle `settings.providers.exec {}` — изолированный value
+   source.** Даже когда основной Gradle daemon видит корректный
+   PATH, value sources (используются `expo-modules-autolinking`
+   settings-плагином и серией android-build-плагинов в `node_modules`)
+   создают свой `ProcessBuilder` без наследования environment, и
+   lookup `"node"` падает.
+
+В нашем сетапе обе проблемы накладываются: проект живёт на внешнем
+HFS-диске (`/Volumes/HP_P800/...`), `HOME` стандартный, node стоит
+через системный пакет (`/usr/local/bin/node`).
+
+**Decision.** Заменили хардкод `"node"` на JVM system property
+`expo.node.path` с fallback на `"node"` в 8 пакетах внутри
+`node_modules`, через `patch-package`. Каждый разработчик один раз
+выставляет абсолютный путь у себя в `~/.gradle/gradle.properties`
+(user-level, не в репо):
+
+```properties
+systemProp.expo.node.path=/usr/local/bin/node
+```
+
+После этого `ProcessBuilder` получает абсолютный путь и запускает
+node в обход PATH lookup — работает и из терминала, и из GUI Studio.
+
+Затронутые пакеты (10 пакетов, 19 точек замены):
+
+| Пакет | Файлов | Замен |
+|---|---|---|
+| `expo` | 1 | 1 |
+| `expo-constants` | 1 | 2 |
+| `expo-modules-autolinking` | 3 | 3 |
+| `expo-modules-core` | 1 | 1 |
+| `@react-native/gradle-plugin` | 3 | 3 |
+| `@react-native-community/netinfo` | 1 | 1 |
+| `react-native-gesture-handler` | 1 | 1 |
+| `react-native-reanimated` | 1 | 4 |
+| `react-native-screens` | 1 | 1 |
+| `react-native-worklets` | 1 | 2 |
+
+Самый важный — `@react-native/gradle-plugin`: его convention для
+`nodeExecutableAndArgs` (`ReactExtension.kt`, `PrivateReactExtension.kt`)
+наследуется **всеми** RN-библиотеками для codegen-задач
+(`generateCodegenSchemaFromJavaScript`). Без патча этого плагина
+codegen падает у `react-native-screens`, `react-native-worklets`,
+`react-native-reanimated`, `react-native-gesture-handler`,
+`react-native-async-storage`, `react-native-community/datetimepicker`,
+`react-native-webview`, `react-native-yamap-plus`,
+`react-native-safe-area-context` — даже несмотря на пропатченный
+`resolveReactNativeDirectory` в их собственных `build.gradle`
+(codegen — отдельный код-путь, живёт в центральном плагине, и
+библиотеке достаточно лишь использовать convention). `PathUtils.kt:84`
+отдельно пропатчен из-за `Runtime.getRuntime().exec()`, который
+полностью обходит env. `expo-constants` имеет два сайта (`commandLine`
++ `nodeExecutableAndArgs`) в одном `.gradle` — оба нужны для
+`createExpoConfig`. `@react-native-community/netinfo` пропатчен
+defensively: в текущей раскладке `node_modules` он попадает в
+fallback-ветку до `node`-вызова, но при monorepo-layout или
+non-standard hoisting этот вызов проснётся.
+
+`patch-package` подключён через `"postinstall": "patch-package"` в
+`package.json` — патчи реаплаются автоматически после каждого
+`npm install` / EAS prebuild.
+
+**Rationale (alternatives considered).**
+
+1. **`launchctl setenv PATH ...` + перезапуск Dock.** Стандартный
+   рецепт для GUI-приложений. Не сработал: Dock кэширует environment
+   запущенных приложений; `launchctl setenv` помог только для новых
+   процессов после `killall Dock`, и даже тогда `providers.exec` в
+   value source создаёт свой ProcessBuilder без наследования.
+2. **`init.gradle` с reflection в Settings phase.** Попытка
+   подменить PATH в самом Gradle через init-скрипт. Не сработал:
+   value sources вычисляются раньше init-фазы, и reflection-доступ
+   к их internal `ProcessBuilder` не разрешён в Gradle 8.x
+   (`InaccessibleObjectException`).
+3. **`~/.zprofile` / `~/.bash_profile` экспорт PATH.** Помогает
+   терминалу, не помогает GUI-launchd. Уже было настроено и не
+   решало проблему.
+4. **LaunchAgent plist с `EnvironmentVariables`.** Решает GUI-PATH
+   глобально, но требует от каждого разработчика systemwide setup
+   (создать `~/Library/LaunchAgents/*.plist`, перелогиниться). Плюс
+   value-source-проблема всё равно остаётся.
+5. **Симлинк `/usr/local/bin/node` → актуальный node.** Помогает
+   только если node физически лежит в системном PATH; для проектов
+   с `nvm` / Volta / fnm не работает.
+
+`patch-package` + system property — **единственный** вариант,
+который работает одинаково на любом dev-сетапе (системный node,
+nvm, Volta), для любого launch-mode (терминал, Dock, Spotlight,
+JetBrains Toolbox), на любом host-OS (macOS / Linux), и не требует
+от разработчика менять глобальный environment вне Gradle.
+
+**Consequences.**
+
+- Каждый новый разработчик должен один раз добавить
+  `systemProp.expo.node.path=<absolute_path>` в
+  `~/.gradle/gradle.properties` — инструкция в `dev-mobile.md`,
+  раздел «Android Studio setup для разработчиков».
+- Из терминала Gradle-сборки работают как раньше — system property
+  отсутствует → fallback `"node"` → PATH lookup срабатывает.
+- При апгрейде версий пакетов из таблицы выше patch-package скажет
+  `Failed to apply patch...` если структура файла изменилась —
+  тогда нужно сгенерировать патч заново через
+  `npx patch-package <package>` после ручного фикса в `node_modules`.
+- На CI (EAS Build, GitHub Actions) патчи применяются автоматически
+  через `postinstall`. Для CI отдельно `expo.node.path` не нужно —
+  там PATH собирается из base image без launchd-проблемы.
+- Папка `android/` остаётся managed (`prebuild` regenerates) —
+  ничего не патчим в ней.
+
+**Reverses if.** Upstream-пакеты переедут на собственный механизм
+указания node-binary (Expo CLI обсуждали `EXPO_NODE_BINARY` env
+var) — тогда патчи можно будет снять и переключиться на штатный
+механизм. Также reverses при переходе монорепо на корпоративный
+container-based dev environment (devcontainer / Codespaces), где
+PATH детерминирован.

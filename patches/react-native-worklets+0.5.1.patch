@@ -1,0 +1,22 @@
+diff --git a/node_modules/react-native-worklets/android/build.gradle b/node_modules/react-native-worklets/android/build.gradle
+index 021f5bc..b1af18f 100644
+--- a/node_modules/react-native-worklets/android/build.gradle
++++ b/node_modules/react-native-worklets/android/build.gradle
+@@ -30,7 +30,7 @@ def resolveReactNativeDirectory() {
+     def reactNativePackage = file(
+         providers.exec {
+             workingDir(rootDir)
+-            commandLine("node", "--print", "require.resolve('react-native/package.json')")
++            commandLine(System.getProperty("expo.node.path", "node"), "--print", "require.resolve('react-native/package.json')")
+         }.standardOutput.asText.get().trim()
+     )
+     if (reactNativePackage.exists()) {
+@@ -294,7 +294,7 @@ android {
+ 
+ def validateReactNativeVersionResult = providers.exec {
+     workingDir(projectDir.path)
+-    commandLine("node", "./../scripts/validate-react-native-version.js", REACT_NATIVE_VERSION.toString())
++    commandLine(System.getProperty("expo.node.path", "node"), "./../scripts/validate-react-native-version.js", REACT_NATIVE_VERSION.toString())
+     ignoreExitValue = true
+ }
+ 
