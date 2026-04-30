@@ -125,6 +125,19 @@ problem the right fix is to add `sort_by=plate_digits` on the backend.
 extraction, region irrelevance, alphabetical tie-break, missing
 `auto_number_base` fallback, empty input, immutability, idempotency.
 
+## Sidebar org-list count for the active org
+
+`LeftMenuModal` renders a row per organization the user has access to,
+each with `количество авто: <N>` (via shared `OrgListItem`). The active
+org's row used to show `0` because of a backend asymmetry — see
+`dev-web.md` → "`user_auto_count` for the active org" for the full
+explanation; same story applies to mobile.
+
+Mobile fix: `LeftMenuModal` accepts a new `autoListCount: number` prop
+and substitutes it for the active row's `user_auto_count`.
+`AutoListScreen.tsx` provides the value from `useAutoData.autoListCount`
+(coerced via `Number(x) || 0` because backend ships it as a string).
+
 ## Planned Improvements
 
 | Task | Screen | Description |

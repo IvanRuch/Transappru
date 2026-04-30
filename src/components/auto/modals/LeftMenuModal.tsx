@@ -11,6 +11,14 @@ interface LeftMenuModalProps {
   userData: UserData;
   ourServicesList: OurService[];
   otherUserList: UserData[];
+  /**
+   * Total cars in the active organization. Comes from `useAutoData.autoListCount`
+   * (= `data.auto_list_count` from `/get-auto-list`). Needed because the
+   * backend does NOT include `user_auto_count` on `data.user_data` for the
+   * active org — only on each entry of `data.other_user_list`. Without this
+   * prop the active row would always show 0.
+   */
+  autoListCount: number;
   onboardingExpired: number;
   pulseFontSize: any;
   onClose: () => void;
@@ -25,6 +33,7 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
   userData,
   ourServicesList,
   otherUserList,
+  autoListCount,
   onboardingExpired,
   pulseFontSize,
   onClose,
@@ -244,7 +253,10 @@ export const LeftMenuModal: React.FC<LeftMenuModalProps> = ({
                   org={{
                     inn: userData.inn,
                     firm: userData.firm,
-                    user_auto_count: userData.user_auto_count,
+                    // Backend omits `user_auto_count` from `user_data` for the
+                    // active org — fall back to `autoListCount` (the same
+                    // `auto_list_count` the parent screen reads).
+                    user_auto_count: autoListCount,
                     notification_unviewed_count: userData.notification_unviewed_count,
                     user_confirmed: 1,
                     phone_inn_confirmed: 1,

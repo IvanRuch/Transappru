@@ -307,6 +307,7 @@ export default function AutoListScreen() {
         userData={autoListHook.userData}
         ourServicesList={autoListHook.ourServicesList}
         otherUserList={autoListHook.otherUserList}
+        autoListCount={Number(autoListHook.autoListCount) || 0}
         onboardingExpired={autoListHook.onboardingExpired}
         pulseFontSize={autoListHook.pulseFontSize}
         onClose={() => autoActions.setMenuLeftVisible(false)}

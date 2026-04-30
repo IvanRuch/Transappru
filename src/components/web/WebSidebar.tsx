@@ -126,6 +126,13 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
 
   const [userData,       setUserData]       = useState<UserData>({});
   const [otherUserList,  setOtherUserList]  = useState<OtherUser[]>([]);
+  // Backend asymmetry: `/get-auto-list` returns `user_auto_count` for
+  // every entry in `other_user_list`, but does NOT include it on the
+  // active org's `user_data` payload. The trustworthy source for the
+  // active row is `auto_list_count` (top-level, the same number the
+  // main screen renders as "Всего N авто"). Stored separately so the
+  // active row's count does not depend on the absent field.
+  const [autoListCount,  setAutoListCount]  = useState<number>(0);
   const [ourServices,    setOurServices]    = useState<OurService[]>([]);
   const [servicesOpen,   setServicesOpen]   = useState(false);
   const [loading,        setLoading]        = useState(true);
@@ -167,6 +174,9 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         setUserData(d.user_data);
         setOtherUserList(d.other_user_list || []);
         setOurServices(d.our_services_list || []);
+        // Backend ships counts as strings ("14"), coerce explicitly so
+        // downstream comparisons / formatting do not get a string back.
+        setAutoListCount(Number(d.auto_list_count) || 0);
       }
       if (d.onboarding_expired !== undefined) {
         setOnboardingExpired(d.onboarding_expired);
@@ -245,13 +255,21 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           user_auto_count: targetOrg.user_auto_count,
           notification_unviewed_count: targetOrg.notification_unviewed_count,
         });
+        // Optimistically promote target's count to be the new active
+        // count — `other_user_list` carries it, so no estimate needed.
+        // Background `loadData()` will reconcile to `auto_list_count`.
+        setAutoListCount(Number(targetOrg.user_auto_count) || 0);
         setOtherUserList(prev => {
           const withoutTarget = prev.filter(o => o.inn !== inn);
           if (!previousUser.inn) return withoutTarget;
           const previousAsOther: OrgListItemData = {
             inn: previousUser.inn,
             firm: previousUser.firm,
-            user_auto_count: previousUser.user_auto_count,
+            // Use `autoListCount` (the top-level `auto_list_count` we
+            // just had as active) instead of `previousUser.user_auto_count`
+            // — backend doesn't ship the field on `user_data`, so the
+            // latter is `undefined` and the de-promoted row would show 0.
+            user_auto_count: autoListCount,
             user_confirmed: 1,
             phone_inn_confirmed: 1,
             notification_unviewed_count: previousUser.notification_unviewed_count,
@@ -265,7 +283,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
     } finally {
       setSwitchingInn(null);
     }
-  }, [switchingInn, userData, otherUserList, loadData, router]);
+  }, [switchingInn, userData, otherUserList, autoListCount, loadData, router]);
 
   // ── active path helper ──────────────────────────────────────────────────────
   const isActive = (path: string) => pathname.startsWith(path);
@@ -399,7 +417,11 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
               org={{
                 inn: userData.inn,
                 firm: userData.firm,
-                user_auto_count: userData.user_auto_count,
+                // Backend omits `user_auto_count` for the active org
+                // (see comment on `autoListCount` declaration above).
+                // Use the top-level `auto_list_count` — same source the
+                // main screen reads.
+                user_auto_count: autoListCount,
                 notification_unviewed_count: userData.notification_unviewed_count,
                 user_confirmed: 1,
                 phone_inn_confirmed: 1,

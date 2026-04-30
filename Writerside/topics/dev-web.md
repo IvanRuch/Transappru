@@ -402,6 +402,41 @@ Tap fires `onPress(inn)` only if `user_confirmed && phone_inn_confirmed`; otherw
 (matches legacy mobile behaviour). `compact` prop hides all text — used when web sidebar is collapsed.
 Styled via NativeWind semantic tokens (`text-text-primary`, `text-text-secondary`, `bg-status-error`).
 
+#### `user_auto_count` for the active org — backend asymmetry
+
+`/get-auto-list` ships `user_auto_count` for **every** entry in
+`other_user_list`, but **omits** it from `data.user_data` (the active
+org's payload). The trustworthy source for the active org's count is
+the top-level `data.auto_list_count` — same number `AutoListScreen`
+prints as "Всего N авто".
+
+Both sidebars compensate by reading `auto_list_count` separately and
+substituting it into the active `OrgListItem`:
+
+- **Web** (`WebSidebar.tsx`) — owns its own `/get-auto-list` fetch, so
+  it stores `auto_list_count` in a sibling `useState<number>` next to
+  `userData`. The optimistic-swap path on org switch also updates this
+  value (target's `user_auto_count` becomes the new active count, and
+  the de-promoted org takes the old `autoListCount` into its
+  `other_user_list` entry — otherwise the de-promoted row would show
+  `0` until the background reconcile lands).
+- **Mobile** (`LeftMenuModal.tsx`) — dumb component, receives the value
+  as `autoListCount` prop from `AutoListScreen.tsx`, which pulls it
+  from `useAutoData.autoListCount`. Same shared `OrgListItem` is fed
+  the value for the active row.
+
+Counts arrive from backend as **strings** ("14"), so both call sites
+coerce via `Number(x) || 0` to keep downstream comparisons numeric.
+
+Verified empirically by `.claude/scripts/probe-org-counts.mjs` against
+prod `transapp.ru`: `user_data.user_auto_count` is `undefined`,
+`other_user_list[i].user_auto_count` is `"74"`/`"54"`,
+`auto_list_count` is `"14"`. If backend ever starts shipping
+`user_auto_count` on `user_data`, this fix becomes a no-op (we're not
+overriding a present value, we're filling in for an absent one — but
+the override is unconditional, so a future backend change should be
+followed by removing the substitution to avoid two sources of truth).
+
 ## CI/CD Pipeline (Docker + Yandex Cloud)
 
 Production deployment uses GitHub Actions → Docker → Yandex Cloud COI VM.
