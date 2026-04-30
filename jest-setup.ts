@@ -7,6 +7,14 @@
  * Keep it limited to mock declarations and module stubs.
  */
 
+/* ───────── React Native runtime globals ─────────
+ * `__DEV__` is injected by Metro at runtime. Code paths that branch on it
+ * (e.g. `src/services/api.ts` choosing dev vs prod payment URL) throw a
+ * ReferenceError under jest. Default to false so tests behave as
+ * production builds — predictable, no localhost/IP-specific URLs.
+ */
+(globalThis as any).__DEV__ = false;
+
 /* ───────── expo-router ─────────
  * Stub useRouter / useLocalSearchParams / useFocusEffect so screens can
  * be rendered in isolation without a real navigation stack.

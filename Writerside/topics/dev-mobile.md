@@ -138,6 +138,71 @@ and substitutes it for the active row's `user_auto_count`.
 `AutoListScreen.tsx` provides the value from `useAutoData.autoListCount`
 (coerced via `Number(x) || 0` because backend ships it as a string).
 
+## Test infrastructure
+
+Jest 29.7 + jsdom + jest-rn-stub for hooks/utils. Component-level RN
+rendering deferred (no jest-expo for SDK 54 yet).
+
+### MSW for network mocks (since 2026-04-30)
+
+`msw@^2` intercepts axios calls at the network layer so hook tests can
+exercise real `api.post('/get-auto-list', ...)` paths without leaking
+HTTP. Setup files:
+
+- `jest-msw.setup.ts` — listen / resetHandlers / close lifecycle, plus
+  Web Streams + fetch polyfills (jsdom env doesn't ship them).
+  Wired via `setupFilesAfterEnv`.
+- `src/test-utils/server.ts` — shared `setupServer` instance.
+- `src/test-utils/handlers.ts` — default handlers for `/get-auto-list`
+  and the four detail endpoints (`get-auto-check-{passes,diagnostic-card,fines,osago}`).
+- `src/test-utils/factories/` — fixture builders:
+  - `makeUserData(overrides)` — active org payload.
+  - `makeAutoItem(overrides)`, `makeAutoList(n)` — vehicle list with
+    deterministic ids and plates (А100АА77, А101АА77, ...).
+  - `makeGetAutoListResponse(overrides)` — full /get-auto-list shape.
+- `src/test-utils/index.ts` — public re-exports; tests import from here.
+
+Per-test override pattern:
+
+```ts
+import { http, HttpResponse } from 'msw';
+import { server, makeGetAutoListResponse, makeAutoList } from '../../test-utils';
+
+it('handles 401', async () => {
+  server.use(
+    http.post('https://transapp.ru/api/get-auto-list',
+      () => new HttpResponse(null, { status: 401 })),
+  );
+  // ... act + assert
+});
+```
+
+`onUnhandledRequest: 'error'` — any unmocked outbound request fails the
+test, keeping test dependencies honest.
+
+### Hook coverage
+
+| Hook | Tests | What's covered |
+|---|---|---|
+| `useAutoData` | `useAutoData.test.tsx` (7 cases, MSW) | initial load, updateAutoItem (merge + isolation), loadMore + numeric merge order, 401 → token cleared, resetData clears state + filters, surfaces other_user_list / our_services_list |
+| `useInnBinding` | `useInnBinding-validation.test.ts` | INN format validation (10/12 digits) |
+| `useRnisCheck` | `useRnisCheck-buttonEnabled.test.ts` | RNIS button gating |
+| `useWebPushPermission` | 11 cases | full state machine (idle/snoozed/granted/denied), localStorage persistence |
+| `usePassOrder` | `usePassOrder-zoneLogic.test.ts` | zone selection rules |
+| `useUserProfile` | `useUserProfile-phone.test.ts` | phone formatting |
+| `useDriverList` | `useDriverList-validation.test.ts` | driver name validation |
+| `useNotificationList` | `useNotificationList-logic.test.ts` | unread/badge logic |
+
+Deferred for `useAutoData` (separate test file when worth it):
+
+- Latest-wins AbortController (jsdom adapter for axios doesn't expose
+  abort behaviour reliably enough for ordering assertions)
+- 5-minute cache lifetime (needs fake timers + careful interaction
+  with the 500 ms filter debounce)
+
+`switchOrganization`, `navigateToInn`, `passMapBridge`, `alert` —
+focused unit suites, no MSW (pure logic / module-level state).
+
 ## Planned Improvements
 
 | Task | Screen | Description |
