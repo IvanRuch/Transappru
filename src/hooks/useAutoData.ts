@@ -6,6 +6,7 @@ import axios from 'axios';
 import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
 import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
+import { reportProviderResult } from '../utils/providerHealth';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
 const AUTO_LIST_LIMIT = 10;
@@ -266,41 +267,65 @@ export function useAutoData() {
     });
   };
 
-  // Вспомогательные функции загрузки деталей
+  // Вспомогательные функции загрузки деталей.
+  // Каждая после resolve/reject зовёт reportProviderResult(...) — это
+  // питает providerHealth → DataProviderStatusBanner. Контракт успеха:
+  // запрос ответил, нет `error`, и data готова (`in_progress != 1` для
+  // тех endpoint-ов где есть этот флаг). Retry-итерации НЕ репортим —
+  // только финальный исход (успех / exhaust / network error).
   const loadPasses = (token: string, id: string, retries = 3) => {
     api.post('/get-auto-check-passes', { token, id, intervally: 1 }).then(res => {
       if (res.data.error || res.data.in_progress != 1) {
+        reportProviderResult('passes', !res.data.error);
         updateAutoItem(id, { ...res.data, check_passes_expared: 0 });
       } else if (retries > 0) {
         setTimeout(() => loadPasses(token, id, retries - 1), 5000);
       } else {
+        // Retries exhausted — provider didn't finish in 15s.
+        reportProviderResult('passes', false);
         updateAutoItem(id, { check_passes_expared: 0 });
       }
-    }).catch(e => updateAutoItem(id, { check_passes_expared: 0 }));
+    }).catch(e => {
+      reportProviderResult('passes', false);
+      updateAutoItem(id, { check_passes_expared: 0 });
+    });
   };
 
   const loadDiagnosticCard = (token: string, id: string, retries = 3) => {
     api.post('/get-auto-check-diagnostic-card', { token, id, intervally: 1 }).then(res => {
         if (res.data.error || res.data.in_progress != 1) {
+            reportProviderResult('diagnostic_card', !res.data.error);
             updateAutoItem(id, { ...res.data, check_diagnostic_card_expared: 0 });
         } else if (retries > 0) {
             setTimeout(() => loadDiagnosticCard(token, id, retries - 1), 5000);
         } else {
+            reportProviderResult('diagnostic_card', false);
             updateAutoItem(id, { check_diagnostic_card_expared: 0 });
         }
-    }).catch(e => updateAutoItem(id, { check_diagnostic_card_expared: 0 }));
+    }).catch(e => {
+      reportProviderResult('diagnostic_card', false);
+      updateAutoItem(id, { check_diagnostic_card_expared: 0 });
+    });
   };
 
   const loadFines = (token: string, id: string) => {
     api.post('/get-auto-check-fines', { token, id }).then(res => {
+      reportProviderResult('fines', !res.data.error);
       updateAutoItem(id, { ...res.data, check_fines_expared: 0 });
-    }).catch(e => updateAutoItem(id, { check_fines_expared: 0 }));
+    }).catch(e => {
+      reportProviderResult('fines', false);
+      updateAutoItem(id, { check_fines_expared: 0 });
+    });
   };
 
   const loadOsago = (token: string, id: string) => {
     api.post('/get-auto-check-osago', { token, id }).then(res => {
+      reportProviderResult('osago', !res.data.error);
       updateAutoItem(id, { ...res.data, check_osago_expared: 0 });
-    }).catch(e => updateAutoItem(id, { check_osago_expared: 0 }));
+    }).catch(e => {
+      reportProviderResult('osago', false);
+      updateAutoItem(id, { check_osago_expared: 0 });
+    });
   };
 
   // Обновление одного элемента в списке

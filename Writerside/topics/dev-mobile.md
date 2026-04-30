@@ -138,6 +138,79 @@ and substitutes it for the active row's `user_auto_count`.
 `AutoListScreen.tsx` provides the value from `useAutoData.autoListCount`
 (coerced via `Number(x) || 0` because backend ships it as a string).
 
+## Data provider health & status banner
+
+Vehicle data (fines / OSAGO / passes / diagnostic-card / RNIS / tolled
+roads) flows through third-party providers via the main backend.
+Providers are contracted on endpoint uptime only — not data
+freshness/completeness, and the upstream sources they hit (eKazna,
+traffic-police parsers, ...) go down independently. Until 2026-04-30
+the frontend silently swallowed every per-provider failure → clients
+saw blank fields and assumed everything was fine, then got hurt.
+
+### Architecture (Phase 1, now)
+
+Pure frontend detection — no backend coordination required to ship
+value. Backend-driven `system_notice` is Phase 2, planned in
+`.claude/plans/2026-04-30-data-provider-health.md`.
+
+```
+useAutoData.loadPasses
+useAutoData.loadDiagnosticCard      reportProviderResult(id, success)
+useAutoData.loadFines           ──►  ────────────────────────────────►  src/utils/providerHealth.ts
+useAutoData.loadOsago                                                    (rolling 60s window per provider,
+                                                                          unknown → ok → degraded → down)
+                                                                                    │
+                                                                                    │ subscribe
+                                                                                    ▼
+                                                                          useDataProviderHealth (useSyncExternalStore)
+                                                                                    │
+                                                                                    ▼
+                                                                          <DataProviderStatusBanner/>
+                                                                          (top-sticky amber, dismissible)
+```
+
+### State machine per provider (`src/utils/providerHealth.ts`)
+
+| State | Trigger |
+|---|---|
+| `unknown` | 0 samples in last 60s |
+| `ok` | ≥1 sample, failure rate < 30%, no consecutive-fail trip |
+| `degraded` | failure rate 30–80% **or** 2 consecutive failures |
+| `down` | failure rate ≥ 80% **or** 3 consecutive failures |
+
+Down-by-rate (≥80%) outranks consecutive-degraded — 2 failures with
+no successes in window = 100% rate = `down`, not `degraded`.
+
+Tuning constants (`WINDOW_MS`, `*_FAILURE_RATE`, `*_CONSECUTIVE`)
+deliberately conservative — better to underreport than to cry wolf.
+Tune after first prod observation.
+
+### Banner UX (`DataProviderStatusBanner.tsx`)
+
+- Top-sticky amber (`#FFC107`), zIndex 9998 — one tick below
+  `NetworkStatusBanner` (zIndex 9999) so offline-red wins when both
+  fire (no internet → no provider data either, more severe signal).
+- Text: "Временные перебои: <RU labels>" (RU labels in `PROVIDER_LABELS`).
+- Auto-shows when ≥1 provider is `degraded` or `down`; auto-hides
+  when all recover.
+- Dismissible via ✕ — sessionStorage on web, module-level `let` on
+  native. Re-appears automatically when a **fresh** provider
+  transitions degraded/down after dismiss (signature-based: dismiss
+  applies to the current set, not "all future outages").
+- Mounted in `app/_layout.tsx` next to `NetworkStatusBanner`.
+
+### Tests
+
+- `src/utils/__tests__/providerHealth.test.ts` — 12 cases covering
+  threshold transitions (unknown / ok / degraded / down), per-provider
+  isolation, rolling-window expiry, subscribe/notify lifecycle, listener
+  self-unsubscribe.
+- `useDataProviderHealth` hook tests deferred (thin wrapper over
+  `useSyncExternalStore`).
+- Banner UI test deferred (jsdom + RN renderer plays poorly with
+  `useSafeAreaInsets`; manual QA on staging is the right tool here).
+
 ## Test infrastructure
 
 Jest 29.7 + jsdom + jest-rn-stub for hooks/utils. Component-level RN

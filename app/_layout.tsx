@@ -9,6 +9,7 @@ import { NotificationProvider, useNotification } from '@/src/contexts/Notificati
 import { ThemeProvider } from '@/src/contexts/ThemeContext';
 import InAppNotification from '@/src/components/InAppNotification';
 import NetworkStatusBanner from '@/src/components/NetworkStatusBanner';
+import DataProviderStatusBanner from '@/src/components/DataProviderStatusBanner';
 import { DynamicTitle } from '@/src/components/web/DynamicTitle';
 import { PushPermissionPrompt } from '@/src/components/web/PushPermissionPrompt';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
@@ -112,6 +113,7 @@ function AppContent({ token }: { token: string | null }) {
     <>
       <DynamicTitle />
       <NetworkStatusBanner />
+      <DataProviderStatusBanner />
       <PushPermissionPrompt />
       <NotificationOverlay />
       <Stack
