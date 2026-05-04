@@ -11,8 +11,10 @@ from litestar.status_codes import HTTP_400_BAD_REQUEST
 
 from app.config.db import close_db, init_db
 from app.config.settings import settings
+from app.controllers.data_issues import DataIssuesController
 from app.controllers.health import HealthController
 from app.controllers.payment import PaymentController
+from app.services import firebase_push
 
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
@@ -47,9 +49,16 @@ openapi_config = OpenAPIConfig(
 @asynccontextmanager
 async def db_lifespan(app: Litestar) -> AsyncGenerator[None, None]:
     """
-    Управление жизненным циклом базы данных.
+    Управление жизненным циклом базы данных + предварительная инициализация
+    Firebase Admin SDK (ленивая, с graceful degrade при отсутствии credentials).
     """
     await init_db()
+    # Pre-warm FCM init so the first /banner_off doesn't pay the load cost
+    # and so a missing service account is logged at boot, not on first push.
+    if firebase_push.is_available():
+        logger.info("firebase_push.ready (recovery push enabled)")
+    else:
+        logger.warning("firebase_push.unavailable (recovery push will be skipped)")
     try:
         yield
     finally:
@@ -76,7 +85,7 @@ def validation_exception_handler(
 
 
 app = Litestar(
-    route_handlers=[HealthController, PaymentController],
+    route_handlers=[HealthController, PaymentController, DataIssuesController],
     lifespan=[db_lifespan],
     cors_config=cors_config,
     openapi_config=openapi_config,

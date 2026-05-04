@@ -2,7 +2,7 @@
 
 ## References
 
-- **Официальная документация Kazna API:** [https://tprs.ru/KaznaAPI.pdf](https://tprs.ru/KaznaAPI.pdf) — single source of truth по всем upstream-эндпоинтам, форматам подписи и набору статусов платежа. Локальная markdown-версия (~6k строк, удобно искать): `docs/KaznaAPI.md`. При любом расхождении между нашим кодом и PDF — прав PDF.
+- **Официальная документация Kazna API:** [https://tprs.ru/KaznaAPI.pdf](https://tprs.ru/KaznaAPI.pdf) — single source of truth по всем upstream-эндпоинтам, форматам подписи и набору статусов платежа. Локальная markdown-версия (~6k строк, удобно искать): `payment-service/docs/vendor/kazna/KaznaAPI.md`. При любом расхождении между нашим кодом и PDF — прав PDF.
 - Sandbox endpoint: `https://demopay.oplatagosuslug.ru/api/kazna/2.2` (захардкожен в `payment-service/docker-compose.yml`).
 - См. также `Writerside/topics/dev-payment-flow.md` (схема потоков «текущее» vs «Phase 3») и `decision-log.md` ADR-008 про polling-based status.
 
@@ -143,8 +143,95 @@ Accept: application/json
 |--------|-----------|
 | **Auth header format** | `Authorization: token <X>` (НЕ `Bearer`). `<X>` — токен, который **мы** передаём Kazna при регистрации URL у менеджера. Это отдельный секрет от `KAZNA_TOKEN` (который у нас идёт outgoing → Kazna). При реализации сгенерировать новый long-random токен и согласовать его с менеджером Kazna одновременно с регистрацией URL. |
 | **Batch wrapper** | `{"status": "complete", "charges": [...]}` — массив. Контроллер должен итерировать `charges[]` и обрабатывать каждое начисление независимо. Возвращать 200 OK после обработки всего batch-а; ретраи по PDF — exponential backoff с шагами 30c → 1м → 5м → 20м → 60м, поэтому транзиентные DB-ошибки лучше оставлять как-есть (не ловить) — Kazna сама ретраит. |
-| **`msgType` mapping** | `1` — новое начисление, `2` — изменение, `3` — аннулирование, `4` — оплачено (см. `docs/KaznaAPI.md:5140`). В нашем sample `msgType: 4` — это уведомление об оплате уже известного начисления. |
+| **`msgType` mapping** | `1` — новое начисление, `2` — изменение, `3` — аннулирование, `4` — оплачено (см. `payment-service/docs/vendor/kazna/KaznaAPI.md:5140`). В нашем sample `msgType: 4` — это уведомление об оплате уже известного начисления. |
 | **Поля поверх PDF** | `PayeeBik`, `PayeeCorrAccount`, `PayeeBankName`, `OKTMO`, `departmentName`, `legalAct`, `offenseDate`, `offensePlace` — не все есть в PDF, но Kazna реально шлёт. Pydantic-схема приёмника должна быть `extra='allow'` либо явно перечислить эти поля как Optional. |
 | **`amount` в копейках** | `amount: 75000` = 750.00 ₽. Совпадает с PDF («указывается в копейках»). |
 | **Идемпотентность по `supplierBillID`** | Kazna может повторно прислать одно и то же начисление (после ретрая или edit-ом с `msgType=2`). Хранить по UPSERT-ключу `(subscribe, supplierBillID)`. |
 | **Идентификация пользователя** | `payerDoc.code = "200"` + `payerDoc.value` = ИНН (по справочнику типов документов в PDF). Хранится у нас в legacy под полем `inn`. |
+
+
+## Data quality reporting + system-notice (ADR-012)
+
+**Не Kazna, наша собственная история** — backend для user-feedback loop по
+качеству данных от провайдера (см. [ADR-012](decision-log.md) и план
+`.claude/plans/2026-05-04-data-issues-reporting.md`).
+
+### `POST /api/data-issues/report`
+
+Принимает одну жалобу от клиента. Используется кнопкой «Сообщить о
+проблеме с данными» на детальном экране авто (mobile + web).
+
+**Request body:**
+
+```jsonc
+{
+  "user_id": 678,            // legacy user.id, trusted from body
+  "auto_id": 12345,          // legacy user_auto.id
+  "category": "fines",       // one of: passes, diagnostic_card, fines, osago, rnis, avtodor
+  "comment": "штраф был, в приложении нет",  // optional, ≤ 2000 chars
+  "fcm_token": "ckm:abc...", // optional; only present when push permission granted
+  "platform": "mobile_ios"   // optional: mobile_ios | mobile_android | web
+}
+```
+
+**Response 201:**
+
+```jsonc
+{
+  "id": 42,
+  "notice_triggered": false  // true iff this complaint pushed the threshold
+                              // and an auto-banner was created as a side effect
+}
+```
+
+**Error 409** — повторная open-жалоба того же `(user_id, auto_id, category)`,
+пока предыдущая не закрыта (admin `/banner_off` или явный `resolve_issue`).
+
+**Side effects:**
+
+- INSERT в `data_issues` с `created_at = NOW()` и `source_ip` из
+  `X-Forwarded-For` (best-effort, may be `null`).
+- Best-effort Telegram-alert администратору с inline-кнопками
+  `Активировать баннер` / `Закрыть жалобу` (silent skip если
+  `TELEGRAM_BOT_TOKEN` пуст).
+- Auto-banner threshold check: если за `AUTO_BANNER_WINDOW_HOURS` (default
+  6h) накопилось ≥ `AUTO_BANNER_THRESHOLD` (default 3) distinct `user_id`
+  по той же категории и нет активного notice — создаётся `system_notice`
+  с `source='auto'`. Race-safe через partial UNIQUE INDEX
+  `system_notice (category) WHERE deactivated_at IS NULL`.
+
+### `GET /api/system-notice`
+
+Возвращает список активных баннеров. Polled клиентами каждые 60s
+(хук `useSystemNotice` на фронте).
+
+**Response 200:**
+
+```json
+{
+  "notices": [
+    {
+      "category": "fines",
+      "message": "⚠️ Возможны временные перебои в данных по категории «штрафы ГИБДД». Мы уже работаем над этим.",
+      "source": "admin",
+      "since": "2026-05-04T14:23:11.000Z"
+    }
+  ]
+}
+```
+
+Пустой `notices` — нет активных баннеров. Источник (`admin` / `auto`)
+включён в payload для отладки, фронт его игнорирует.
+
+### Лайфцикл и команды Telegram-бота `@transappmonitor_bot`
+
+| Команда / событие | Эффект |
+|---|---|
+| Жалоба прилетела | Бот шлёт админу карточку с inline-кнопками. На третьей за 6h автоматически создаётся `system_notice` с `source='auto'` |
+| `/banner_on <category> [текст]` | Создать `system_notice` с `source='admin'`. Текст опциональный. |
+| `/banner_off <category> [текст recovery push]` | 3-кнопочный confirm: «выключить + push N жалобщикам» / «только выключить» / «отмена». Push идёт ТОЛЬКО на FCM токены жалобщиков этой категории. |
+| `/issues` | Список открытых жалоб (≤ 20, paginate если будет нужно). |
+| `/help` `/start` | Подсказка. |
+
+Авторизация бота — единственная проверка `chat_id == TELEGRAM_ADMIN_CHAT_ID`.
+

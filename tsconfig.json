@@ -18,9 +18,9 @@
   ],
   "exclude": [
     "**/*.md",
-    "docs/**/*",
     "node_modules",
     "Transappru",
-    "transappweb"
+    "transappweb",
+    "legacy"
   ]
 }

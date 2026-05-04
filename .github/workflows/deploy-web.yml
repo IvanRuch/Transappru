@@ -23,6 +23,18 @@ on:
 # KAZNA_API_URL           — Kazna payment gateway URL
 # KAZNA_SECRET_KEY        — Kazna API secret key
 # KAZNA_TOKEN             — Kazna API token
+# Data quality monitoring (ADR-012):
+# TELEGRAM_BOT_TOKEN          — @transappmonitor_bot token from @BotFather
+# TELEGRAM_ADMIN_CHAT_ID      — admin's personal Telegram chat_id (integer)
+# FIREBASE_SERVER_ACCOUNT_JSON — full content of the service-account JSON
+#                                (Firebase Console → Project Settings →
+#                                Service Accounts → Generate new private key);
+#                                baked into the payment-service image at build
+#                                time as /run/secrets/firebase-server-account.json
+# Web push (ADR-009, build-time only):
+# FIREBASE_WEB_API_KEY / FIREBASE_WEB_APP_ID / FIREBASE_WEB_VAPID_KEY /
+# FIREBASE_WEB_PROJECT_ID / FIREBASE_WEB_MESSAGING_SENDER_ID /
+# FIREBASE_WEB_STORAGE_BUCKET
 
 env:
   CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
@@ -38,6 +50,11 @@ env:
   KAZNA_SECRET_KEY: ${{ secrets.KAZNA_SECRET_KEY }}
   KAZNA_TOKEN: ${{ secrets.KAZNA_TOKEN }}
   YC_CERT_ID: ${{ secrets.YC_CERT_ID }}
+  # Data quality monitoring (ADR-012). Empty values are tolerated:
+  # payment-bot exits gracefully when bot creds are unset, FCM degrades
+  # silently when the service-account JSON build-arg is empty.
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
 
 jobs:
   build-nginx:
@@ -83,9 +100,15 @@ jobs:
           yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 
       - name: Build and push payment-service image
+        # FIREBASE_SERVER_ACCOUNT_JSON is baked into the image as
+        # /run/secrets/firebase-server-account.json (see Dockerfile.prod).
+        # Empty value is tolerated: the runtime FCM init logs ERROR and
+        # marks recovery push unavailable, but every other endpoint and
+        # the bot's banner activate/deactivate flow keep working.
         run: |
           docker build \
             -f payment-service/Dockerfile.prod \
+            --build-arg FIREBASE_SERVER_ACCOUNT_JSON="${{ secrets.FIREBASE_SERVER_ACCOUNT_JSON }}" \
             -t ${{ env.PAYMENT_IMAGE }} \
             ./payment-service
           docker push ${{ env.PAYMENT_IMAGE }}

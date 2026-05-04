@@ -1,7 +1,5 @@
 # Mac M2 Setup
 
-<!-- Content to be migrated from /docs/SETUP_MAC_M2.md -->
-
 ## Prerequisites
 
 - macOS on Apple Silicon (M1/M2/M3/M4)

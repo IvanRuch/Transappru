@@ -18,8 +18,8 @@ TransApp — мобильное приложение для управления
 |-----------|-----------|
 | Mobile | React Native 0.81 + Expo 54 + TypeScript + NativeWind |
 | Payment Service | Python (Litestar + Tortoise ORM + PostgreSQL 15) |
-| Web | React 19 + JavaScript |
-| Maps | Yandex Maps |
+| Web | Expo Web (тот же кодбейс, см. ADR-001) |
+| Maps | Yandex Maps JS API v3 (web), `react-native-yamap-plus` (native) |
 | Push | Firebase Cloud Messaging |
 | Build | EAS (Expo Application Services) |
 

@@ -626,6 +626,233 @@ PATH детерминирован.
 
 ---
 
+### ADR-012: Data quality reporting + system-notice banner (2026-05-04)
+
+**Context.** Phase 1 баннера состояния провайдера (PR #18, ADR
+неявный, реализация — `src/utils/providerHealth.ts`) ловит только
+**observable failures** запросов к нашему backend (HTTP 5xx, timeout,
+явные `error: ...` в payload). Реальная боль клиентов — *silent data
+quality issues*: провайдер `Avtocod` получает данные от госструктур
+через СМЭВ (ГИБДД, ФССП и др.), СМЭВ часто отдаёт частичные или
+устаревшие данные, провайдер этого не сообщает. В endpoint всё
+выглядит ОК — клиент видит «нет штрафов», доверяет, потом ловит
+ФССП-передачу. Частота — ~1 раз/мес, но критично: финансовые риски
+клиента → отток.
+
+Endpoint-observation эту проблему не закрывает в принципе. Нужен
+канал «снизу вверх» — клиент сигналит о расхождении с реальностью.
+
+**Decision.** Реализовать loop **жалоба → админ → ручное / авто
+включение баннера → recovery push** как core-функциональность
+data-quality-monitoring, поверх существующего `payment-service`,
+с отдельным sidecar-контейнером `payment-bot` для Telegram-диспетчера.
+
+Архитектура (см. `.claude/plans/2026-05-04-data-issues-reporting.md`):
+
+```
+client ──POST /data-issues/report──▶ payment-service ──aiogram-send──▶ admin TG
+                                          │
+                                          ▼  threshold check (≥3 distinct
+                                              users / 6h)
+                                       ┌──────────────────┐
+                                       │  payment_db      │
+                                       │  data_issues     │
+                                       │  system_notice   │
+                                       │  push_log        │
+                                       └────▲───────▲─────┘
+                                            │       │
+                                  payment-bot       client
+                                  (aiogram polling) ──GET /system-notice──▶
+                                  ─/banner_on, /banner_off, callbacks
+                                  ─FCM admin push (firebase-admin)
+```
+
+**Rationale (alternatives considered).**
+
+1. **TG-бот в lifespan payment-service vs отдельный контейнер.** Polling
+   нескольких uvicorn-воркеров против одного `bot.getUpdates`-токена даёт
+   `Conflict: terminated by other getUpdates`. Single-worker payment-service
+   ограничивал бы рост. → Sidecar `payment-bot` тем же image, разный
+   `command:`. payment-service остаётся scalable.
+2. **Webhook vs polling для бота.** Webhook избегает multi-worker
+   проблемы естественно, но требует публичный URL и certificate. Учитывая
+   объём ~1 жалоба/мес — polling простой и достаточный, не блокирует
+   эволюцию на webhook когда понадобится.
+3. **Проверка `user_id` через legacy DB.** Отвергнуто — legacy MySQL
+   нам недоступен. Trust + partial UNIQUE rate-limit в БД достаточно
+   для v1: повторная open-жалоба того же `(user, auto, category)` →
+   HTTP 409. Spam от внешнего злоумышленника возможен с разными
+   `user_id`, принимаем как acceptable risk; при росте abuse — добавим
+   shared secret.
+4. **FCM tokens из legacy `session.fcmtoken`.** Отвергнуто — legacy DB
+   недоступна. Решение: **клиент сам шлёт `fcm_token` в `/report`**.
+   Жалобщик обычно на устройстве с уже-granted push permission, токен
+   у него на руках. Implicit consent (он сам инициировал диалог),
+   минимум шума, никакого cross-tenant leak. Web-юзер без push permission
+   не получит recovery push — accepted, баннер всё равно исчезнет
+   при следующем poll.
+5. **Auto-banner threshold race.** Партиционная UNIQUE INDEX
+   `system_notice (category) WHERE deactivated_at IS NULL` + `INSERT
+   ON CONFLICT DO NOTHING` (Postgres) защищают от двух одновременных
+   threshold-crossing'ов при пиковом потоке жалоб. App-level early-out
+   запросом активного notice — для единичных случаев, чтобы не плодить
+   IntegrityError-исключения.
+6. **TTL баннера.** Отвергнут (по запросу заказчика). Баннер живёт до
+   явного `/banner_off` — data-quality инцидент не лечится сам собой,
+   и забывание выключить — менее опасный фейл, чем ложное "восстановлено".
+7. **Push targeting.** Только жалобщикам (FCM tokens из `data_issues`
+   для этой категории), не всем юзерам с авто. По запросу заказчика:
+   «никого кроме жалобщика не стоит беспокоить — остальные могут
+   вовсе не заметить что проблема была». Минимум шума в push-канале.
+
+**Implementation surface.**
+
+| Layer | Files |
+|---|---|
+| Migration | `payment-service/migrations/002_data_issues_and_notice.sql` |
+| Models | `app/models.py` — `DataIssue`, `SystemNotice`, `SystemNoticePushLog` |
+| Pydantic | `app/schemas/data_issues.py` |
+| Settings | `app/config/settings.py` — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`, `FIREBASE_CREDENTIALS_PATH`, `AUTO_BANNER_*` |
+| Services | `app/services/{firebase_push,data_issues,system_notice}.py` |
+| Controllers | `app/controllers/data_issues.py` — `POST /api/data-issues/report`, `GET /api/system-notice` |
+| Bot | `app/bot/{notify,handlers,bot_worker}.py` |
+| Local compose | `payment-service/docker-compose.yml` — новый сервис `payment-bot` |
+| Prod compose | `yandex-cloud/docker-compose.yc.yaml` — `payment-bot` рядом с `payment-service`, оба читают TG/Firebase env-переменные |
+| Deploy CI | `.github/workflows/deploy-web.yml` — `TELEGRAM_BOT_TOKEN`/`TELEGRAM_ADMIN_CHAT_ID` идут через `env:`-блок (как `KAZNA_*`); `FIREBASE_SERVER_ACCOUNT_JSON` идёт через `--build-arg` в `build-payment` step (по аналогии с `FIREBASE_WEB_*` в `build-nginx`, ADR-009) — Dockerfile.prod записывает JSON в `/run/secrets/firebase-server-account.json` под appuser |
+| Tests | `tests/{test_data_issues_endpoint,test_system_notice_endpoint,test_system_notice_service,test_firebase_push}.py` (29 кейсов) |
+| Required GitHub Secrets | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID`, `FIREBASE_SERVER_ACCOUNT_JSON` (полное содержимое сервис-аккаунта JSON в одной строке) |
+
+**Consequences.**
+
+- payment-service зависит от Firebase service account (`/run/secrets/firebase-server-account.json`) — graceful degrade при отсутствии: баннеры включаются/выключаются, recovery push молча скипается.
+- payment-service зависит от Telegram Bot API при INSERT в `data_issues` — best-effort, ошибки логируются и не пробрасываются в HTTP-ответ.
+- Legacy-DB остаётся не тронутой — собственный журнал `data_issues` /
+  `system_notice` / `system_notice_push_log` живёт в `payment_db`.
+- При миграции legacy → наш backend `user_id` поле остаётся валидным
+  (id-пространство сохраняется), переключений не требуется.
+- Phase 1 frontend (`DataProviderStatusBanner`, `useDataProviderHealth`,
+  `providerHealth.ts`) deprecated в PR-2 (frontend); сам баннер-компонент
+  переиспользуется как presenter, источник переключается на
+  `useSystemNotice` / `GET /system-notice`.
+
+**Reverses if.** Backend получает прямой контракт от Avtocod о
+качестве данных (явный `data_freshness_warning` flag в response), либо
+мы переезжаем на cross-user anomaly detection после миграции legacy →
+наш backend (Track 2 в плане). В обоих случаях user-feedback loop
+остаётся как fallback-канал — отказывать от него не будем.
+
+---
+
+### ADR-013: Documentation single source of truth (2026-05-04)
+
+**Context.** До 2026-05-04 в проекте сосуществовали три источника
+документации:
+
+1. **`/docs/`** — 60 markdown-файлов миграционной эпохи (Nov 2025 –
+   Apr 2026): completion-логи (`MIGRATION_COMPLETE.md`, `FINAL_SUMMARY.md`,
+   `DONE.md`), fix-логи (`FIREBASE_FIXED.md`, `WATCHMAN_FIX_MACOS.md`),
+   setup-гайды (`SETUP_MAC_M2.md`, `ANDROID_*`, `NATIVEWIND_*`), плюс
+   ценные vendor-артефакты (`KaznaAPI.md` 5966 строк + KaznaAPI PDF +
+   контракт).
+2. **`Writerside/topics/`** — 22 топика (4473 строки), действующая
+   живая документация, обновляется по mandate из `CLAUDE.md` после
+   каждого изменения кода.
+3. **Корневые `.md`** — `README.md` (172 строки), `ARCHITECTURE.md`
+   (82 строки), `QUICK_START.md` (102 строки), `TODO.md` (34 строки).
+   Все четыре устарели: README показывал SDK 52 / «миграция не
+   завершена», ссылался на 6 файлов в `/docs/` (включая `MIGRATION_STATUS.md`),
+   ARCHITECTURE — SDK 52, TODO — почти всё чекнуто.
+
+Проблемы такого состояния:
+
+- **Misleading entry-point.** Новый contributor (или GitHub UI)
+  видит `README.md` первым; он описывает реальность, которой нет
+  больше года. Нет ни одного указателя на Writerside.
+- **Двойной источник правды.** `Writerside/topics/api-payment.md:5,146`
+  и `dev-payment-flow.md:7` ссылались на `docs/KaznaAPI.md` — живая
+  Writerside-документация *зависит* от файла внутри «архива». Семь
+  топиков Writerside содержали HTML-комментарии вида
+  `<!-- Content to be migrated from /docs/X.md -->`, формализующие
+  незавершённую миграцию. `project-dashboard.md → Documentation` row
+  висел как 🔄 Migration to Writerside.
+- **Ложный мусор в build/dev pipeline.** `tsconfig.json` имел
+  `docs/**/*` в `exclude` (страховка от попадания в TS-pipeline);
+  `scripts/setup-mac-m2.sh:233` echo'ил инструкцию к
+  `docs/SETUP_MAC_M2.md`; `.claude/skills/writerside-docs.md` имел
+  миграционную таблицу `/docs/ → Writerside`.
+
+**Decision.** Зафиксировать `Writerside/topics/` как **единственный**
+источник правды для проектной документации. Остальное:
+
+| Категория | Куда |
+|-----------|------|
+| Vendor docs (Kazna API spec PDF + markdown + контракт) | `payment-service/docs/vendor/kazna/` (рядом с сервисом-потребителем) |
+| Исторические migration-логи | `legacy/docs/` через `git mv` (history preserved, явный сигнал «не редактировать») |
+| Корневой README | Slim index: что за проект, актуальный стек, quickstart-команды, ссылки в Writerside |
+| `ARCHITECTURE.md`, `QUICK_START.md`, `TODO.md` | Удалены — контент в `project-overview.md`, новом `README.md`, и `project-dashboard.md → Next Tasks` соответственно |
+
+Заодно:
+
+- 5 stub-топиков Writerside (`project-overview.md`, `dev-expo-router.md`,
+  `setup-android.md`, `infra-firebase.md`, плюс TODO-комментарий в
+  `dev-payment-flow.md`) **переписаны заново** на основе текущего
+  состояния кода — не копи-паст из `/docs/`.
+- TODO-комментарии `<!-- migrate from /docs/X.md -->` удалены из всех
+  7 топиков (включая `dev-mobile.md`, `setup-mac-m2.md`).
+- Inline-ссылки на `docs/KaznaAPI.md` обновлены на
+  `payment-service/docs/vendor/kazna/KaznaAPI.md`.
+- `tsconfig.json` exclude `docs/**/*` снят (папки нет; добавлен
+  `legacy` в exclude для гигиены).
+- `scripts/setup-mac-m2.sh:233` ссылается теперь на
+  `Writerside/topics/setup-mac-m2.md`.
+- `.claude/skills/writerside-docs.md` — секция «Migration from /docs/»
+  заменена на короткую справку «documentation locations».
+
+**Alternatives considered.**
+
+1. *Переезд на GitBook / Docusaurus / MkDocs.* Стоимость миграции
+   Writerside → новая платформа выше выигрыша. Writerside уже настроен
+   (`writerside.cfg`, `ta.tree`, IDE integration в JetBrains-стеке),
+   рендерится локально, не требует hosting'а, бесплатен.
+2. *Удалить `/docs/` без архива.* Потеряли бы git-археологию для
+   исторического контекста миграции (Nov 2025 – Apr 2026). `git mv`
+   в `legacy/docs/` — нулевая стоимость, history preserved через
+   `git log --follow`, `legacy/README.md` явно сигнализирует
+   «не редактировать».
+3. *Оставить корневые `ARCHITECTURE.md` / `QUICK_START.md` / `TODO.md`
+   как «зеркала» Writerside.* Два источника правды → drift; дублирование
+   Documentation Update Rule из `CLAUDE.md` (что обновлять при изменении
+   кода). Один тонкий `README.md` как entry-point достаточен.
+4. *Не выделять Kazna в `payment-service/docs/vendor/kazna/`,
+   оставить inline-ссылки на `docs/KaznaAPI.md` или скопировать в
+   Writerside как attachment.* Vendor-артефакты живут с потребителем —
+   зависимость становится явной (сервис, который их потребляет, держит
+   их рядом). Writerside не имеет attachments-механизма для PDF, только
+   `Writerside/images/`. Inline-ссылка из Writerside на путь внутри
+   `payment-service/` — нормальный pattern (это всё одна репа).
+
+**Consequences.**
+
+- Single read path: новый contributor открывает `README.md` →
+  `Writerside/topics/landing.md` → topic. AI-агенты (Claude Code) идут
+  через `CLAUDE.md` → Documentation Update Rule → конкретный topic.
+- `project-dashboard.md → Documentation` row: 🔄 → ✅.
+- `Next Tasks` пункт «Migrate key /docs/ content to Writerside topics»
+  закрыт (удалён).
+- Все будущие документационные правки идут в `Writerside/topics/`.
+  `legacy/docs/` остаётся read-only — если что-то оттуда ещё нужно,
+  переносить в Writerside, не в место.
+- Один логически связанный коммит фиксирует всё закрытие:
+  `docs: close documentation debt — Writerside as single source of truth (ADR-013)`.
+
+**Reverses if.** Появится требование на multi-version docs hosting
+(публичная developer-portal с историей версий) — тогда переезд на
+Docusaurus/Mintlify/etc может стать оправданным. Текущая аудитория
+документации — внутренняя команда + AI-агенты, для которой
+Writerside-в-репе достаточен.
+
+---
+
 ### ADR-014: Interim client-side guardrails для прямого push в master (2026-05-04)
 
 > **Note on numbering.** ADR-012 (data-issues) и ADR-013 (docs single source of truth)

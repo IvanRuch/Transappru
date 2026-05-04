@@ -5,16 +5,45 @@ services:
       - "8001:8000"
     volumes:
       - .:/app # Пробрасываем код внутрь контейнера
+      - ../.secrets/firebase-server-account.json:/run/secrets/firebase-server-account.json:ro
     environment:
       - DB_URL=postgres://postgres:postgres@payment-db:5432/payment_db
       - KAZNA_API_URL=https://demopay.oplatagosuslug.ru/api/kazna/2.2
       - KAZNA_SECRET_KEY=SA9QXHKV
       - KAZNA_TOKEN=testservice
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-0}
+      - FIREBASE_CREDENTIALS_PATH=/run/secrets/firebase-server-account.json
     # Переопределяем команду запуска, добавляя --reload
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - payment-db
     restart: always
+
+  # Sidecar bot worker — same image, different entrypoint. Owns the
+  # Telegram dispatcher (commands + inline callbacks). Running aiogram
+  # polling inside payment-service with multiple uvicorn workers would
+  # trigger `Conflict: terminated by other getUpdates`; isolating the
+  # bot in its own single-process container keeps payment-service
+  # horizontally scalable. See ADR-011.
+  payment-bot:
+    build: .
+    volumes:
+      - .:/app
+      - ../.secrets/firebase-server-account.json:/run/secrets/firebase-server-account.json:ro
+    environment:
+      - DB_URL=postgres://postgres:postgres@payment-db:5432/payment_db
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID:-0}
+      - FIREBASE_CREDENTIALS_PATH=/run/secrets/firebase-server-account.json
+      # AUTO_BANNER_* defaults match settings.py — override below to tune.
+      # - AUTO_BANNER_ENABLED=true
+      # - AUTO_BANNER_THRESHOLD=3
+      # - AUTO_BANNER_WINDOW_HOURS=6
+    command: python -m app.bot.bot_worker
+    depends_on:
+      - payment-db
+    restart: unless-stopped
 
   payment-db:
     image: postgres:15-alpine

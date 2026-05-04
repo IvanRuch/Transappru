@@ -17,6 +17,7 @@ from litestar import Litestar
 from litestar.testing import AsyncTestClient
 from tortoise import Tortoise
 
+from app.controllers.data_issues import DataIssuesController
 from app.controllers.payment import PaymentController
 
 # In-memory SQLite — fresh DB per test, automatic teardown.
@@ -41,5 +42,20 @@ async def initialized_db() -> AsyncIterator[None]:
 async def client(initialized_db: None) -> AsyncIterator[AsyncTestClient]:
     """Async HTTP test client for a stripped Litestar app (no production lifespan)."""
     app = Litestar(route_handlers=[PaymentController])
+    async with AsyncTestClient(app=app) as test_client:
+        yield test_client
+
+
+@pytest_asyncio.fixture
+async def data_issues_client(
+    initialized_db: None,
+) -> AsyncIterator[AsyncTestClient]:
+    """HTTP test client with only the DataIssuesController mounted.
+
+    The Telegram admin-alert path inside the controller is silently
+    skipped because TELEGRAM_BOT_TOKEN / TELEGRAM_ADMIN_CHAT_ID are
+    unset by default in tests.
+    """
+    app = Litestar(route_handlers=[DataIssuesController])
     async with AsyncTestClient(app=app) as test_client:
         yield test_client

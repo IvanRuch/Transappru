@@ -1,7 +1,5 @@
 # Mobile App Development
 
-<!-- Content to be migrated from /docs/ -->
-
 ## Stack
 
 React Native 0.81.5 + Expo 54 + TypeScript 5.9 (strict) + NativeWind 4.

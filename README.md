@@ -1,172 +1,80 @@
-# TransApp - Мобильное приложение для управления транспортом
+# TransApp
 
-Современная версия приложения TransApp, мигрированная на **Expo** с **TypeScript** и лучшими практиками разработки.
+Mobile + web сервис для управления транспортом, пропусками и оплаты
+штрафов (ГИБДД / Платон / РНИС / ОСАГО / диагностические карты).
 
-## 📊 Статус миграции
+## Stack
 
-✅ **Базовая инфраструктура готова** (API, Firebase, навигация)  
-✅ **4 экрана полностью готовы** (Auth, Pin, Pass, PassYaMap)  
-🔄 **7 экранов частично готовы** (требуют доработки)  
-❌ **8 экранов ожидают миграции**
+- **Mobile:** React Native 0.81 + Expo SDK 54 + TypeScript (strict) + Expo Router v6 + NativeWind 4
+- **Web:** Expo Web (тот же кодбейс, `.web.tsx` overrides) → static на nginx
+- **Payment service:** Litestar + Tortoise ORM + PostgreSQL (Docker)
+- **Infrastructure:** Yandex Cloud COI VM, SSL via Yandex Certificate Manager
+- **Push:** Firebase Cloud Messaging (native + web)
+- **Maps:** Yandex Maps JS API v3 (web), `react-native-yamap-plus` (native)
 
-**Подробнее:** см. `MIGRATION_STATUS.md`
-
-## 🚀 Быстрый старт
-
-### Для Mac M2 (Apple Silicon)
-
-**⚠️ ВАЖНО:** Если у вас Mac M2 и возникают проблемы с запуском Android, используйте:
+## Quick start
 
 ```bash
-# Автоматическая настройка для Mac M2
-bash scripts/setup-mac-m2.sh
-```
-
-**Подробная инструкция:** `SETUP_INSTRUCTIONS.md`
-
----
-
-### Стандартная установка
-
-### 1. Установить зависимости
-```bash
+# Install + apply patch-package patches (ADR-010)
 npm install
+
+# Start payment service (Docker)
+cd payment-service && docker compose up -d && cd ..
+
+# Run web (http://localhost:8081)
+npm run web
+
+# Run iOS Simulator
+npm run ios:17
+
+# Run Android (emulator)
+npm run android
+
+# Run Android (physical device)
+npm run android:device
 ```
 
-### 2. Настроить Firebase (обязательно!)
-```bash
-# Скопируйте примеры конфигов
-cp google-services.json.example google-services.json
-cp GoogleService-Info.plist.example GoogleService-Info.plist
+Mac M2 первичная настройка: `bash scripts/setup-mac-m2.sh` →
+[Writerside/topics/setup-mac-m2.md](Writerside/topics/setup-mac-m2.md).
+Android Studio GUI Gradle setup (один раз на машину) —
+[Writerside/topics/setup-android.md](Writerside/topics/setup-android.md).
 
-# Замените содержимое на боевые конфиги из Firebase Console
-# Подробнее: см. FIREBASE_SETUP.md
+## Documentation
+
+Полная документация — в [Writerside](Writerside/topics/landing.md):
+
+- [Project Dashboard](Writerside/topics/project-dashboard.md) — текущий статус, recent changes, backlog
+- [Project Overview](Writerside/topics/project-overview.md) — архитектура и стек
+- [Decision Log](Writerside/topics/decision-log.md) — все ADRs (001 … 013)
+- [Manual QA Checklist](Writerside/topics/manual-qa-checklist.md) — F1 … F11
+
+Vendor docs (Kazna API spec): `payment-service/docs/vendor/kazna/`.
+Historical archive (миграция Nov 2025 – Apr 2026): `legacy/docs/`.
+
+## AI development
+
+Проект использует Claude Code. См. `CLAUDE.md` (project conventions),
+`.claude/rules.md` (cross-cutting rules), `.claude/plans/` (активные планы).
+Documentation Update Rule в `CLAUDE.md` — обязателен после каждого
+кодового изменения.
+
+## Repository layout
+
+```
+app/                Expo Router routes (mobile + web, .web.tsx overrides)
+src/                RN code (components, hooks, screens, services, contexts)
+payment-service/    Litestar payment microservice (+ vendor docs)
+transappweb/        Legacy web (production, к замене Expo Web)
+Transappru/         Legacy mobile archive (read-only)
+nginx/              Production nginx config
+plugins/            Expo config plugins
+scripts/            CLI helpers
+patches/            patch-package patches (ADR-010)
+Writerside/topics/  Documentation (single source of truth, ADR-012)
+.claude/            AI config: rules, plans, skills, hooks
+legacy/             Архив (DB-схема, миграционные docs)
 ```
 
-### 3. Запустить приложение
-```bash
-# Запустить приложение
-npx expo start
+## License
 
-# Для iOS
-npx expo run:ios
-
-# Для Android
-npx expo run:android
-```
-
-## 📁 Структура проекта
-
-```
-TransApp_upd/
-├── app/                    # Entry point (Expo Router)
-│   └── index.tsx          # Главный файл приложения
-├── src/
-│   ├── screens/           # Экраны приложения
-│   │   ├── auth/         # Авторизация (Auth, Pin)
-│   │   ├── main/         # Главный экран
-│   │   ├── auto/         # Автомобили
-│   │   ├── profile/      # Профиль пользователя
-│   │   └── ...
-│   ├── navigation/        # Настройка навигации
-│   ├── services/          # API и Firebase сервисы
-│   ├── types/            # TypeScript типы
-│   ├── utils/            # Утилиты
-│   └── styles/           # Стили
-├── assets/               # Изображения и ресурсы
-└── ...
-```
-
-## 📚 Документация
-
-**Начните с:** `START_HERE.md`
-
-**Важные файлы:**
-- `SETUP_INSTRUCTIONS.md` - **Настройка для Mac M2** 🍎
-- `FIREBASE_SETUP.md` - **Настройка Firebase и push-уведомлений** 🔥
-- `START_HERE.md` - Введение в проект
-
-**Вся документация в папке `docs/`:**
-- `docs/SETUP_MAC_M2.md` - Подробная инструкция для Mac M2
-- `docs/FINE_PAYMENT_INTEGRATION.md` - Интеграция оплаты штрафов
-- `docs/FINAL_SUMMARY.md` - Полная сводка работы
-- `docs/EXPO_ROUTER_GUIDE.md` - Руководство по Expo Router
-- `docs/TODO.md` - Задачи с приоритетами
-- `docs/CONVERSION_CHEATSHEET.md` - Шпаргалка по TypeScript
-- `docs/MIGRATION_STATUS.md` - Статус миграции экранов
-- И другие...
-
-## 🛠️ Технологии
-
-- **React Native** - фреймворк для мобильной разработки
-- **Expo** - инструменты для разработки и деплоя
-- **Expo Router** - file-based routing (как Next.js)
-- **TypeScript** - типобезопасность
-- **Axios** - HTTP клиент
-- **Firebase** - push-уведомления
-- **AsyncStorage** - локальное хранилище
-- **Yandex Maps** - интеграция карт для Pass экранов
-
-## 🎯 Следующие шаги
-
-1. **Доработать MainScreen** - главный экран после авторизации
-2. **Доработать AutoListScreen** - список автомобилей
-3. **Мигрировать остальные экраны** по мере необходимости
-
-См. `docs/TODO.md` для детальных инструкций.
-
-## 🔧 Полезные команды
-
-```bash
-# Проверить TypeScript ошибки
-npx tsc --noEmit
-
-# Очистить кэш и перезапустить
-npx expo start -c
-
-# Очистить данные приложения (Android)
-npm run android:clear
-
-# Очистить данные приложения (iOS)
-npm run ios:clear
-
-# Собрать для production
-npx expo build:ios
-npx expo build:android
-```
-
-**Подробнее:**
-- Android: см. `CLEAR_APP_DATA.md`
-- iOS: см. `CLEAR_APP_DATA_IOS.md`
-
-## 📝 Миграция из старого проекта
-
-Старый проект: `/Volumes/HP_P800/grizodubov/IdeaProjects/Transappru`
-
-Используйте `docs/CONVERSION_CHEATSHEET.md` для конвертации экранов из старого проекта.
-
-## 🐛 Известные проблемы
-
-- Некоторые экраны требуют доработки (см. `docs/MIGRATION_STATUS.md`)
-- Большие файлы нужно разбить на компоненты (например, AutoListScreen)
-
-## 📞 API
-
-**Base URL:** `https://transapp.ru/api/`
-
-API сервис настроен в `src/services/api.ts` с автоматическим добавлением токена.
-
-## 🔐 Аутентификация
-
-Приложение использует токен-based аутентификацию:
-1. Пользователь вводит телефон (AuthScreen)
-2. Получает PIN-код
-3. Вводит PIN (PinScreen)
-4. Токен сохраняется в AsyncStorage
-5. Автоматически добавляется ко всем API запросам
-
----
-
-**Версия:** 2.0 (Migrated to Expo + TypeScript)  
-**Дата обновления:** 2025-11-17  
-**Последние изменения:** Добавлены экраны Pass с интеграцией Yandex Maps
+Proprietary.

@@ -42,6 +42,12 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "httpx>=0.25.0", # Для запросов к Kazna API
     "cryptography>=41.0.0", # Для подписи запросов
+
+    # Telegram bot — admin alerts + manual banner control (ADR-011)
+    "aiogram>=3.4,<4.0",
+
+    # Firebase Admin SDK — server-side FCM for recovery push (ADR-011)
+    "firebase-admin>=6.4,<7.0",
 ]
 
 [project.optional-dependencies]

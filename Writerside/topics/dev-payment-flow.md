@@ -1,10 +1,8 @@
 # Payment Flow
 
-<!-- Content to be migrated from /docs/FINE_PAYMENT_INTEGRATION.md -->
-
 ## References
 
-- **Kazna API PDF (актуальная версия):** [https://tprs.ru/KaznaAPI.pdf](https://tprs.ru/KaznaAPI.pdf). Локальная markdown-версия: `docs/KaznaAPI.md` (5966 строк, удобно искать). При расхождении — прав PDF.
+- **Kazna API PDF (актуальная версия):** [https://tprs.ru/KaznaAPI.pdf](https://tprs.ru/KaznaAPI.pdf). Локальная markdown-версия: `payment-service/docs/vendor/kazna/KaznaAPI.md` (5966 строк, удобно искать). При расхождении — прав PDF.
 - См. также `Writerside/topics/api-payment.md` (наши endpoint-ы и базовые URL) и `Writerside/topics/decision-log.md` (ADR-008 про polling-based status).
 
 ## Two Kazna push channels (важно для понимания, кто и куда шлёт)

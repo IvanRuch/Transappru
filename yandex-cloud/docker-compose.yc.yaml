@@ -25,12 +25,38 @@ services:
       KAZNA_API_URL: {{ env.KAZNA_API_URL }}
       KAZNA_SECRET_KEY: {{ env.KAZNA_SECRET_KEY }}
       KAZNA_TOKEN: {{ env.KAZNA_TOKEN }}
+      # Data quality monitoring (ADR-012). FIREBASE_CREDENTIALS_PATH
+      # points to the JSON baked into the image at build time
+      # (see payment-service/Dockerfile.prod). Empty TG creds → admin
+      # alerts are silently skipped (acceptable in pre-launch envs).
+      TELEGRAM_BOT_TOKEN: "{{ env.TELEGRAM_BOT_TOKEN }}"
+      TELEGRAM_ADMIN_CHAT_ID: "{{ env.TELEGRAM_ADMIN_CHAT_ID }}"
+      FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-server-account.json
     expose:
       - "8000"
     depends_on:
       payment-db:
         condition: service_healthy
     restart: always
+
+  # Sidecar bot worker — same image as payment-service, different
+  # entrypoint. Owns the aiogram dispatcher (commands + inline callbacks
+  # + recovery-push fan-out at /banner_off). Isolated to dodge the
+  # Telegram getUpdates conflict that would arise if multiple uvicorn
+  # workers tried to poll the same bot token. See ADR-012.
+  payment-bot:
+    image: {{ env.PAYMENT_IMAGE }}
+    container_name: transapp_payment_bot
+    environment:
+      DB_URL: postgres://{{ env.PG_USER }}:{{ env.PG_PASSWORD }}@payment-db:5432/{{ env.PG_NAME }}
+      TELEGRAM_BOT_TOKEN: "{{ env.TELEGRAM_BOT_TOKEN }}"
+      TELEGRAM_ADMIN_CHAT_ID: "{{ env.TELEGRAM_ADMIN_CHAT_ID }}"
+      FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-server-account.json
+    command: ["python", "-m", "app.bot.bot_worker"]
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    restart: unless-stopped
 
   nginx:
     image: {{ env.NGINX_IMAGE }}

@@ -41,9 +41,23 @@ COPY . .
 # Make start script executable
 RUN chmod +x docker/start.sh
 
+# Persist Firebase Admin SDK service-account JSON inside the image when
+# provided at build time via --build-arg (set in deploy-web.yml from the
+# FIREBASE_SERVER_ACCOUNT_JSON GitHub secret). Empty value → file is not
+# created and the FCM init gracefully degrades at runtime — banner
+# activate/deactivate keep working, only the recovery push fan-out is
+# silently skipped. The image lives in our private YC Container Registry,
+# so credentials are not readable without registry access. See ADR-012.
+ARG FIREBASE_SERVER_ACCOUNT_JSON=""
+RUN mkdir -p /run/secrets && \
+    if [ -n "$FIREBASE_SERVER_ACCOUNT_JSON" ]; then \
+        printf '%s' "$FIREBASE_SERVER_ACCOUNT_JSON" > /run/secrets/firebase-server-account.json && \
+        chmod 600 /run/secrets/firebase-server-account.json; \
+    fi
+
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
+RUN chown -R appuser:appuser /app /run/secrets
 USER appuser
 
 EXPOSE 8000

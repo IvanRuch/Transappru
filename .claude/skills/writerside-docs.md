@@ -38,23 +38,18 @@ Documentation is part of the task — not a separate step.
 - ❌ Not started
 - 🔄 In progress
 
-## Migration from /docs/
+## Documentation locations (single source of truth)
 
-The 60+ markdown files in `/docs/` are the original project documentation.
-They are being gradually migrated to `Writerside/topics/`.
+Migration completed 2026-05-04 (see ADR-013 in `Writerside/topics/decision-log.md`).
 
-Key migration mapping:
+| Where | What |
+|-------|------|
+| `Writerside/topics/` | All project documentation. **Single source of truth.** Edit here. |
+| `payment-service/docs/vendor/kazna/` | Vendor docs (Kazna API spec PDF + markdown + contract). Read-only outside vendor updates. |
+| `legacy/docs/` | Read-only archive of pre-2026-05-04 migration-era markdown. **Never edit.** Never link to from active docs. |
 
-| Source in /docs/ | Target in Writerside/topics/ |
-|-----------------|------------------------------|
-| ARCHITECTURE.md | project-overview.md |
-| EXPO_ROUTER_GUIDE.md | dev-expo-router.md |
-| FINE_PAYMENT_INTEGRATION.md | dev-payment-flow.md |
-| PUSH_NOTIFICATIONS.md | dev-push-notifications.md |
-| FIREBASE_SETUP.md | infra-firebase.md |
-| ANDROID_DEVICE_SETUP.md | setup-android.md |
-| SETUP_MAC_M2.md | setup-mac-m2.md |
-| WEB_ADAPTATION.md | dev-web.md |
-
-When referencing old docs, check `/docs/` first but write new content to Writerside.
-Do NOT delete `/docs/` files until migration is confirmed complete.
+Root `README.md` is a slim index pointing into Writerside; do not duplicate
+content there. `ARCHITECTURE.md`, `QUICK_START.md`, `TODO.md` no longer exist
+in repo root — content lives in `Writerside/topics/project-overview.md`,
+the new `README.md`, and `Writerside/topics/project-dashboard.md` (Next Tasks)
+respectively.
