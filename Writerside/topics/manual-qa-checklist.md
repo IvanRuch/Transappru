@@ -56,6 +56,7 @@ Minimum validation on every screen that opens:
   - Manual-zone banner **also fires** when the auto-zone came from user-history, not just map (ADR-005 parity fix).
 - [ ] Edit mode: "Добавить" is hidden until a new point is tapped (no stale commit).
 - [ ] Web: back from PassScreen goes to `/auto-list?mode=pass`, NOT back to `/pass-yamap` (recent bugfix).
+- [ ] **Web `/pass-yamap` with DevTools open: zero `Refused to load` / CSP-violation messages in Console; Network tab shows 200 for `api-maps.yandex.ru/v3/...`, `*.api-maps.yandex.ru`, `yastatic.net`, and tile requests to `*.maps.yandex.net`.** (ADR-011 — regression anchor for the 2026-05-04 demo incident.)
 
 ### F3. Charges — list + payment (ChargesScreen → PaymentConfirm → WebView → Success)
 
@@ -119,6 +120,7 @@ Run these on the 5 flagship web screens: Auth, PinScreen, AutoList, PassScreen, 
 - [ ] Manual-zone banner triggers for user-history picks, not only map picks (detectedLocationType semantics).
 - [ ] PIN error modal has no Cancel button (hideCancel on ConfirmModal).
 - [ ] AutoFineScreen: status cards use PNG icons (twemoji_star_2, whh_sale_2), not ✔/🏷 emoji.
+- [ ] CSP whitelist on `/pass-yamap` covers Yandex Maps v3 (`api-maps.yandex.ru`, `*.api-maps.yandex.ru`, `yastatic.net` in `script-src` / `style-src` / `worker-src`) — see ADR-011.
 
 ## Kazna payment integration — deep QA (added 2026-04-29)
 

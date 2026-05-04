@@ -502,6 +502,70 @@ defensively: в текущей раскладке `node_modules` он попад
 fallback-ветку до `node`-вызова, но при monorepo-layout или
 non-standard hoisting этот вызов проснётся.
 
+---
+
+### ADR-011: CSP whitelist расширен для Yandex Maps JS API v3 (2026-05-04)
+
+**Context.** Во время первой публичной презентации web-версии (`transapp-dev.ru`)
+страница `/pass-yamap` не отрисовала карту: в DevTools console было
+`Refused to load https://api-maps.yandex.ru/v3/?apikey=... because it does
+not appear in the script-src directive of the Content Security Policy`.
+Корневая причина — несоответствие между `connect-src` (где `api-maps.yandex.ru`
+был whitelist'нут ещё в ADR-004) и `script-src`, в котором его не было:
+`<script src="https://api-maps.yandex.ru/v3/...">` управляется именно
+`script-src`, а не `connect-src`. Исходный CSP подразумевал, что Yandex
+Maps грузится только как XHR/fetch, что неверно для v3 (где основной
+бандл подключается тегом `<script>` + динамические `ymaps3.import()`).
+
+Дополнительный риск: даже после фикса `script-src` Yandex Maps v3
+создаёт Web Workers из `data:` URL для рендеринга векторных тайлов —
+текущий `worker-src 'self'` это запрещает, что стало бы следующей
+ошибкой после первой починки.
+
+**Decision.** Расширили CSP в `nginx/security-headers.partial.conf`
+по официальному списку хостов от Яндекс
+([yandex.ru/dev/jsapi30/.../csp](https://yandex.ru/dev/jsapi30/doc/ru/common/connection/csp.html)):
+
+| Директива | Добавлено |
+|---|---|
+| `script-src` | `https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net` |
+| `style-src` | `https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net` |
+| `connect-src` | `https://*.api-maps.yandex.ru https://yastatic.net` (+ оба уже были) |
+| `worker-src` | `data: https://api-maps.yandex.ru https://*.api-maps.yandex.ru https://yastatic.net` |
+| `img-src` | без изменений (`https:` wildcard покрывает тайлы) |
+
+**Что сознательно НЕ добавили:** `suggest-maps.yandex.ru`,
+`search-maps.yandex.ru`, `api.routing.yandex.net`. Реверс-геокодинг и
+поиск адреса делаются нашим backend-эндпоинтом `/get-address-map`
+(прокси на `ivan.trans-konsalt.ru`), не напрямую с браузера. Если
+это изменится — добавлять только нужный из трёх.
+
+**Post-mortem (что упустили).** ADR-004 описал интеграцию Yandex Maps v3
+для web в апреле, но вместе с ADR-002 (Docker + nginx) CSP-настройка
+была сделана позже и проверена только на главной странице приложения,
+а не на `/pass-yamap`. Smoke-test в `dev-web.md:651-661` тестирует
+только заголовки на корневых маршрутах, без браузерной проверки
+страниц с тяжёлыми CDN-зависимостями.
+
+**Меры предотвращения:**
+
+1. В `manual-qa-checklist.md` добавлен пункт про DevTools console на
+   `/pass-yamap` (CSP violations, network 4xx/5xx из Yandex CDN).
+2. CSP теперь конфигурируется по **полному официальному списку**
+   директив каждого third-party SDK, а не только по тем хостам, что
+   видны в коде на момент интеграции (могут добавиться при ленивой
+   подгрузке).
+3. Перед мажорной демонстрацией — обязательный smoke-pass по всем
+   ключевым screen'ам web-версии с открытым DevTools, не только курлом
+   заголовков.
+
+**Trade-off.** `'unsafe-eval'` в `script-src` уже был — добавление
+yastatic.net и api-maps.yandex.ru не ослабляет policy качественно
+(хосты доверенные, операторы Яндекса). Дальнейшее ужесточение CSP
+(переход на nonce-based, отказ от `'unsafe-eval'`) требует миграции
+Expo Web bundle с eval-style инициализации Metro — это отдельная
+задача, не связанная с этим инцидентом.
+
 `patch-package` подключён через `"postinstall": "patch-package"` в
 `package.json` — патчи реаплаются автоматически после каждого
 `npm install` / EAS prebuild.

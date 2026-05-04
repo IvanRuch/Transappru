@@ -641,11 +641,30 @@ NativeWind / RNWeb inject inline styles in the DOM:
   `X-Frame-Options`)
 - `base-uri 'self'`, `form-action 'self'` — restrict tag injection abuse
 
+#### Third-party SDK whitelist
+
+Each third-party SDK we load on the web has its own block of allowed hosts in
+the partial, deliberately **per-host**, not via a wildcard. Source-of-truth for
+each list is the SDK's own CSP documentation:
+
+| SDK / Use case | Hosts | Directives | Reference |
+|---|---|---|---|
+| FCM web push | `https://www.gstatic.com`, `https://*.googleapis.com` | `script-src`, `connect-src` | ADR-009, [Firebase docs](https://firebase.google.com/docs/web/setup) |
+| Yandex Maps JS API v3 (`/pass-yamap`) | `https://api-maps.yandex.ru`, `https://*.api-maps.yandex.ru`, `https://yastatic.net`, `https://*.maps.yandex.net` | `script-src`, `style-src`, `connect-src`, `worker-src` (+ `data:` for v3 web workers) | ADR-011, [Yandex CSP guide](https://yandex.ru/dev/jsapi30/doc/ru/common/connection/csp.html) |
+| Kazna payment sandbox | `https://demopay.oplatagosuslug.ru` | `connect-src` | ADR-008 |
+
 If a CSP violation is observed in production console, ease the specific
 directive in the partial (it is the single source of truth for both HTTP and
 HTTPS). Tightening the policy further (nonce-based scripts, per-route hashes)
 is a follow-up that requires moving Expo Web off `'unsafe-eval'`, which is
 non-trivial.
+
+> **CSP regression test.** `curl -sI` only validates that the header is
+> present; it does **not** catch missing third-party hosts. After any change
+> to the partial, run a smoke-pass on every page that loads a third-party SDK
+> with **DevTools open** and grep the console for `Refused to load`. The 2026-05-04
+> incident with Yandex Maps v3 happened because the smoke-test in this file
+> covered headers but not actual SDK execution. See ADR-011 and `manual-qa-checklist.md`.
 
 ### Local smoke test
 
