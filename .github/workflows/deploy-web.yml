@@ -105,13 +105,25 @@ jobs:
         # Empty value is tolerated: the runtime FCM init logs ERROR and
         # marks recovery push unavailable, but every other endpoint and
         # the bot's banner activate/deactivate flow keep working.
+        #
+        # The secret is piped via the `env:` block (NOT via `${{ … }}`
+        # template substitution into the run-script). The JSON contains
+        # raw quotes, parens, and embedded newlines; substituting it
+        # inline produces a syntactically broken shell script (GitHub
+        # Actions issue: "syntax error near unexpected token `('"). Using
+        # an env var keeps the secret as opaque bytes for the shell and
+        # for `--build-arg` parsing, and is the GitHub-recommended
+        # pattern for secrets that may contain shell metacharacters.
+        env:
+          FIREBASE_SERVER_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVER_ACCOUNT_JSON }}
+          PAYMENT_IMAGE: ${{ env.PAYMENT_IMAGE }}
         run: |
           docker build \
             -f payment-service/Dockerfile.prod \
-            --build-arg FIREBASE_SERVER_ACCOUNT_JSON="${{ secrets.FIREBASE_SERVER_ACCOUNT_JSON }}" \
-            -t ${{ env.PAYMENT_IMAGE }} \
+            --build-arg "FIREBASE_SERVER_ACCOUNT_JSON=$FIREBASE_SERVER_ACCOUNT_JSON" \
+            -t "$PAYMENT_IMAGE" \
             ./payment-service
-          docker push ${{ env.PAYMENT_IMAGE }}
+          docker push "$PAYMENT_IMAGE"
 
   deploy:
     needs: [build-nginx, build-payment]
