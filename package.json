@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "2.0.17",
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package && node ./scripts/setup-git-hooks.js",
     "test": "NODE_ENV=test jest --no-watchman",
     "test:watch": "NODE_ENV=test jest --watch --no-watchman",
     "test:coverage": "NODE_ENV=test jest --coverage --no-watchman",

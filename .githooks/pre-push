@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Reject force-push and deletion of protected branches.
+# Interim client-side guardrail (see ADR-014). When TransKonsalt org upgrades
+# to GitHub Team, server-side branch protection takes over and this hook
+# becomes redundant but harmless.
+#
+# Activated automatically via:  git config core.hooksPath .githooks
+# (set by `npm install` postinstall → scripts/setup-git-hooks.js)
+#
+# Bypass (emergency only):  git push --no-verify ...
+#
+
+set -e
+
+PROTECTED_REGEX='^refs/heads/(master|main)$'
+ZERO_SHA='0000000000000000000000000000000000000000'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Only enforce on protected branches
+  if [[ ! "$remote_ref" =~ $PROTECTED_REGEX ]]; then
+    continue
+  fi
+
+  # Branch deletion (local_sha is zero)
+  if [[ "$local_sha" == "$ZERO_SHA" ]]; then
+    echo "❌ Refusing to delete protected branch: $remote_ref"
+    echo "   Bypass: git push --no-verify (emergency only)"
+    exit 1
+  fi
+
+  # New branch on remote (remote_sha is zero) — allow
+  if [[ "$remote_sha" == "$ZERO_SHA" ]]; then
+    continue
+  fi
+
+  # Force-push detection: remote_sha must be ancestor of local_sha
+  if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    echo "❌ Refusing force-push to protected branch: $remote_ref"
+    echo "   Local does not include remote commit $remote_sha."
+    echo "   Recover: git fetch && git pull --rebase, then push again."
+    echo "   Bypass:  git push --no-verify (emergency only)"
+    exit 1
+  fi
+done
+
+exit 0

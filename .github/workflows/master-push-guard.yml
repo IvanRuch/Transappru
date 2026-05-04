@@ -1,0 +1,75 @@
+name: master-push-guard
+
+# Interim server-side guardrail: every commit landing on master MUST originate
+# from a merged Pull Request. Pushed-direct commits make the workflow fail
+# with a red ❌ on master and notify via standard GitHub channels.
+#
+# This compensates for the fact that GitHub Free tier does NOT enforce branch
+# protection rules on private organisation repos. When TransKonsalt org
+# upgrades to GitHub Team, native server-side enforcement supersedes this and
+# the workflow can be deleted. See ADR-014 in Writerside/topics/decision-log.md.
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify-pr-merged-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify each new commit on master originates from a merged PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Branch creation event — no prior commits to compare against
+          if [[ "$BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+            echo "ℹ️  Initial branch push, nothing to verify."
+            exit 0
+          fi
+
+          fail=0
+          new_commits=$(git log --format='%H' "$BEFORE..$AFTER")
+
+          if [[ -z "$new_commits" ]]; then
+            echo "ℹ️  No new commits in this push (force-push to identical SHA?)."
+            exit 0
+          fi
+
+          while read -r sha; do
+            [[ -z "$sha" ]] && continue
+
+            merged_pr_count=$(gh api "repos/$REPO/commits/$sha/pulls" \
+                                --jq '[.[] | select(.merged_at != null)] | length' \
+                                2>/dev/null || echo "0")
+
+            if [[ "$merged_pr_count" -gt 0 ]]; then
+              echo "✅ $sha — merged via PR"
+            else
+              echo "::error::Commit $sha was pushed to master without an associated merged PR."
+              echo "   $(git log -1 --format='%h  %s%n   author: %an <%ae>%n   date:   %ai' "$sha")"
+              fail=1
+            fi
+          done <<< "$new_commits"
+
+          if [[ "$fail" == "1" ]]; then
+            echo ""
+            echo "::error::One or more commits did not come from a merged PR."
+            echo "::notice::Interim client-side guardrail (Free tier — no native branch protection). See ADR-014."
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commits in this push originate from merged PRs."
