@@ -35,12 +35,16 @@ on:
 # FIREBASE_WEB_API_KEY / FIREBASE_WEB_APP_ID / FIREBASE_WEB_VAPID_KEY /
 # FIREBASE_WEB_PROJECT_ID / FIREBASE_WEB_MESSAGING_SENDER_ID /
 # FIREBASE_WEB_STORAGE_BUCKET
+# StrongSwan VPN sidecar for TG egress (ADR-015):
+# STRONGSWAN_EAP_USERNAME    — VPN account username (EAP-MSCHAPv2)
+# STRONGSWAN_EAP_PASSWORD    — VPN account password
 
 env:
   CR_REGISTRY: ${{ secrets.YC_REGISTRY_ID }}
   CR_REPO: transapp-web
   NGINX_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/transapp-web:${{ github.sha }}-nginx
   PAYMENT_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/transapp-web:${{ github.sha }}-payment
+  VPN_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/transapp-web:${{ github.sha }}-vpn
 
   # Passed to docker-compose.yc.yaml template
   PG_USER: ${{ secrets.PG_USER }}
@@ -55,6 +59,11 @@ env:
   # silently when the service-account JSON build-arg is empty.
   TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
   TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+  # StrongSwan VPN sidecar (ADR-015). Without these, the vpn container
+  # exits at startup and payment-bot starts without TG egress; admin
+  # alerts will queue in the DB until the next deploy with valid creds.
+  STRONGSWAN_EAP_USERNAME: ${{ secrets.STRONGSWAN_EAP_USERNAME }}
+  STRONGSWAN_EAP_PASSWORD: ${{ secrets.STRONGSWAN_EAP_PASSWORD }}
 
 jobs:
   build-nginx:
@@ -125,8 +134,35 @@ jobs:
             ./payment-service
           docker push "$PAYMENT_IMAGE"
 
+  build-vpn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Yandex Cloud Container Registry
+        uses: yc-actions/yc-cr-login@v2
+        with:
+          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+
+      - name: Build and push StrongSwan VPN sidecar image
+        # Built from `infra/strongswan/` (Dockerfile + entrypoint.sh +
+        # ipsec.conf.template + ca.pem). The image carries no secrets
+        # — EAP credentials are read at container start from env vars
+        # (STRONGSWAN_EAP_USERNAME / STRONGSWAN_EAP_PASSWORD) injected
+        # by `docker-compose.yc.yaml` from the workflow `env:` block.
+        # See ADR-015.
+        env:
+          VPN_IMAGE: ${{ env.VPN_IMAGE }}
+        run: |
+          docker build \
+            -f infra/strongswan/Dockerfile \
+            -t "$VPN_IMAGE" \
+            ./infra/strongswan
+          docker push "$VPN_IMAGE"
+
   deploy:
-    needs: [build-nginx, build-payment]
+    needs: [build-nginx, build-payment, build-vpn]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

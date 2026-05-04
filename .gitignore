@@ -29,6 +29,10 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
+# Exception: VPN server CA cert is public (distributed to all
+# clients) and must travel with the source for the StrongSwan
+# sidecar build (ADR-015).
+!infra/strongswan/ca.pem
 
 # local env files
 .env

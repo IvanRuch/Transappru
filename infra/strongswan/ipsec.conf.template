@@ -1,0 +1,30 @@
+config setup
+    charondebug="ike 2, knl 2, cfg 2"
+
+# Split-tunnel client config — only Telegram API subnets are routed
+# through the IPsec tunnel; all other outbound traffic continues to
+# use the host default route.
+#
+# Keep `rightsubnet` in sync with the published Telegram IP ranges
+# (https://core.telegram.org/resources/cidr.txt — listed below).
+# Adding routes here without keeping the upstream firewall in sync
+# can break BotAPI / DCs.
+conn telegram-vpn
+    keyexchange=ikev2
+    ike=aes256-sha256-modp2048!
+    esp=aes256-sha256!
+
+    left=%defaultroute
+    leftsourceip=%config
+    leftauth=eap-mschapv2
+    eap_identity=__EAP_USERNAME__
+
+    right=31.44.2.124
+    rightauth=pubkey
+    rightid=%any
+    # Telegram API DCs:
+    #   149.154.160.0/20  — DC1-DC5 main range
+    #    91.108.4.0/22    — supplementary range
+    rightsubnet=149.154.160.0/20,91.108.4.0/22
+
+    auto=start

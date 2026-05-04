@@ -25,12 +25,13 @@ services:
       KAZNA_API_URL: {{ env.KAZNA_API_URL }}
       KAZNA_SECRET_KEY: {{ env.KAZNA_SECRET_KEY }}
       KAZNA_TOKEN: {{ env.KAZNA_TOKEN }}
-      # Data quality monitoring (ADR-012). FIREBASE_CREDENTIALS_PATH
-      # points to the JSON baked into the image at build time
-      # (see payment-service/Dockerfile.prod). Empty TG creds → admin
-      # alerts are silently skipped (acceptable in pre-launch envs).
-      TELEGRAM_BOT_TOKEN: "{{ env.TELEGRAM_BOT_TOKEN }}"
-      TELEGRAM_ADMIN_CHAT_ID: "{{ env.TELEGRAM_ADMIN_CHAT_ID }}"
+      # Data quality monitoring (ADR-012). payment-service does NOT
+      # send admin alerts directly — Telegram is unreachable from RU
+      # IPs, and wrapping this container in the VPN would break Kazna
+      # outbound (RU). The bot sidecar polls `data_issues` and owns
+      # all outbound TG traffic via its split-tunnel namespace
+      # (ADR-015). FCM (Firebase) is fine through the default route —
+      # not RU-blocked.
       FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-server-account.json
     expose:
       - "8000"
@@ -39,14 +40,41 @@ services:
         condition: service_healthy
     restart: always
 
+  # StrongSwan IPsec client (ADR-015). Owns the network namespace for
+  # outbound traffic to api.telegram.org. Split-tunnel: only Telegram
+  # CIDRs (149.154.160.0/20, 91.108.4.0/22) are routed through the
+  # upstream VPN; everything else uses the host default route, so
+  # payment-bot can still reach payment-db over the default Docker
+  # bridge while sharing this namespace.
+  vpn:
+    image: {{ env.VPN_IMAGE }}
+    container_name: transapp_vpn
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      # IKE/UDP encapsulation needs IP forwarding off (default-off);
+      # explicit here to make the requirement self-documenting.
+      net.ipv4.ip_forward: "0"
+    environment:
+      EAP_USERNAME: "{{ env.STRONGSWAN_EAP_USERNAME }}"
+      EAP_PASSWORD: "{{ env.STRONGSWAN_EAP_PASSWORD }}"
+    restart: unless-stopped
+
   # Sidecar bot worker — same image as payment-service, different
-  # entrypoint. Owns the aiogram dispatcher (commands + inline callbacks
-  # + recovery-push fan-out at /banner_off). Isolated to dodge the
-  # Telegram getUpdates conflict that would arise if multiple uvicorn
-  # workers tried to poll the same bot token. See ADR-012.
+  # entrypoint. Owns the aiogram dispatcher (admin commands + inline
+  # callbacks + recovery-push fan-out at /banner_off) AND the
+  # `data_issues` poll-loop that dispatches admin alerts on new
+  # complaints (see ADR-015 — payment-service is RU-bound and cannot
+  # reach Telegram, so the bot is the single TG egress point).
+  #
+  # `network_mode: "service:vpn"` puts payment-bot in the VPN
+  # namespace. payment-db is reachable via the default route through
+  # the vpn container's eth0 — same Docker bridge network. Telegram
+  # CIDRs go through the IPsec tunnel.
   payment-bot:
     image: {{ env.PAYMENT_IMAGE }}
     container_name: transapp_payment_bot
+    network_mode: "service:vpn"
     environment:
       DB_URL: postgres://{{ env.PG_USER }}:{{ env.PG_PASSWORD }}@payment-db:5432/{{ env.PG_NAME }}
       TELEGRAM_BOT_TOKEN: "{{ env.TELEGRAM_BOT_TOKEN }}"
@@ -54,6 +82,8 @@ services:
       FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-server-account.json
     command: ["python", "-m", "app.bot.bot_worker"]
     depends_on:
+      vpn:
+        condition: service_started
       payment-db:
         condition: service_healthy
     restart: unless-stopped

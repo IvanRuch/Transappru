@@ -16,7 +16,6 @@ from litestar.status_codes import (
     HTTP_409_CONFLICT,
 )
 
-from app.bot.notify import send_admin_alert
 from app.schemas.data_issues import (
     ReportDataIssueRequest,
     ReportDataIssueResponse,
@@ -59,9 +58,15 @@ class DataIssuesController(Controller):
         Returns 409 if the user already has an open complaint for the
         same (auto, category) — partial UNIQUE INDEX in migration 002.
 
-        Best-effort side effects (errors logged, never propagated):
-          - Telegram admin alert
-          - auto-banner threshold check
+        Side effects:
+          - INSERT in `data_issues` (committed before the response).
+          - Auto-banner threshold check (atomic, in `data_issues_svc`).
+          - **Telegram admin alert is NOT sent from this process.**
+            payment-service runs without VPN access (must reach Kazna,
+            which is RU); api.telegram.org is unreachable from RU IPs
+            (ADR-015). Instead, the `payment-bot` sidecar polls
+            `data_issues` for new rows over its VPN-routed namespace
+            and dispatches admin alerts from there.
         """
         try:
             outcome = await data_issues_svc.report_issue(
@@ -78,28 +83,6 @@ class DataIssuesController(Controller):
                 status_code=HTTP_409_CONFLICT,
                 detail="open complaint already exists for this user/auto/category",
             ) from exc
-
-        # Fire-and-forget admin alert. We deliberately do NOT await within
-        # a critical user-facing path that already returned a successful
-        # DB write — but we DO await here because aiogram's HTTP call to
-        # api.telegram.org is fast (~100ms p99). If that becomes a bottleneck
-        # we move this to BackgroundTask.
-        try:
-            await send_admin_alert(
-                issue_id=outcome.issue_id,
-                user_id=data.user_id,
-                auto_id=data.auto_id,
-                category=data.category,
-                comment=data.comment,
-                auto_notice_triggered=outcome.notice_triggered,
-                auto_notice_id=outcome.notice_id,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "send_admin_alert failed (non-fatal) issue_id=%d error=%s",
-                outcome.issue_id,
-                exc,
-            )
 
         return ReportDataIssueResponse(
             id=outcome.issue_id,

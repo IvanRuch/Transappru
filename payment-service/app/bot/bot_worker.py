@@ -24,6 +24,7 @@ import logging
 import sys
 
 from app.bot.handlers import build_bot, build_dispatcher
+from app.bot.poll_alerts import poll_for_new_alerts
 from app.config.db import close_db, init_db
 from app.config.settings import settings
 from app.services import firebase_push
@@ -63,7 +64,18 @@ async def _run() -> None:
         logger.info(
             "payment-bot.start admin_chat_id=%d", settings.TELEGRAM_ADMIN_CHAT_ID
         )
-        await dp.start_polling(bot, handle_signals=True)
+        # Run two concurrent long-running tasks:
+        #   1. dp.start_polling — inbound Telegram updates (commands +
+        #      inline-callback queries from the admin).
+        #   2. poll_for_new_alerts — outbound: poll `data_issues` every
+        #      few seconds and dispatch admin alerts for new rows.
+        # See ADR-015: we own the only VPN-routed namespace in the
+        # cluster (network_mode: "service:vpn"), so the bot is the
+        # single source of truth for outbound TG traffic.
+        await asyncio.gather(
+            dp.start_polling(bot, handle_signals=True),
+            poll_for_new_alerts(bot),
+        )
     finally:
         await bot.session.close()
         await close_db()
