@@ -1,29 +1,29 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Animated, Platform, StatusBar, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useDataProviderHealth } from '../hooks/useDataProviderHealth';
-import { PROVIDER_LABELS, type ProviderId } from '../utils/providerHealth';
+import { PROVIDER_LABELS, type ProviderId } from '../constants/providerLabels';
+import { useSystemNotice } from '../hooks/useSystemNotice';
 
 /**
- * Top-sticky amber banner that shows up when one or more upstream
- * data providers (fines / OSAGO / passes / diagnostic-card / RNIS /
- * tolled roads) are degraded or down. Detection is purely frontend
- * for now (rolling failure-rate over a 60s window — see
- * `src/utils/providerHealth.ts`). Backend-driven `system_notice`
- * support is planned as Phase 2 in
- * `.claude/plans/2026-04-30-data-provider-health.md`.
+ * Top-sticky amber banner shown when the backend has at least one
+ * active `system_notice` for any of the six data categories (fines /
+ * OSAGO / passes / diagnostic-card / RNIS / tolled roads).
  *
- * UX intentions:
- *   - never blocks content — only takes top strip
- *   - amber, not red, so users can distinguish from
- *     `NetworkStatusBanner`'s red "no internet" state
- *   - dismissible per session via ✕; reopens automatically when a
- *     fresh provider transitions to degraded/down AFTER dismiss
- *   - auto-hides when all providers recover (no manual close needed)
+ * The source of truth lives server-side now (ADR-012, PR-1):
+ *   - admin activates / deactivates banners via Telegram bot
+ *     `@transappmonitor_bot`,
+ *   - or the auto-banner threshold (≥3 distinct user complaints / 6h)
+ *     creates one,
+ *   - the frontend polls `GET /payment-api/system-notice` every 60s
+ *     via `useSystemNotice`.
  *
- * Why a session-scoped (not persistent) dismiss: provider outages
- * usually clear within hours; persistent dismiss would risk hiding a
- * different outage tomorrow that the user needs to know about.
+ * UX intentions (unchanged from Phase 1):
+ *   - never blocks content — only takes a top strip,
+ *   - amber, not red, to distinguish from `NetworkStatusBanner`'s
+ *     red "no internet" state (one tick lower zIndex too),
+ *   - dismissible per session via ✕; reopens automatically when the
+ *     active set of categories changes (different incident),
+ *   - auto-hides when the backend marks all notices deactivated.
  */
 
 // Web: sessionStorage. Native: module-level (resets on cold start).
@@ -45,36 +45,45 @@ function writeDismissed(signature: string): void {
 }
 
 /**
- * Stable key for the current set of problematic providers — used as
- * the dismiss signature. When the set changes (a new provider goes
- * degraded/down), the signature changes, dismiss flag stops matching,
- * banner re-appears.
+ * Stable key for the current set of active categories — used as the
+ * dismiss signature. When the set changes (a new incident, even on
+ * a different category), the signature changes, dismiss flag stops
+ * matching, banner re-appears.
  */
-function buildSignature(degraded: ProviderId[], down: ProviderId[]): string {
-  const ids = [...degraded, ...down].sort();
-  return ids.join(',');
+function buildSignature(categories: ProviderId[]): string {
+  return [...categories].sort().join(',');
 }
 
-function describeProviders(degraded: ProviderId[], down: ProviderId[]): string {
-  // Down first (more severe), then degraded. De-dupe in case future logic
-  // pushes a provider into both arrays.
+/**
+ * Default fallback text when no admin-provided message is available.
+ * Single-notice incidents use the notice's own `message` field; this
+ * is reserved for the rare case of multiple simultaneously active
+ * notices when joining individual messages would be too long.
+ */
+function describeCategories(categories: ProviderId[]): string {
   const seen = new Set<ProviderId>();
   const ordered: ProviderId[] = [];
-  [...down, ...degraded].forEach(p => {
+  categories.forEach(p => {
     if (!seen.has(p)) { seen.add(p); ordered.push(p); }
   });
   return ordered.map(p => PROVIDER_LABELS[p]).join(', ');
 }
 
 export default function DataProviderStatusBanner() {
-  const { degraded, down, hasIssues } = useDataProviderHealth();
+  const { notices, categories, hasIssues } = useSystemNotice();
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
   const [visible, setVisible] = useState(false);
 
-  const signature = buildSignature(degraded, down);
+  const signature = buildSignature(categories);
   const dismissedSignature = readDismissed();
   const shouldShow = hasIssues && dismissedSignature !== signature;
+
+  // Single notice → use the admin-supplied message verbatim.
+  // Multiple notices → fall back to the comma-joined label list.
+  const text = notices.length === 1
+    ? notices[0].message
+    : `Возможны временные перебои: ${describeCategories(categories)}`;
 
   useEffect(() => {
     if (shouldShow && !visible) {
@@ -122,8 +131,8 @@ export default function DataProviderStatusBanner() {
       accessibilityLiveRegion="polite"
     >
       <View style={styles.row}>
-        <Text style={styles.text} numberOfLines={2}>
-          Временные перебои: {describeProviders(degraded, down)}
+        <Text style={styles.text} numberOfLines={3}>
+          {text}
         </Text>
         <Pressable
           onPress={handleDismiss}

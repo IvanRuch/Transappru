@@ -22,6 +22,8 @@ import { DiagnosticCardTab } from './web/DiagnosticCardTab';
 import { RnisTab } from './web/RnisTab';
 import { FilesTab } from './web/FilesTab';
 import { DriversTab } from './web/DriversTab';
+import { DataIssueReportButton } from '../../components/DataIssueReportButton';
+import { isProviderId } from '../../constants/providerLabels';
 
 export default function AutoDetailScreen() {
   const params = useLocalSearchParams();
@@ -192,6 +194,17 @@ export default function AutoDetailScreen() {
       {/* Tab bar */}
       <TabBar currentTab={d.currentTab} onTabChange={d.setTab} isDesktop={isDesktop} />
 
+      {/* Per-category "report a problem" affordance — six provider tabs only.
+          The files / driver tabs are local data, not provider-sourced. */}
+      {isProviderId(d.currentTab) && autoData?.id ? (
+        <View style={styles.reportRow}>
+          <DataIssueReportButton
+            category={d.currentTab}
+            autoId={Number(autoData.id)}
+          />
+        </View>
+      ) : null}
+
       {/* Tab content */}
       <ScrollView style={styles.tabContent} contentContainerStyle={{ paddingBottom: 40 }}>
         {renderTabContent()}
@@ -267,5 +280,14 @@ const styles = StyleSheet.create({
   // Tab content
   tabContent: {
     flex: 1,
+  },
+
+  // "Report a problem" affordance, slim row above the tab content.
+  reportRow: {
+    paddingHorizontal: 12,
+    paddingTop: 6,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
 });

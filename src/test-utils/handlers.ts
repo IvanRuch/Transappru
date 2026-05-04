@@ -10,7 +10,15 @@ import { makeGetAutoListResponse } from './factories/getAutoListResponse';
  * Why URL hardcoded as `https://transapp.ru/api/get-auto-list`:
  * `src/services/api.ts` builds it as `MAIN_API_URL ('https://transapp.ru/api/')
  * + '/get-auto-list'`. Same string the prod app sends.
+ *
+ * Payment-service URLs: `src/services/api.ts` resolves to the prod URL
+ * when `__DEV__=false` (Jest sets it false in `jest-setup.ts`); we
+ * register both prod and dev URLs so handlers match regardless of the
+ * platform/dev-flag combination at module load time.
  */
+const PAYMENT_BASE_PROD = 'https://payment.transapp.ru/api';
+const PAYMENT_BASE_DEV = 'http://localhost:8001/api';
+
 export const defaultHandlers = [
   // The non-detail endpoints that loadDetailsForItems may fire as a
   // side-effect after the main fetch — return empty/in-progress so
@@ -32,5 +40,21 @@ export const defaultHandlers = [
   // return scenario-specific data (filters, pagination pages, 401, etc.).
   http.post('https://transapp.ru/api/get-auto-list', () =>
     HttpResponse.json(makeGetAutoListResponse()),
+  ),
+
+  // Data-quality endpoints (ADR-012). Defaults: empty notice list +
+  // success on report. Tests that exercise these surfaces override
+  // via `server.use(...)`.
+  http.get(`${PAYMENT_BASE_PROD}/system-notice`, () =>
+    HttpResponse.json({ notices: [] }),
+  ),
+  http.get(`${PAYMENT_BASE_DEV}/system-notice`, () =>
+    HttpResponse.json({ notices: [] }),
+  ),
+  http.post(`${PAYMENT_BASE_PROD}/data-issues/report`, () =>
+    HttpResponse.json({ id: 1, notice_triggered: false }, { status: 201 }),
+  ),
+  http.post(`${PAYMENT_BASE_DEV}/data-issues/report`, () =>
+    HttpResponse.json({ id: 1, notice_triggered: false }, { status: 201 }),
   ),
 ];

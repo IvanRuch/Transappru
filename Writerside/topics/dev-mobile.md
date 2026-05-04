@@ -136,78 +136,99 @@ and substitutes it for the active row's `user_auto_count`.
 `AutoListScreen.tsx` provides the value from `useAutoData.autoListCount`
 (coerced via `Number(x) || 0` because backend ships it as a string).
 
-## Data provider health & status banner
+## Data quality monitoring (banner + report button)
 
 Vehicle data (fines / OSAGO / passes / diagnostic-card / RNIS / tolled
-roads) flows through third-party providers via the main backend.
-Providers are contracted on endpoint uptime only — not data
-freshness/completeness, and the upstream sources they hit (eKazna,
-traffic-police parsers, ...) go down independently. Until 2026-04-30
-the frontend silently swallowed every per-provider failure → clients
-saw blank fields and assumed everything was fine, then got hurt.
+roads) flows through provider Avtocod, which itself sources from
+state services via СМЭВ (ГИБДД, ФССП, ...). Endpoints stay 200 OK even
+when upstream returns partial / stale data — only the user notices
+and complains. The user-feedback loop in PR-2 turns those complaints
+into a global banner for everyone else, plus a recovery push to the
+complainants when the admin marks the incident closed (ADR-012, plan
+`.claude/plans/2026-05-04-data-issues-reporting.md`).
 
-### Architecture (Phase 1, now)
+The Phase 1 endpoint-observation heuristic (PR #18 — module
+`src/utils/providerHealth.ts`, 60s rolling window per provider) was
+removed in PR-2: it caught only HTTP 5xx / timeouts / explicit `error`
+flags, which are not the dominant failure mode.
 
-Pure frontend detection — no backend coordination required to ship
-value. Backend-driven `system_notice` is Phase 2, planned in
-`.claude/plans/2026-04-30-data-provider-health.md`.
+### Architecture (PR-2, now)
 
 ```
-useAutoData.loadPasses
-useAutoData.loadDiagnosticCard      reportProviderResult(id, success)
-useAutoData.loadFines           ──►  ────────────────────────────────►  src/utils/providerHealth.ts
-useAutoData.loadOsago                                                    (rolling 60s window per provider,
-                                                                          unknown → ok → degraded → down)
-                                                                                    │
-                                                                                    │ subscribe
-                                                                                    ▼
-                                                                          useDataProviderHealth (useSyncExternalStore)
-                                                                                    │
-                                                                                    ▼
-                                                                          <DataProviderStatusBanner/>
-                                                                          (top-sticky amber, dismissible)
+client (mobile/web)                                       backend (payment-service)
+                                                          ┌────────────────────────┐
+[click "Сообщить о проблеме" on detail screen]            │  POST /data-issues/    │
+                                                          │       report           │
+DataIssueReportButton                                     │  ─ INSERT data_issues  │
+  ─ getCachedUserId() (from useAutoData)                  │  ─ TG admin alert      │
+  ─ tryGetFCMToken() (web/native)              ──────►    │  ─ threshold check     │
+  ─ POST /data-issues/report                              │     (≥3 distinct       │
+                                                          │      users / 6h)       │
+                                                          └───────────┬────────────┘
+                                                                      │
+                                                          payment_db  │
+                                                                      ▼
+DataProviderStatusBanner (root, sticky amber)             ┌────────────────────────┐
+  ▲                                                       │ system_notice          │
+  │ subscribe (useSyncExternalStore)                      │  category, message,    │
+  │                                                       │  source (admin|auto),  │
+useSystemNotice                                           │  deactivated_at        │
+  ─ singleton store                       ──────────►     └───────────┬────────────┘
+  ─ setInterval(60s) while subscribers > 0                            ▲
+  ─ silent failure on poll error                                      │
+  ─ kick-poll on first subscribe                          GET /system-notice
 ```
 
-### State machine per provider (`src/utils/providerHealth.ts`)
+### Public surface (`src/`)
 
-| State | Trigger |
+| File | Role |
 |---|---|
-| `unknown` | 0 samples in last 60s |
-| `ok` | ≥1 sample, failure rate < 30%, no consecutive-fail trip |
-| `degraded` | failure rate 30–80% **or** 2 consecutive failures |
-| `down` | failure rate ≥ 80% **or** 3 consecutive failures |
+| `constants/providerLabels.ts` | `PROVIDER_LABELS` map + `ProviderId` type + `isProviderId` guard. Mirrors backend `DATA_CATEGORIES`. |
+| `utils/userIdCache.ts` | AsyncStorage cache of legacy `user.id`, populated by `useAutoData` on every `/get-auto-list` response. Read by `DataIssueReportButton` on submit. |
+| `services/dataIssues.ts` | Axios wrappers `reportDataIssue` (POST) + `fetchSystemNotice` (GET). Routes through `Api.payment` (`PAYMENT_API_URL`). |
+| `hooks/useSystemNotice.ts` | Module-level singleton with `useSyncExternalStore`. One poll regardless of subscriber count; stops when last subscriber unmounts; silent failure leaves prior snapshot intact. |
+| `components/DataIssueReportButton.tsx` | Icon button (`MaterialCommunityIcons name="account-alert"`) + modal with optional comment textarea (max 2000 chars) + submit. Handles 409 (open complaint exists) and missing user_id (defensive). |
+| `components/DataProviderStatusBanner.tsx` | Same presenter as Phase 1; source switched from `useDataProviderHealth` → `useSystemNotice`. When backend returns 1 notice, displays its `message` verbatim; when 2+ active, falls back to comma-joined category labels. |
 
-Down-by-rate (≥80%) outranks consecutive-degraded — 2 failures with
-no successes in window = 100% rate = `down`, not `degraded`.
-
-Tuning constants (`WINDOW_MS`, `*_FAILURE_RATE`, `*_CONSECUTIVE`)
-deliberately conservative — better to underreport than to cry wolf.
-Tune after first prod observation.
-
-### Banner UX (`DataProviderStatusBanner.tsx`)
+### Banner UX
 
 - Top-sticky amber (`#FFC107`), zIndex 9998 — one tick below
   `NetworkStatusBanner` (zIndex 9999) so offline-red wins when both
   fire (no internet → no provider data either, more severe signal).
-- Text: "Временные перебои: <RU labels>" (RU labels in `PROVIDER_LABELS`).
-- Auto-shows when ≥1 provider is `degraded` or `down`; auto-hides
-  when all recover.
+- Auto-shows when `GET /system-notice` returns ≥1 notice; auto-hides
+  on next poll after backend deactivates all notices.
 - Dismissible via ✕ — sessionStorage on web, module-level `let` on
-  native. Re-appears automatically when a **fresh** provider
-  transitions degraded/down after dismiss (signature-based: dismiss
-  applies to the current set, not "all future outages").
-- Mounted in `app/_layout.tsx` next to `NetworkStatusBanner`.
+  native. Re-appears automatically when the **set of active categories
+  changes** (different incident — signature-based dismiss).
+- Mounted in `app/_layout.tsx` next to `NetworkStatusBanner` (no
+  per-screen mount).
+
+### Report button placement
+
+On `AutoDetailScreen` (`.tsx` native + `.web.tsx` web), the button
+sits in a slim row between the `TabBar` and the `ScrollView` with tab
+content. It's rendered **only** for the six provider tabs (passes,
+fines, avtodor, osago, diagnostic_card, rnis), not for files or
+driver tabs (those are local data, not provider-sourced) — gate via
+`isProviderId(currentTab)`.
+
+`autoId` is read from `autoData.id` (web — `useLocalSearchParams`,
+native — `this.state.auto_data.id`). `userId` is fetched async on
+submit via `getCachedUserId()` — the cache is filled when the user
+navigates through `/auto-list`, so by the time they reach detail
+screen the cache hit is essentially guaranteed.
 
 ### Tests
 
-- `src/utils/__tests__/providerHealth.test.ts` — 12 cases covering
-  threshold transitions (unknown / ok / degraded / down), per-provider
-  isolation, rolling-window expiry, subscribe/notify lifecycle, listener
-  self-unsubscribe.
-- `useDataProviderHealth` hook tests deferred (thin wrapper over
-  `useSyncExternalStore`).
-- Banner UI test deferred (jsdom + RN renderer plays poorly with
-  `useSafeAreaInsets`; manual QA on staging is the right tool here).
+- `src/hooks/__tests__/useSystemNotice.test.ts` — 4 cases (empty,
+  active list, silent failure on error, stable snapshot reference).
+- `src/utils/__tests__/userIdCache.test.ts` — 9 cases
+  (set/get round-trip, clearing on null/empty/0, defensive null on
+  corrupt storage, idempotency).
+- MSW handlers for `/system-notice` and `/data-issues/report` in
+  `src/test-utils/handlers.ts` — both prod and dev base URLs registered.
+- Banner UI test deferred (jsdom + RN renderer + `useSafeAreaInsets`
+  remains as in Phase 1; manual QA on staging is the appropriate tool).
 
 ## Test infrastructure
 

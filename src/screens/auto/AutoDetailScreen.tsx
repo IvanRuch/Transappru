@@ -15,6 +15,8 @@ import { router } from 'expo-router';
 import styles from '../../styles/Styles.js';
 import Api from "../../utils/Api";
 import { SHOW_PAYMENT_UI } from '../../config/features';
+import { DataIssueReportButton } from '../../components/DataIssueReportButton';
+import { isProviderId } from '../../constants/providerLabels';
 
 // Компонент для постраничного вывода длинных списков
 const PaginatedList = ({ data, renderItem, initialCount = 5, step = 20 }: { data: any[], renderItem: (item: any, index: number) => React.ReactNode, initialCount?: number, step?: number }) => {
@@ -1640,6 +1642,17 @@ class Auto extends React.Component<AutoProps, AutoState> {
             </View>
           </ScrollView>
         </View>
+
+        {/* Per-category "report a problem" affordance — provider tabs only.
+            Files / driver tabs are local data, not provider-sourced. ADR-012. */}
+        { isProviderId(this.state.current_tab) && this.state.auto_data?.id ? (
+          <View style={{ paddingHorizontal: 12, paddingTop: 6, backgroundColor: '#FFFFFF' }}>
+            <DataIssueReportButton
+              category={this.state.current_tab as any}
+              autoId={Number(this.state.auto_data.id)}
+            />
+          </View>
+        ) : null }
 
         { this.state.current_tab == 'files' ? (
             <SafeAreaInsetsContext.Consumer>

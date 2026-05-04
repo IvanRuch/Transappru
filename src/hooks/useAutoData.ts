@@ -6,7 +6,7 @@ import axios from 'axios';
 import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
 import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
-import { reportProviderResult } from '../utils/providerHealth';
+import { setCachedUserId } from '../utils/userIdCache';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 
 const AUTO_LIST_LIMIT = 10;
@@ -160,6 +160,10 @@ export function useAutoData() {
       // Обновление данных пользователя (только при первой загрузке или обновлении)
       if (data.user_data) {
         setUserData(data.user_data);
+        // Cache the legacy user.id for cross-screen access (e.g. the
+        // DataIssueReportButton on the auto detail screen — see ADR-012,
+        // src/utils/userIdCache.ts). Best-effort, never throws.
+        void setCachedUserId(data.user_data.id);
         setManagerData(data.user_data.manager_data || data.manager_data || {});
         
         const tsData = data.user_data.tech_support_data || {};
@@ -267,26 +271,21 @@ export function useAutoData() {
     });
   };
 
-  // Вспомогательные функции загрузки деталей.
-  // Каждая после resolve/reject зовёт reportProviderResult(...) — это
-  // питает providerHealth → DataProviderStatusBanner. Контракт успеха:
-  // запрос ответил, нет `error`, и data готова (`in_progress != 1` для
-  // тех endpoint-ов где есть этот флаг). Retry-итерации НЕ репортим —
-  // только финальный исход (успех / exhaust / network error).
+  // Вспомогательные функции загрузки деталей. До PR-2 здесь жили вызовы
+  // `reportProviderResult(...)` которые питали Phase 1 баннер
+  // (PR #18, ADR-012 заменил подход); теперь источник баннера —
+  // backend `/payment-api/system-notice`, см. `useSystemNotice`.
   const loadPasses = (token: string, id: string, retries = 3) => {
     api.post('/get-auto-check-passes', { token, id, intervally: 1 }).then(res => {
       if (res.data.error || res.data.in_progress != 1) {
-        reportProviderResult('passes', !res.data.error);
         updateAutoItem(id, { ...res.data, check_passes_expared: 0 });
       } else if (retries > 0) {
         setTimeout(() => loadPasses(token, id, retries - 1), 5000);
       } else {
         // Retries exhausted — provider didn't finish in 15s.
-        reportProviderResult('passes', false);
         updateAutoItem(id, { check_passes_expared: 0 });
       }
-    }).catch(e => {
-      reportProviderResult('passes', false);
+    }).catch(_ => {
       updateAutoItem(id, { check_passes_expared: 0 });
     });
   };
@@ -294,36 +293,29 @@ export function useAutoData() {
   const loadDiagnosticCard = (token: string, id: string, retries = 3) => {
     api.post('/get-auto-check-diagnostic-card', { token, id, intervally: 1 }).then(res => {
         if (res.data.error || res.data.in_progress != 1) {
-            reportProviderResult('diagnostic_card', !res.data.error);
             updateAutoItem(id, { ...res.data, check_diagnostic_card_expared: 0 });
         } else if (retries > 0) {
             setTimeout(() => loadDiagnosticCard(token, id, retries - 1), 5000);
         } else {
-            reportProviderResult('diagnostic_card', false);
             updateAutoItem(id, { check_diagnostic_card_expared: 0 });
         }
-    }).catch(e => {
-      reportProviderResult('diagnostic_card', false);
+    }).catch(_ => {
       updateAutoItem(id, { check_diagnostic_card_expared: 0 });
     });
   };
 
   const loadFines = (token: string, id: string) => {
     api.post('/get-auto-check-fines', { token, id }).then(res => {
-      reportProviderResult('fines', !res.data.error);
       updateAutoItem(id, { ...res.data, check_fines_expared: 0 });
-    }).catch(e => {
-      reportProviderResult('fines', false);
+    }).catch(_ => {
       updateAutoItem(id, { check_fines_expared: 0 });
     });
   };
 
   const loadOsago = (token: string, id: string) => {
     api.post('/get-auto-check-osago', { token, id }).then(res => {
-      reportProviderResult('osago', !res.data.error);
       updateAutoItem(id, { ...res.data, check_osago_expared: 0 });
-    }).catch(e => {
-      reportProviderResult('osago', false);
+    }).catch(_ => {
       updateAutoItem(id, { check_osago_expared: 0 });
     });
   };
@@ -502,6 +494,7 @@ export function useAutoData() {
       if (controller.signal.aborted) return;
       if (res.data.user_data) {
         setUserData(res.data.user_data);
+        void setCachedUserId(res.data.user_data.id);
         if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
       }
     } catch (e) {
