@@ -155,6 +155,32 @@ breaks the tunnel.
 Current Telegram source of truth:
 <https://core.telegram.org/resources/cidr.txt>
 
+### Symptom: bot in `Failed to fetch updates - Request timeout` loop
+
+If `docker logs transapp_payment_bot` shows repeated
+`aiogram.dispatcher: Failed to fetch updates - TelegramNetworkError`
+AND `app.bot.poll_alerts: poll_alerts.send_failed`, but
+`docker exec transapp_payment_bot curl -s -o /dev/null -w '%{http_code}'
+https://api.telegram.org` sometimes returns `302` —
+**`rightsubnet` is incomplete**.
+
+Telegram DNS rotates `api.telegram.org` across DCs 1–5; some IPs
+fall outside our routed CIDRs and traffic exits via default route →
+blocked at YC NAT/firewall (RU). Symptom is intermittent for low-rate
+clients (krasilnikov-style ~2 msg/day), but a long-poll `getUpdates`
+cycle hits the bad DC reliably within a few iterations.
+
+Fix: ensure `rightsubnet` covers the **full** list at
+<https://core.telegram.org/resources/cidr.txt>. Re-confirm with the
+VPN server admin that `leftsubnet` accepts all of them — if narrow,
+ask to widen.
+
+A secondary IPv6 contribution: `aiohttp`'s `aiohappyeyeballs` races
+A + AAAA results. Our split-tunnel covers IPv4 only, so AAAA-routed
+attempts time out. `entrypoint.sh` disables IPv6 in the vpn netns
+via `sysctl net.ipv6.conf.all.disable_ipv6=1` (best-effort, requires
+CAP_NET_ADMIN).
+
 ### Migrating off the VPN
 
 If Telegram unblocks RU egress (unlikely) or production moves to a

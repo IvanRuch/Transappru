@@ -30,6 +30,20 @@ if [[ -z "${EAP_USERNAME:-}" || -z "${EAP_PASSWORD:-}" ]]; then
     exit 1
 fi
 
+# Disable IPv6 in the vpn container's network namespace (best-effort).
+# Reason: aiohttp's `aiohappyeyeballs` parallel-connects IPv4 + IPv6 on
+# `socket.getaddrinfo` results. Our split-tunnel `rightsubnet`
+# only covers IPv4 Telegram CIDRs, so AAAA-resolved IPs route via the
+# default eth0 → blocked from RU. Disabling IPv6 here makes glibc
+# return only A records, eliminating the IPv6 race entirely.
+#
+# CAP_NET_ADMIN is required (set in docker-compose). If the kernel
+# refuses (some COI hosts), we log and continue — the rightsubnet
+# expansion alone usually closes the gap.
+sysctl -w net.ipv6.conf.all.disable_ipv6=1     2>/dev/null || true
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 2>/dev/null || true
+sysctl -w net.ipv6.conf.lo.disable_ipv6=1      2>/dev/null || true
+
 # Render conf — sed-substitute the username placeholder. Username is
 # expected to be a simple identifier (no `&`, `/` etc); if it ever
 # contains those, switch to a different separator or use envsubst.
