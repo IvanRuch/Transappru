@@ -164,3 +164,101 @@ class TestResolveIssue:
 
     async def test_returns_false_for_missing(self, initialized_db) -> None:
         assert await notice_svc.resolve_issue(999_999) is False
+
+
+class TestStaleTokenTombstone:
+    """Permanently-dead FCM tokens (per Firebase Admin SDK error codes)
+    must be NULL'd in `data_issues` so the next /banner_off doesn't
+    re-attempt them. Verifies the integration with
+    `deactivate_with_recovery_push`."""
+
+    async def test_clears_unregistered_token_in_data_issues(
+        self, initialized_db, monkeypatch
+    ) -> None:
+        await notice_svc.activate_admin_notice("fines", "msg")
+        await _make_issue(
+            user_id=10, auto_id=10, category="fines", fcm_token="dead-tok-A"
+        )
+        await _make_issue(
+            user_id=20, auto_id=20, category="fines", fcm_token="live-tok-B"
+        )
+
+        def fake_send(tokens, category, custom_body):
+            # tok-A returns `unregistered` (permanent), tok-B succeeds.
+            return firebase_push.PushResult(
+                success_count=1,
+                failure_count=1,
+                failures=[("dead-tok-A", "unregistered")],
+            )
+
+        monkeypatch.setattr(firebase_push, "send_recovery_push", fake_send)
+
+        result = await notice_svc.deactivate_with_recovery_push("fines", send_push=True)
+        assert result is not None and result.push_sent is True
+
+        # Dead token: cleared in data_issues
+        dead_issue = await DataIssue.get(user_id=10)
+        assert dead_issue.fcm_token is None
+        # Live token: untouched
+        live_issue = await DataIssue.get(user_id=20)
+        assert live_issue.fcm_token == "live-tok-B"
+
+    async def test_does_not_clear_transient_failures(
+        self, initialized_db, monkeypatch
+    ) -> None:
+        """`unknown` / network errors are transient — keep the token,
+        next /banner_off may succeed."""
+        await notice_svc.activate_admin_notice("osago", "msg")
+        await _make_issue(
+            user_id=30, auto_id=30, category="osago", fcm_token="transient-tok"
+        )
+
+        def fake_send(*_args, **_kwargs):
+            return firebase_push.PushResult(
+                success_count=0,
+                failure_count=1,
+                failures=[("transient-tok", "unknown")],
+            )
+
+        monkeypatch.setattr(firebase_push, "send_recovery_push", fake_send)
+        await notice_svc.deactivate_with_recovery_push("osago", send_push=True)
+
+        issue = await DataIssue.get(user_id=30)
+        assert issue.fcm_token == "transient-tok"  # NOT cleared
+
+    async def test_clears_all_known_permanent_codes(
+        self, initialized_db, monkeypatch
+    ) -> None:
+        """Smoke test that every permanent error code in the allowlist
+        triggers tombstoning."""
+        await notice_svc.activate_admin_notice("rnis", "msg")
+        permanent_codes = [
+            "unregistered",
+            "registration-token-not-registered",
+            "invalid-argument",
+            "invalid-registration-token",
+            "sender-id-mismatch",
+        ]
+        for i, code in enumerate(permanent_codes):
+            await _make_issue(
+                user_id=100 + i,
+                auto_id=100 + i,
+                category="rnis",
+                fcm_token=f"tok-{code}",
+            )
+
+        def fake_send(tokens, category, custom_body):
+            return firebase_push.PushResult(
+                success_count=0,
+                failure_count=len(tokens),
+                failures=[(t, t.split("tok-", 1)[1]) for t in tokens],
+            )
+
+        monkeypatch.setattr(firebase_push, "send_recovery_push", fake_send)
+        await notice_svc.deactivate_with_recovery_push("rnis", send_push=True)
+
+        for i in range(len(permanent_codes)):
+            issue = await DataIssue.get(user_id=100 + i)
+            assert issue.fcm_token is None, (
+                f"token with permanent code {permanent_codes[i]} not tombstoned"
+            )

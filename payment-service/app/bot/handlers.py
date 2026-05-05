@@ -75,6 +75,13 @@ class BannerOffFSM(StatesGroup):
 async def cmd_help(message: Message) -> None:
     if not _is_admin(message.from_user.id if message.from_user else None):
         return
+    # Bot default ParseMode is Markdown V1: `*`, `_`, `[…](…)`, backticks
+    # are entity delimiters. The `_` in `diagnostic_card` and the `[…]`
+    # square brackets in `[текст]` were both interpreted as unclosed
+    # entities → Telegram returned `Bad Request: can't parse entities`
+    # and the bot dropped every `/help` and `/start` from the admin.
+    # Send this help with parse_mode=None so reserved chars pass through
+    # literally; no formatting is needed for the help text anyway.
     await message.answer(
         "Бот мониторинга качества данных TransApp.\n\n"
         "Команды:\n"
@@ -83,7 +90,8 @@ async def cmd_help(message: Message) -> None:
         "• /banner_off <категория> [текст] — выключить баннер + recovery push\n"
         "• /help — эта подсказка\n\n"
         "Категории: passes, diagnostic_card, fines, osago, rnis, avtodor "
-        "(или по-русски: пропуска, ДК, штрафы, ОСАГО, РНИС, платные)."
+        "(или по-русски: пропуска, ДК, штрафы, ОСАГО, РНИС, платные).",
+        parse_mode=None,
     )
 
 
@@ -102,12 +110,15 @@ async def cmd_issues(message: Message) -> None:
     for it in open_issues:
         label = PROVIDER_LABELS.get(it.category, it.category)
         ts = it.created_at.strftime("%H:%M %d.%m")
-        line = f"• #{it.id} [{label}] {ts} user=`{it.user_id}` auto=`{it.auto_id}`"
+        line = f"• #{it.id} [{label}] {ts} user={it.user_id} auto={it.auto_id}"
         if it.comment:
             snippet = it.comment if len(it.comment) <= 80 else it.comment[:80] + "…"
-            line += f"\n  _{snippet}_"
+            line += f"\n  {snippet}"
         lines.append(line)
-    await message.answer("\n".join(lines))
+    # Plain text — `[…]`, `_`, `*` in labels/comments would break Markdown
+    # parsing (`Bad Request: can't parse entities`). The list view doesn't
+    # need formatting; readability comes from the bullet/indentation.
+    await message.answer("\n".join(lines), parse_mode=None)
 
 
 # --- /banner_on ------------------------------------------------------
@@ -146,8 +157,13 @@ async def cmd_banner_on(message: Message, command: CommandObject) -> None:
         return
 
     label = PROVIDER_LABELS.get(category, category)
+    # Plain text — admin-supplied `text` may contain `_ * [` etc which
+    # break Markdown V1 entity parsing (`Bad Request: can't parse
+    # entities`). The label is a fixed Russian word so newline+colon
+    # gives enough visual separation without bold.
     await message.answer(
-        f"🟡 Баннер активирован: *{label}* (notice #{notice.id})\nТекст: _{text}_"
+        f"🟡 Баннер активирован: {label} (notice #{notice.id})\nТекст: {text}",
+        parse_mode=None,
     )
 
 

@@ -147,14 +147,23 @@ async def deactivate_with_recovery_push(
     if rows:
         await SystemNoticePushLog.bulk_create(rows)
 
+    # Tombstone permanently-dead FCM tokens so they don't keep
+    # accumulating in `data_issues` and don't get retried on the next
+    # /banner_off (which would just spam the failure log). Firebase
+    # Admin SDK reports these error codes when the token is structurally
+    # broken or has been revoked at the FCM side — re-trying them is
+    # never going to succeed without a fresh client-side registration.
+    pruned = await _tombstone_dead_tokens(push_result.failures)
+
     logger.info(
         "system_notice.deactivated id=%d category=%s push_recipients=%d "
-        "push_success=%d push_failure=%d",
+        "push_success=%d push_failure=%d tokens_pruned=%d",
         notice.id,
         category,
         len(tokens),
         push_result.success_count,
         push_result.failure_count,
+        pruned,
     )
     return DeactivationResult(
         notice_id=notice.id,
@@ -163,6 +172,43 @@ async def deactivate_with_recovery_push(
         push_success_count=push_result.success_count,
         push_failure_count=push_result.failure_count,
     )
+
+
+# Firebase Admin SDK error codes that indicate the FCM token is
+# permanently dead — re-trying without a new client-side registration
+# is futile. Source:
+# https://firebase.google.com/docs/cloud-messaging/send-message#admin
+# (Server response error codes section).
+_PERMANENT_FCM_ERRORS: frozenset[str] = frozenset(
+    {
+        "unregistered",
+        "registration-token-not-registered",
+        "invalid-argument",
+        "invalid-registration-token",
+        "sender-id-mismatch",
+    }
+)
+
+
+async def _tombstone_dead_tokens(failures: list[tuple[str, str]]) -> int:
+    """Clear `data_issues.fcm_token` for tokens that Firebase reports as
+    permanently dead. Returns the number of rows updated.
+
+    Idempotent: re-running over the same failures is a no-op once the
+    column is NULL.
+    """
+    dead = [token for token, code in failures if code in _PERMANENT_FCM_ERRORS]
+    if not dead:
+        return 0
+    rows_updated = await DataIssue.filter(fcm_token__in=dead).update(fcm_token=None)
+    if rows_updated:
+        logger.info(
+            "fcm.token.tombstoned tokens=%d rows=%d codes=%s",
+            len(dead),
+            rows_updated,
+            sorted({c for _, c in failures if c in _PERMANENT_FCM_ERRORS}),
+        )
+    return rows_updated
 
 
 async def _close_related_issues(notice: SystemNotice) -> None:
