@@ -48,20 +48,52 @@ jobs:
             exit 0
           fi
 
+          # Build a sha → PR map of recent merged PRs once, up-front. The
+          # /pulls?state=closed endpoint returns the master-side merge_commit_sha
+          # for each PR — this is the only reliable way to associate a
+          # squash-merged commit with its source PR (the squash creates a fresh
+          # commit on master that was NEVER part of the PR's branch, so the
+          # /commits/{sha}/pulls endpoint returns an empty list for it).
+          #
+          # 100 most recent merged PRs covers any realistic push window
+          # (typically last few days of merges). If we ever push a commit
+          # whose PR was merged longer ago than the 100th most-recent PR,
+          # the check will (correctly) fail — that's an edge case worth
+          # flagging anyway (likely a stale branch push).
+          merge_commit_map=$(gh api \
+            "repos/$REPO/pulls?state=closed&per_page=100&sort=updated&direction=desc" \
+            --jq '[.[] | select(.merged_at != null) | {sha: .merge_commit_sha, num: .number}]' \
+            2>/dev/null || echo '[]')
+
           while read -r sha; do
             [[ -z "$sha" ]] && continue
 
-            merged_pr_count=$(gh api "repos/$REPO/commits/$sha/pulls" \
+            # Layer 1: direct commit-to-PR association. Works for regular
+            # ("merge commit") and rebase-merged PRs where commits keep a
+            # provenance link to their originating PR.
+            direct_pr_count=$(gh api "repos/$REPO/commits/$sha/pulls" \
                                 --jq '[.[] | select(.merged_at != null)] | length' \
                                 2>/dev/null || echo "0")
 
-            if [[ "$merged_pr_count" -gt 0 ]]; then
-              echo "✅ $sha — merged via PR"
-            else
-              echo "::error::Commit $sha was pushed to master without an associated merged PR."
-              echo "   $(git log -1 --format='%h  %s%n   author: %an <%ae>%n   date:   %ai' "$sha")"
-              fail=1
+            if [[ "$direct_pr_count" -gt 0 ]]; then
+              echo "✅ $sha — merged via PR (direct association)"
+              continue
             fi
+
+            # Layer 2: squash-merge fallback — this commit IS the
+            # merge_commit_sha of some recently-merged PR.
+            squash_pr_num=$(jq -r --arg sha "$sha" \
+                              '.[] | select(.sha == $sha) | .num' \
+                              <<< "$merge_commit_map" | head -1)
+
+            if [[ -n "$squash_pr_num" ]]; then
+              echo "✅ $sha — merged via PR #$squash_pr_num (squash, matched on merge_commit_sha)"
+              continue
+            fi
+
+            echo "::error::Commit $sha was pushed to master without an associated merged PR."
+            echo "   $(git log -1 --format='%h  %s%n   author: %an <%ae>%n   date:   %ai' "$sha")"
+            fail=1
           done <<< "$new_commits"
 
           if [[ "$fail" == "1" ]]; then
