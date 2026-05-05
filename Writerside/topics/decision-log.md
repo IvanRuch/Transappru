@@ -1088,3 +1088,153 @@ production переезжает на non-RU инфраструктуру (пла
 managed Telegram-egress прокси-сервис который мы можем доверить
 production-нагрузке. В любом из этих случаев VPN-сайдкар удаляется,
 admin-alert возвращается на inline-путь в payment-service.
+
+### ADR-016: GitHub Secret hygiene + COI metadata-diff buster (2026-05-05)
+
+**Context.** Сегодняшний инцидент с `UNAUTHENTICATED` ошибкой Firebase
+Recovery Push выявил **две независимые подводные мины** инфраструктуры,
+каждая из которых маскировала другую и в сумме давала ~5-часовое
+расследование. Документируем обе, чтобы не повторить.
+
+#### Подводная мина A — порча `FIREBASE_SERVER_ACCOUNT_JSON` через chat-client autolink
+
+**Симптом.** OAuth refresh для service account возвращает валидный
+access_token (token len 976), но любой Google API call (FCM v1,
+Cloud Resource Manager `testIamPermissions`) отвергает его с 401
+`UNAUTHENTICATED`. Локальный файл `.secrets/firebase-server-account.json`
+проходит все sanity-checks (`grep -c '\['` = 0, `jq` парсит без ошибок,
+project_id/client_email/private_key_id совпадают с production'ом
+коллеги).
+
+**Корневая причина.** В контейнере `/run/secrets/firebase-server-account.json`
+поля `client_email` и `token_uri` хранили **markdown-autolinked версии**
+самих себя:
+```json
+"client_email": "[firebase-adminsdk-zd85u@…iam.gserviceaccount.com](mailto:firebase-adminsdk-zd85u@…iam.gserviceaccount.com)"
+"token_uri":    "[https://oauth2.googleapis.com/token](https://oauth2.googleapis.com/token)"
+```
+Длины: `client_email` 135 вместо 62, `token_uri` 74 вместо 35. Google
+JWT-валидация на token endpoint при таких значениях **проходит**
+успешно (это удивило, но видимо `iss` он ищет fuzzy/lookup-by-key_id),
+а вот валидация Bearer-токена на FCM endpoint — нет.
+
+**Откуда взялась порча.** JSON был передан через мессенджер при пасте
+в форму GitHub Secrets (Settings → Secrets → New repository secret).
+Браузерный clipboard или промежуточный посредник auto-линкуют URL'ы и
+email-адреса при копировании. На локальном диске JSON оставался
+чистый, но в GitHub Secret уехала autolinked-версия — и оттуда в
+`/run/secrets/...` через `--build-arg` в `payment-service/Dockerfile.prod`.
+
+**Trap внутри trap'а:** даже корректный Python `print('client_email :', d['client_email'])`
+вывод **снова** автолинкуется чат-клиентом при пасте сюда, поэтому
+визуальная проверка через скопировать-вставить терминальный вывод
+не работает. Доказательство порчи требует булевых тестов, которые
+auto-link не подделывает: `len(client_email) == 62`,
+`'](' in client_email`, `client_email.startswith('[')`, плюс
+`hashlib.sha256(...).hexdigest()` с эталоном из локального файла.
+
+**Defensive practice.**
+- При обновлении многострочных / structured Secrets **никогда** не
+  использовать GitHub web-форму с пастом из чата/мессенджера.
+- Использовать `gh secret set NAME --body "$(jq -c . <file>)"` —
+  GitHub API принимает значение как opaque bytes, никаких посредников.
+- Для проверки — sha256-сравнение содержимого Secret'а с локальным
+  файлом из контейнера: чистый файл должен дать тот же хеш, что и
+  ожидаемый эталон, **независимо** от того, как в чате выводится сам
+  email или URL.
+
+#### Подводная мина B — yc-container-daemon metadata-diff reconciliation
+
+**Симптом.** После исправления Secret'а через `gh secret set` (sha
+поменялся, локальные проверки чисты) и нового `workflow_dispatch`
+запуска `deploy-web.yml`, контейнер `transapp_payment_bot` на VM
+**не пересоздаётся** — остаётся с старым (битым) baked-in JSON.
+`docker ps` показывает CreatedAt от прошлого деплоя, тег образа
+тот же.
+
+**Корневая причина.** Yandex Cloud Container Optimized Image (COI)
+управляется демоном `yc-container-daemon.service`, который сравнивает
+**rendered docker-compose.yaml в VM-метаданных**, а **не digest
+образа в Container Registry**. Если git SHA не менялся → image tag
+тот же `:<SHA>-payment` → compose-файл байт-в-байт идентичный →
+демон считает «текущая конфигурация = желаемая» и пропускает
+reconciliation, даже если build-job только что перезалил тот же тег
+с обновлённым содержимым (rotated build-arg, fresh base image, и т.п.).
+
+**Documentation.** Это явно описано в Yandex Cloud docs для COI:
+«container updates are driven by VM metadata changes, not by Docker's
+native pull policy». Стандартный compose `pull_policy: always` COI
+не уважает.
+
+**Decision.** Добавляем уникальный per-run `BUILD_ID` в
+`docker-compose.yc.yaml` через mustache-substitution из workflow env:
+
+```yaml
+# .github/workflows/deploy-web.yml
+env:
+  BUILD_ID: "${{ github.run_id }}-${{ github.run_attempt }}"
+
+# yandex-cloud/docker-compose.yc.yaml
+services:
+  payment-bot:
+    environment:
+      BUILD_ID: "{{ env.BUILD_ID }}"
+```
+
+`BUILD_ID` приложением **не читается** — единственная его задача
+сделать compose-файл уникальным каждый workflow-run, чтобы COI
+metadata-diff всегда обнаруживал изменения и принудительно re-pull'ил
+все образы в compose.
+
+**Достаточно одной env var на одном сервисе.** Демон сравнивает
+весь rendered compose целиком; одна изменившаяся строка триггерит
+полное reconciliation всех 5 контейнеров. Минимально-инвазивно.
+
+**Rationale (alternatives considered).**
+
+1. **Empty commit при каждом manual deploy.** Разовый workaround
+   (применили сегодня для unblock'а), но грязнит git history
+   служебными `chore: bump` коммитами. Не масштабируется на
+   reproducible-deploys через workflow_dispatch.
+2. **Уникальный image tag с timestamp/run_id вместо git SHA.** Самый
+   правильный долгосрочно (Yandex own actions так и делают), но
+   ломает связь «коммит → образ» для traceability и требует
+   пересмотра retention policy в Container Registry (мы держим
+   образы по SHA, чтоб legko rollback'аться). Откладываем.
+3. **Manual `docker rm -f` + надежда на reconciliation.** Хрупко
+   и не работает через CI — нужен SSH к VM в каждом deploy.
+4. **`docker compose pull` + `up -d --force-recreate` через SSH-step
+   в workflow.** Дублирует работу yc-coi-deploy, требует SSH key
+   distribution и обходит штатный механизм COI. Лишний код, лишние
+   риски.
+
+**Принятое решение (BUILD_ID-buster) — единственное изменение из
+одной env-переменной + одной строки в compose, которое полностью
+устраняет ловушку, не меняя ни image-tagging strategy, ни deploy
+pipeline.**
+
+**Implementation surface.**
+
+| Layer | Files |
+|---|---|
+| Workflow env | `.github/workflows/deploy-web.yml` — `BUILD_ID: "${{ github.run_id }}-${{ github.run_attempt }}"` |
+| Compose template | `yandex-cloud/docker-compose.yc.yaml` — `BUILD_ID: "{{ env.BUILD_ID }}"` в `payment-bot.environment` |
+| Documentation | этот ADR + ссылки в commit-комментариях обоих файлов |
+
+**Consequences.**
+
+- Каждый `workflow_dispatch` запуск, даже на том же git SHA,
+  гарантированно пересоздаёт все контейнеры и тянет свежие
+  образы из registry. Это стоит ~30-60 секунд лишнего downtime
+  на пересоздание (нормальный rolling-restart-цикл COI).
+- Для типичного push-to-master deploy ничего не меняется (там и так
+  git SHA уникальный, BUILD_ID просто добавляет ещё один источник
+  diff'а).
+- Исчезает класс ошибок «задеплоил, всё зелёное в Actions, но
+  контейнер старый» — самая коварная категория, потому что
+  отсутствие визуального сигнала о проблеме.
+
+**Reverses if.** Yandex Cloud меняет архитектуру COI и начинает
+сравнивать image digest вместо metadata-diff (не анонсировано),
+либо мы переходим на уникальные image tag'и per run и `BUILD_ID`
+становится избыточным.

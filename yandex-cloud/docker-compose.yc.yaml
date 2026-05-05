@@ -80,6 +80,13 @@ services:
       TELEGRAM_BOT_TOKEN: "{{ env.TELEGRAM_BOT_TOKEN }}"
       TELEGRAM_ADMIN_CHAT_ID: "{{ env.TELEGRAM_ADMIN_CHAT_ID }}"
       FIREBASE_CREDENTIALS_PATH: /run/secrets/firebase-server-account.json
+      # COI metadata-diff buster (ADR-016). Unread by the app — its only
+      # purpose is to make the rendered compose.yaml change between every
+      # workflow_dispatch run, so yc-container-daemon detects a metadata
+      # diff and re-pulls the image. Without this, a re-run on the same
+      # git SHA leaves the old container running even when the registry
+      # tag was overwritten (e.g. baked-in secret rotation).
+      BUILD_ID: "{{ env.BUILD_ID }}"
     command: ["python", "-m", "app.bot.bot_worker"]
     depends_on:
       vpn:

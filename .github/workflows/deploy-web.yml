@@ -65,6 +65,16 @@ env:
   STRONGSWAN_EAP_USERNAME: ${{ secrets.STRONGSWAN_EAP_USERNAME }}
   STRONGSWAN_EAP_PASSWORD: ${{ secrets.STRONGSWAN_EAP_PASSWORD }}
 
+  # COI metadata-diff buster (ADR-016). yc-container-daemon reconciles
+  # containers only when the rendered docker-compose.yaml content
+  # changes; same git SHA → same image tag → same compose → no recreate,
+  # even if the image at the registry tag was overwritten (e.g. a
+  # workflow_dispatch re-run after rotating a baked-in secret). Threading
+  # this unique-per-run value into the compose template (see
+  # `yandex-cloud/docker-compose.yc.yaml`) forces a metadata diff every
+  # time, so reconciliation always pulls the latest image.
+  BUILD_ID: "${{ github.run_id }}-${{ github.run_attempt }}"
+
 jobs:
   build-nginx:
     runs-on: ubuntu-latest
