@@ -7,6 +7,11 @@
 core cases. Latest-wins AbortController + 5-minute cache deferred to
 a follow-up suite. Phases 2–5 still draft, awaiting their triggers.
 
+_Re-validated 2026-05-06 (status hygiene pass): no Phase 2–5 movement;
+trigger conditions unchanged. MSW infrastructure has since been reused
+for data-issues frontend tests (PR #23) — vindicates the Phase 1 ROI
+argument._
+
 ### Phase 1 — what landed
 
 - ✅ MSW v2 installed, jsdom env conditions overridden, polyfills wired

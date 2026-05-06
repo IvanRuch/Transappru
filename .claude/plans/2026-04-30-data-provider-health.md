@@ -2,14 +2,32 @@
 
 ## Status
 
-**Phase 1 completed** (2026-04-30, merged in PR #18 → master commit
-`f85c16b`). Tactical first step shipped: per-provider banner
-(`DataProviderStatusBanner` + `providerHealth` rolling-window state
-machine + `useDataProviderHealth` subscriber + 4 loader integration
-points in `useAutoData` + 12 unit tests). Strategic phases 2–5 stay
-draft until backend coordination + first prod measurements provide
-their respective triggers (see "Triggers — when to start each phase"
-section at the bottom).
+**Superseded** (2026-05-04) by `.claude/plans/2026-05-04-data-issues-reporting.md`.
+
+Phase 1 shipped (PR #18 → `f85c16b`, 2026-04-30): `DataProviderStatusBanner`
++ `providerHealth` rolling-window state machine + `useDataProviderHealth`
+subscriber + 4 loader integration points in `useAutoData` + 12 unit tests.
+
+Then **fully removed** in PR #23 (`3810a37`, 2026-05-04): user feedback
+showed the real pain is silent data-quality issues (СМЭВ-sourced stale /
+partial data), not observable provider failures. The frontend rolling-window
+detector covered the wrong category of failure. Replacement architecture is
+backend-driven (`/payment-api/system-notice` populated by admin via
+`payment-bot` from user complaints in `data_issues`); frontend reuses the
+banner UI but reads from `useSystemNotice` instead of `useDataProviderHealth`.
+Files deleted: `src/utils/providerHealth.ts`, `src/hooks/useDataProviderHealth.ts`,
+`src/utils/__tests__/providerHealth.test.ts`, plus all `reportProviderResult`
+call-sites in `useAutoData`.
+
+Phases 2–5 of this plan are **abandoned**: backend `/system-notice`
+contract (originally Phase 2 here) is implemented in the data-issues plan;
+per-provider drill-down (Phase 3) and recovery push (Phase 5) likewise
+moved to the new architecture (recovery push targets the complainants
+rather than all clients). Stale-data badge (Phase 4) remains a deferred
+idea but is now in the data-issues plan's "Open / deferred" section.
+
+Kept as historical reference only — do **not** revive without re-reading
+the data-issues plan first.
 
 ## Background
 

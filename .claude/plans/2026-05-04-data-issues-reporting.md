@@ -2,7 +2,27 @@
 
 ## Status
 
-**Draft** (2026-05-04). Готов к старту после approval.
+**Completed** (2026-05-04).
+
+- PR #21 (`b44f38f`) — backend: миграция `002_data_issues_and_notice.sql`,
+  Tortoise модели `DataIssue` / `SystemNotice` / `SystemNoticePushLog`,
+  endpoints `POST /payment-api/data-issues/report` + `GET /payment-api/system-notice`,
+  TG бот в отдельном контейнере `payment-bot` (aiogram polling), threshold-based
+  auto-banner, FCM recovery push. ADR-012.
+- PR #23 (`3810a37`) — frontend: `DataIssueReportButton` × 6 категорий,
+  `useSystemNotice` hook, переключение `DataProviderStatusBanner` на backend
+  source, удаление Phase 1 frontend-detection (см. superseded plan
+  `2026-04-30-data-provider-health.md`).
+- Hardening follow-ups: PR #24 (idempotent partial UNIQUE indexes на
+  старте payment-service), PR #25 (`FIREBASE_SERVER_ACCOUNT_JSON` через
+  `env:` block), PR #26+#27 (StrongSwan VPN sidecar для TG egress —
+  см. `2026-05-04-tg-vpn-sidecar.md`), PR #28 (FCM tombstone мёртвых
+  токенов), PR #29 (BUILD_ID buster для COI metadata-diff).
+
+End-to-end в production на staging: жалоба → запись в БД → TG-карточка
+админу через payment-bot (через VPN) → `/banner_on` → клиенты видят
+баннер на следующем 60s-poll → `/banner_off` → recovery push достигает
+жалобщиков.
 
 ## Context
 

@@ -1,5 +1,20 @@
 # Documentation Single-Source-of-Truth Closeout
 
+## Status
+
+**Completed** (2026-05-04). Реализовано как **ADR-013** (не ADR-012, как
+изначально планировалось — номер ADR-012 ушёл к параллельно мерджившемуся
+data-issues-reporting).
+
+Verified post-merge (2026-05-06):
+- `ARCHITECTURE.md`, `QUICK_START.md`, `TODO.md` — удалены из корня
+- `README.md` — slim index (80 строк, ссылается на Writerside)
+- `legacy/docs/` — содержит исторический архив (через `git mv`,
+  history сохранена)
+- `payment-service/docs/vendor/kazna/` — содержит vendor docs
+- `Writerside/topics/decision-log.md:746` — ADR-013 на месте
+- `Writerside/topics/project-dashboard.md:18` — Documentation row → ✅
+
 ## Context
 
 `Writerside/topics/` — действующая, поддерживаемая документация (22 топика, 4473 строки, обновляется по mandate из `CLAUDE.md` после каждого изменения кода). Параллельно в проекте живёт «миграционная свалка» из 60 файлов в `/docs/` (в основном completion-логи, fix-логи и setup-гайды эпохи Nov–Dec 2025), плюс 4 устаревших markdown-файла в корне (`README.md`, `ARCHITECTURE.md`, `QUICK_START.md`, `TODO.md`), описывающих SDK 52 и «незавершённую миграцию» — обе эти реальности уже неактуальны (сейчас Expo SDK 54 / RN 0.81, миграция давно завершена).

@@ -1,6 +1,6 @@
 # Project Dashboard
 
-> Last updated: 2026-05-05
+> Last updated: 2026-05-06
 
 ## Current Focus
 
@@ -113,8 +113,9 @@
 
 1. ~~Decide web strategy~~ — done, ADR-001: Expo Web
 2. ~~Migrate key /docs/ content to Writerside topics~~ — done, ADR-013: Writerside as single source of truth
-3. Configure and verify MCP servers (start Docker, test PostgreSQL query)
-4. Set up test framework for mobile app (Jest/Vitest)
+3. ~~Configure and verify MCP servers~~ — done (context7, postgres, playwright wired in `.claude/`; всё рабочее в активных сессиях)
+4. ~~Set up test framework for mobile app~~ — done, PR #17 (MSW v2 + Jest 29.7 + 7 useAutoData cases на master); продолжение по `.claude/plans/2026-04-30-test-coverage-improvement.md` Phase 2–5 по триггерам.
+5. Production cohabitation Phase 2 — ждёт DNS A-record `app.transapp.ru → 81.26.191.68` от коллеги (см. Current Focus)
 
 ## Version History
 

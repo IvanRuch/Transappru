@@ -2,12 +2,37 @@
 
 ## Status
 
-**Implementation in progress** (2026-05-04). Triggered by failed
-manual QA: smoke POST to `/payment-api/data-issues/report` returned
-201, but the admin TG card never arrived. Root cause: api.telegram.org
-is unreachable from RU IP ranges — our staging VM lives on Yandex
-Cloud (RU), so payment-service's outbound TG call silently times out.
-The only way out is a VPN tunnel to a non-RU egress.
+**Completed** (2026-05-05). ADR-015.
+
+Original trigger (2026-05-04): failed manual QA — smoke POST to
+`/payment-api/data-issues/report` returned 201, but the admin TG card
+never arrived. Root cause: api.telegram.org is unreachable from RU IP
+ranges — our staging VM lives on Yandex Cloud (RU), so payment-service's
+outbound TG call silently times out. The only way out was a VPN tunnel
+to a non-RU egress.
+
+Shipped:
+- PR #26 (`7d4b1ec`) — StrongSwan IPsec sidecar + payment-bot via
+  `network_mode: "service:vpn"` + bot poll-loop with high-water-mark
+  cold-start + `build-vpn` CI job + 8 new pytest cases
+  (`test_poll_alerts.py`, suite 54/54 green).
+- PR #27 (`19378a8`) — `rightsubnet` expanded to all Telegram CIDRs +
+  IPv6 disabled in netns (initial `rightsubnet` was too narrow; some
+  Telegram bot endpoints fell outside).
+- PR #29 (`1bb9f27`) — `BUILD_ID` env-buster для COI metadata-diff cache
+  (см. ADR-016) — без него COI daemon не replay-ил compose changes между
+  workflow_dispatch re-run на том же git SHA.
+- Adjacent: PR #28 (`fe9f790`) — независимый bot fix: unbreak `/help`,
+  escape user comments, tombstone dead FCM tokens.
+
+End-to-end проверено в production на staging:
+1. `docker exec transapp_vpn ipsec status` → `ESTABLISHED`
+2. `curl POST /payment-api/data-issues/report` → 201 → admin TG card
+   приходит в течение 5 секунд
+3. Cold restart payment-bot — pre-existing complaints не replay-ятся
+
+Open / deferred остаются как в плане (permanent send failure → infinite
+retry; LISTEN/NOTIFY для sub-second latency; vpn healthcheck).
 
 The neighboring `krasilnikov-bitrix-teleg-bot` project hit the same
 wall and solved it with StrongSwan IKEv2 + EAP-MSCHAPv2 to the same

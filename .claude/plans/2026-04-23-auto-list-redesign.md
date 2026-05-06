@@ -1,8 +1,10 @@
 # AutoListScreen redesign
 
-**Status:** draft
+**Status:** Phase 1 (Diagnosis) completed 2026-04-30 — issue list synthesised
+via `/critique` + `/audit`. Phases 2–6 deferred (no design pickup yet).
+Trigger to resume: design bandwidth or fresh user complaint about the screen.
 **Created:** 2026-04-23
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-06 (status hygiene pass)
 **Scope:** web first, mobile follow-up
 
 > **2026-04-30 re-validation:** Phase 1 issue list re-checked against
