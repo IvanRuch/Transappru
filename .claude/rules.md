@@ -171,12 +171,20 @@ accelerate session degradation. Use sparingly.
 Default project policy — feature branch + PR for anything non-trivial.
 Direct commits to master are allowed only for the narrow exceptions below.
 
-**Direct to master — OK for:**
-- Typos, single-line fixes, docs-only updates
-- Hotfix in production (speed > ceremony, fix-forward)
-- Rollback / revert of a recent broken commit
+**Direct to master — never (default).** Every commit goes through a PR,
+including single-line typos and docs-only updates. Rationale:
+`master-push-guard` workflow (ADR-014) flags **every** direct push as
+red ❌ regardless of content — using PR-flow keeps the badge green and
+the audit trail clean. Convenience of `git push` is not worth a permanent
+red commit in `git log --graph`.
 
-**Feature branch + PR — REQUIRED for:**
+**The only exception: production hotfire.** When prod is down and seconds
+matter, direct push to master is acceptable as fix-forward. Accept the
+red badge as part of the incident audit trail; document the bypass in
+`decision-log.md` after the fire is out.
+
+**Feature branch + PR — REQUIRED for everything else, including:**
+- Single-line typos and docs-only updates (per the «never default» rule above)
 - Multi-file changes (>3 files) — consistent with the Plan Mode rule
 - Redesigns or any UX change — PR body MUST include before/after screenshots
 - New features, new ADRs
@@ -206,3 +214,14 @@ Direct commits to master are allowed only for the narrow exceptions below.
 - Active plan files in `.claude/plans/` should be linked from the PR body
 
 ## Corrections (accumulated)
+
+- **2026-05-14** (после ADR-017 cutover): «direct-to-master OK для docs»
+  было ошибочным правилом — `master-push-guard` (ADR-014) ловит **любой**
+  direct push красным badge'ом независимо от content'а. Docs-commit
+  `818e5dc` (ADR-017 cutover documentation) подсветил это в реальном
+  логе. Правило ужесточено до «PR для всего, hotfire — единственное
+  исключение». Источник коррекции: реакция на CI-red badge сразу после
+  push'а; ассистент перед push'ем предупреждал, но не предложил
+  альтернативу через PR — что было упущением. На будущее: при отсутствии
+  active fire — всегда предлагать `git checkout -b <branch> && git push -u
+  origin <branch> && /pr-open`.
