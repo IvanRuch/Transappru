@@ -252,7 +252,17 @@ export default function AutoListScreen() {
           renderItem={renderItem}
           keyExtractor={(item, idx) => item.id || String(idx)}
           ListEmptyComponent={() => (
-            <AutoListEmptyState hasActiveFilters={autoListHook.hasActiveFilters()} />
+            // Show a spinner while a sort-mode / filter switch is in flight
+            // (isSearching) or the initial load is still resolving — without
+            // this, FlatList shows the "Список авто пуст" empty state in the
+            // gap between `setAutoList([])` and the new response.
+            (autoListHook.isSearching || autoListHook.isLoading) ? (
+              <View style={{ paddingVertical: 60, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#313131" />
+              </View>
+            ) : (
+              <AutoListEmptyState hasActiveFilters={autoListHook.hasActiveFilters()} />
+            )
           )}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.5}
