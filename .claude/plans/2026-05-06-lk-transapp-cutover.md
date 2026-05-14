@@ -2,12 +2,39 @@
 
 ## Status
 
-**Draft** (2026-05-06). Ready for approval. Implementation gated on
-coordination with Иван (legacy server admin) и заказа SSL-cert на
-`lk.transapp.ru` в Yandex Cloud Certificate Manager.
+**Completed** (2026-05-14) — но не через стратегию из этого плана.
 
-После approval — оформляется как **ADR-017** в `decision-log.md`, основной
-operational artifact = этот файл.
+Выполнен **direct DNS swap** вместо soft cohabitation. Подробности — в
+**ADR-017** (`Writerside/topics/decision-log.md`) и в
+`Writerside/topics/infra-deployment.md` (раздел «DNS strategy — actual
+history» → «Phase 3»). Краткий итог:
+
+- Изначально планировавшийся soft cohabitation (legacy redirect + cookie
+  bypass `ta_use_legacy=1` + header-кнопка «Вернуться в старый интерфейс»
+  + `interface_feedback` категория в data-issues для сбора жалоб) —
+  **пропущен**. PR-A, PR-B, PR-C из этого плана НЕ реализованы.
+- Trigger смены подхода: коллега Иван согласился сразу отдать управление
+  + DNS-control panel FastVPS оказался доступен нам напрямую → отпала
+  необходимость в координационных тикетах и soft-rollout'е.
+- Фактическая последовательность: новый SAN-cert
+  `fpqhlo3n4968ul5jnosr` в YC Certificate Manager (SAN: `transapp-dev.ru`
+  + `lk.transapp.ru`) → secret `YC_CERT_ID` updated → `deploy-web.yml`
+  workflow_dispatch → smoke через `curl --resolve` → swap A-record
+  `lk.transapp.ru: 185.76.253.6 → 81.26.191.68` через FastVPS UI.
+- Никаких изменений в коде не потребовалось (nginx уже на
+  `server_name _;` catch-all + entrypoint фетчит cert по
+  `YC_CERT_ID`).
+- Total time: ~75 минут, львиная доля — ожидание YC cert validation
+  (~40 минут с external-DNS CNAME — больше типичного «несколько минут» в
+  docs).
+
+Документ ниже сохраняется как **исторический artifact** — описание
+планировавшейся, но не реализованной стратегии, для будущих ретро / в
+случае если соберёмся делать что-то похожее.
+
+---
+
+## Original Draft (2026-05-06) — for historical reference
 
 ## Цель
 

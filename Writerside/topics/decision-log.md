@@ -1290,6 +1290,119 @@ pipeline.**
 
 ---
 
+### ADR-017: Direct DNS cutover для веб-стека `lk.transapp.ru` (2026-05-14)
+
+**Status.** Implemented 2026-05-14.
+
+**Context.** Веб-стек TransApp (Expo Web RN 0.81 / SDK 54 / TypeScript) с
+2026-04-28 жил на staging-домене `transapp-dev.ru` (YC VM `81.26.191.68`,
+`fv42gattub1fh05eaip5`). Production-домен `lk.transapp.ru` обслуживался
+legacy React 19 веб-стеком на коллежем сервере `185.76.253.6` (зона
+`transapp.ru` управляется через FastVPS panel, DNS-backend fastdns24).
+Изначальный план (`.claude/plans/2026-05-06-lk-transapp-cutover.md`,
+Draft 2026-05-06) предполагал soft cohabitation: legacy nginx делает 301
+redirect на `transapp-dev.ru` (наш стек) для всех запросов без cookie
+`ta_use_legacy=1`; на новом стеке появляется header-кнопка «Вернуться в
+старый интерфейс», ставящая cookie через `/use-legacy` endpoint на
+legacy; параллельно расширяется механизм `data-issues` категорией
+`interface_feedback` для сбора жалоб через payment-bot в TG;
+после стабилизации (несколько дней без жалоб) делается финальный DNS
+swap.
+
+**Decision.** Сделать **direct DNS swap** `lk.transapp.ru → 81.26.191.68`
+без soft cohabitation. SAN cert (`transapp-dev.ru` + `lk.transapp.ru`),
+A-record поменяли мы сами через FastVPS-кабинет (после переговоров с
+Иваном получили доступ напрямую).
+
+**Reasoning for deviation from original plan.**
+
+1. **Иван согласился сразу отдать управление**. Изначальное допущение
+   плана — что Иван будет осторожно админить legacy nginx с
+   cookie-bypass'ом и потом гасить VM «по своему усмотрению». В реальности
+   он сразу сказал «давайте я просто дам вам логин от FastVPS-кабинета».
+   Это полностью убрало необходимость в:
+   - тикете на cookie-based redirect на legacy nginx (D1 в плане);
+   - тикете на DNS A-record swap (D2);
+   - координационных окнах работ с Иваном.
+2. **Без выделенной QA-команды soft cohabitation не оправдан**. Роль QA у
+   нас — менеджеры с клиентами в реальной работе. Soft rollout даёт
+   преимущество только если мы планируем активно ловить ранние жалобы и
+   гибко переключать пользователей. Без выделенных тестировщиков и без
+   feedback-pipeline'а инвестиция в header-кнопку + `interface_feedback`
+   категорию + cookie-bypass не имеет смысла — мы всё равно ничего не
+   стали бы с feedback'ом делать в реальном времени.
+3. **Аудитория узкая**. `lk.transapp.ru` — внутренние коллеги +
+   менеджеры с клиентами. TTL=3600s на `lk` — приемлемое rollback-окно
+   (1 час). Нет миллионов анонимных пользователей, которым нужен
+   плавный переход.
+4. **Новый стек уже фактически тестировался**. С 2026-04-28 на
+   `transapp-dev.ru` шла регулярная dogfood-работа (deploy'ев было
+   несколько десятков, payment-service integration с Kazna, FCM push,
+   sort-modes UX-итерации). Это уже был «soft rollout» — просто на
+   другом домене. Cutover свёлся к смене URL'а, не к выводу нового
+   функционала.
+
+**Implementation steps (executed 2026-05-14, ~75 minutes total).**
+
+1. **SAN cert в YC Certificate Manager** — новый cert
+   `fpqhlo3n4968ul5jnosr` (Let's Encrypt R12, действует до 2026-08-12,
+   SAN: `transapp-dev.ru` + `lk.transapp.ru`).
+   - Перед заказом удалили старый CNAME `_acme-challenge.transapp-dev.ru`
+     (от cert'а `fpqj50bofmtu8012f0k0`) — иначе YC не мог добавить новый
+     validation CNAME (DNS не позволяет два CNAME на один лейбл).
+   - Validation CNAME для `transapp-dev.ru` YC добавил автоматически в
+     нашу YC DNS-зону.
+   - Validation CNAME для `lk.transapp.ru` (`_acme-challenge.lk →
+     fpqhlo3n4968ul5jnosr.cm.yandexcloud.net.`) добавлен вручную в зону
+     `transapp.ru` через FastVPS UI.
+2. **GitHub secret `YC_CERT_ID`** обновлён на новый ID; `deploy-web.yml`
+   запущен через `workflow_dispatch` — nginx entrypoint при старте
+   подтянул SAN-cert. **Изменений в коде не потребовалось** (`server_name
+   _;` — catch-all; entrypoint.sh фетчит cert через YC API по
+   `YC_CERT_ID`).
+3. **Pre-swap smoke** через `curl --resolve lk.transapp.ru:443:81.26.191.68`:
+   HTTPS 200, `subjectAltName: DNS:lk.transapp.ru, DNS:transapp-dev.ru`,
+   payment-api `/calculate-commission` отвечает 201 с корректным JSON.
+4. **Swap A-record** `lk.transapp.ru: 185.76.253.6 → 81.26.191.68` через
+   FastVPS UI. Все 4 публичных resolver'а (dns.fastdns24.com / 8.8.8.8 /
+   1.1.1.1 / 77.88.8.8) подхватили новый IP за <5 минут.
+
+**Consequences.**
+
+- Прямой контроль над DNS-записями `lk.transapp.ru` и
+  `_acme-challenge.lk` — нет зависимости от Ивана для future cert
+  renewal'ов и любых будущих изменений `lk.*`.
+- Зависимость от FastVPS-кабинета (но не от Ивана как POC). Креды хранятся
+  в нашем менеджере паролей.
+- Legacy VM `185.76.253.6` продолжает работать (apex `transapp.ru` + `www`
+  + `transapp.ru/api` backend всё ещё там) — Иван гасит её на своё
+  усмотрение в будущем, не блокирует нас.
+- **Никакого header-button'а и `interface_feedback` category** — этот код
+  не написан и не нужен; план в части PR-A/PR-B закрыт без реализации.
+
+**Observations / lessons.**
+
+- **YC SAN cert validation** с external-DNS CNAME занял ~40 минут — а не
+  «несколько минут», как обычно обещают доки. Это baseline для будущих
+  cert-issuance операций (планировать с запасом).
+- **Provider naming**: наш DNS-control-panel — **FastVPS** (`my.fastvps.ru`),
+  не FastDNS24. FastDNS24 — DNS-backend под капотом FastVPS (whitelabel /
+  reseller). До 2026-05-14 наши docs корректно отражали NS-серверы, но
+  путали control-panel с provider'ом. Поправлено в `infra-deployment.md`.
+- **No code changes**: вся cutover-операция свелась к secret update +
+  workflow_dispatch + DNS-edit, без единого PR. Архитектурная заслуга
+  существующей системы (`server_name _;` catch-all + entrypoint cert
+  fetch by ID) — позволяет менять домены без redeploy'а кода.
+
+**Reverses if.**
+
+Критический баг обнаружится в первые часы после cutover'а → меняем
+A-record `lk.transapp.ru → 185.76.253.6` обратно через FastVPS UI;
+rollback-окно ограничено TTL=3600s. После 24 часов в production без
+жалоб — rollback не предполагается, дальше fix-forward.
+
+---
+
 ### ADR-018: Auto list sort modes — UI toggle + server-side sort migration (2026-05-14)
 
 **Context.** ADR-? (not formal, PR #12 commit `cb4b97d` from 2026-04-29)

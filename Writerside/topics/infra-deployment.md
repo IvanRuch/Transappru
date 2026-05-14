@@ -214,79 +214,106 @@ What `tradesu-moderator` does **worse** and we should not copy:
 
 ## DNS strategy and cohabitation plan
 
-### Domain landscape (verified 2026-04-26)
+### Domain landscape (verified 2026-05-14, post-cutover)
 
 | Domain / record | Resolves to | Authoritative NS | Owner / control |
 |-----------------|-------------|-------------------|-----------------|
-| `transapp.ru` (A) | `185.76.253.6` (nginx, 302 → `/transport`) | `dns{,2,3,4}.fastdns24.{com,org,eu,link}` | colleague (legacy mobile + web developer) — also runs the `transapp.ru/api` backend used by mobile prod |
+| `transapp.ru` (A) | `185.76.253.6` (legacy nginx, marketing site, 302 → `/transport`) | `dns{,2,3,4}.fastdns24.{com,org,eu,link}` | colleague Иван (legacy server admin) — also runs the `transapp.ru/api` backend used by mobile prod |
 | `www.transapp.ru` (A) | `185.76.253.6` | same | same colleague |
-| `lk.transapp.ru` (A) | `185.76.253.6` | same | same colleague — **legacy web is served from here** (nginx, `Last-Modified: 2026-02-20`) |
-| `transapp.ru` MX | `mx3.trade.su` | same | same colleague |
-| `transapp.ru` SPF | includes `185.76.253.0/24`, UniSender, plus 2 explicit IPs | same | same colleague |
-| `transapp-dev.ru` | (zone not yet live) | `ns1/ns2.yandexcloud.net` | **us** — registered on reg.ru on 2026-04-26 |
-| `payment.transapp.ru` | NXDOMAIN | n/a | not configured (despite being hardcoded in `src/services/api.ts:18`) |
+| `lk.transapp.ru` (A) | **`81.26.191.68`** (our YC VM, new Expo Web) | same | **A-record cutover done 2026-05-14**; record managed by us via FastVPS panel |
+| `_acme-challenge.lk.transapp.ru` (CNAME) | `fpqhlo3n4968ul5jnosr.cm.yandexcloud.net.` | same | us — Let's Encrypt validation for current SAN cert (renewed automatically by YC) |
+| `transapp.ru` MX | `mx3.trade.su` | same | colleague |
+| `transapp.ru` SPF | includes `185.76.253.0/24`, UniSender, plus 2 explicit IPs | same | colleague |
+| `transapp-dev.ru` (A) | `81.26.191.68` (our YC VM, alias, same nginx as `lk.transapp.ru`) | `ns1/ns2.yandexcloud.net` | **us** — registered on reg.ru 2026-04-26 |
+| `payment.transapp.ru` | NXDOMAIN | n/a | placeholder в `src/services/api.ts:18`, никогда не использовался — нет в DNS, удалить из кода при следующем рефакторинге `api.ts` |
 
-**registrar of `transapp.ru`** is reg.ru (we have that account), but **records
-are managed via fastdns24** — and the colleague who runs the legacy server
-also controls that DNS account. So the colleague is a single point of contact
-for: legacy server, `transapp.ru/api` backend, and DNS.
+**DNS provider clarification**: control panel — **FastVPS** (`my.fastvps.ru`,
+zone `transapp.ru` accessible at `/v2/dns/85660/domain/272978/edit`). NS
+servers (`dns.fastdns24.com`, etc.) — DNS backend под капотом FastVPS
+(whitelabel/reseller relationship). До 2026-05-14 управление зоной шло
+только через Ивана; сейчас FastVPS-кабинет доступен и нам напрямую — мы
+владеем записями `lk.transapp.ru` и `_acme-challenge.lk.transapp.ru` без
+тикетов в хелп-деск.
 
-### Strategy: temporary domain → cohabitation → cutover
+**Registrar of `transapp.ru`** — reg.ru (наш аккаунт). Но фактическое
+управление DNS-записями зоны идёт через FastVPS, что выше.
 
-Adopted on 2026-04-26.
+### DNS strategy — actual history
 
-**Phase 1 — independent staging on `transapp-dev.ru`** (in progress)
+Initial plan (2026-04-26): `transapp-dev.ru` staging → `app.transapp.ru`
+cohabitation → `lk.transapp.ru` cutover. Phase 2 (`app.transapp.ru`) был
+**пропущен** — после переговоров с Иваном решили идти сразу на `lk.*`
+cutover, минуя промежуточный поддомен (без тестировщиков role-of-QA
+выполняют сами менеджеры с клиентами в реальной работе, дополнительная
+прослойка не оправдана).
 
-- Domain registered on reg.ru, NS delegated to Yandex Cloud DNS
-  (`ns1.yandexcloud.net`, `ns2.yandexcloud.net`).
-- Next manual step: **create the DNS zone in Yandex Cloud DNS** (console →
-  Cloud DNS → "Create zone"). Until that is done, the NS records exist at the
-  registrar but the YC nameservers return nothing — `dig transapp-dev.ru NS`
-  is currently empty in public DNS.
-- After zone creation, A-record `transapp-dev.ru → <YC static IP>` will let us
-  bring up the full stack (COI VM + nginx + payment + Postgres) end-to-end:
-  SSL via Yandex Certificate Manager (DNS-01 challenge resolves locally,
-  because YC owns the zone), Kazna integration testable on a real public URL.
-- Zero coordination overhead with anyone. We can break it freely.
-- Mobile app stays on legacy main API; payment-service is exercised only
-  through web (`api.web.ts`), not from a release-mode mobile build.
+**Phase 1 — independent staging on `transapp-dev.ru`** (✅ done 2026-04-28)
 
-**Phase 2 — production cohabitation under `transapp.ru`**
+- Зона создана в Yandex Cloud DNS, NS делегированы.
+- Стек развёрнут на YC VM `transapp-web` (`fv42gattub1fh05eaip5`, IP
+  `81.26.191.68`), full stack (COI + nginx + payment-service + payment-db +
+  vpn + payment-bot), SSL через YC Certificate Manager.
+- Использовался как production-mode staging для итераций Payment Service,
+  cert PR'ов, Kazna integration.
 
-- Once the stack is stable on `transapp-dev.ru`, ask the colleague to add a
-  single A-record under `transapp.ru` pointing at our YC static IP. Recommended
-  subdomain: **`app.transapp.ru`** (short, neutral, signals "new app" without
-  conflicting with `lk` or the marketing site).
-- Their fastdns24 zone is unaffected outside that one record. No risk to the
-  legacy server, MX, SPF, or `lk.transapp.ru`.
-- Issue a second SSL cert for `app.transapp.ru` in Yandex Certificate Manager.
-- Update `src/services/api.ts:18` from the dead `https://payment.transapp.ru/api`
-  to the chosen production URL (`https://app.transapp.ru/api/payment` or
-  similar). Ship via EAS rebuild.
-- This is the canonical first GitHub Release.
+**Phase 2 — `app.transapp.ru` cohabitation** (❌ skipped, see ADR-017)
 
-**Phase 3 — legacy `lk.transapp.ru` cutover**
+Заложенный промежуточный поддомен не имел ценности без отдельной
+QA-команды. Пропущен в пользу прямого cutover'а на `lk.transapp.ru`.
 
-- After production `app.transapp.ru` has stable users for several weeks, ask
-  the colleague to repoint `lk.transapp.ru` from `185.76.253.6` to our YC static IP.
-- Before the DNS change: add `lk.transapp.ru` to nginx `server_name` and
-  request a third cert covering both `app.transapp.ru` and `lk.transapp.ru`.
-  Both URLs serve the same Expo Web bundle.
-- TTL on `lk` should be lowered ahead of time (24h → 5min) to make the cut
-  fast and reversible.
-- Old server `185.76.253.6` keeps `transapp.ru` and `www.transapp.ru` (the
-  marketing site) plus `transapp.ru/api` (legacy main API). Out of scope.
+**Phase 3 — `lk.transapp.ru` direct cutover** (✅ done 2026-05-14, ADR-017)
+
+Выполнено как direct DNS swap, не soft cohabitation, как ранее
+проектировалось в `.claude/plans/2026-05-06-lk-transapp-cutover.md`.
+Trigger смены подхода: коллега Иван согласился сразу отдать управление, а
+DNS-control panel FastVPS оказался доступен нам напрямую — отпала
+необходимость в координационных тикетах и cookie-bypass'е.
+
+Шаги:
+
+1. **SAN-cert в YC Certificate Manager** — новый cert `fpqhlo3n4968ul5jnosr`
+   (имя `transapp-web-san-2026-05`, Let's Encrypt R12, действует до
+   2026-08-12, SAN: `transapp-dev.ru` + `lk.transapp.ru`). Перед заказом
+   удалили старый CNAME `_acme-challenge.transapp-dev.ru` от cert'а
+   `fpqj50bofmtu8012f0k0` (иначе YC не мог добавить новый — DNS не
+   позволяет два CNAME на один лейбл). Validation CNAME для `lk` добавлен
+   вручную через FastVPS UI. **Наблюдение**: validation cert'а с external
+   CNAME занял ~40 минут — больше, чем YC docs обещают «несколько минут».
+   Это baseline для будущих cert-операций.
+2. **GitHub secret `YC_CERT_ID`** обновлён на новый ID. `deploy-web.yml`
+   запущен через `workflow_dispatch`. `nginx/docker/entrypoint.sh` при
+   старте контейнера фетчит cert из YC по `YC_CERT_ID` — изменений в коде
+   не потребовалось (`server_name _;` — catch-all).
+3. **Pre-swap smoke** через `curl --resolve lk.transapp.ru:443:81.26.191.68`:
+   HTTPS 200, `subjectAltName: DNS:lk.transapp.ru, DNS:transapp-dev.ru`,
+   payment-api `/calculate-commission` отвечает 201 с корректным JSON.
+4. **Swap A-record** `lk.transapp.ru: 185.76.253.6 → 81.26.191.68` через
+   FastVPS UI. Все 4 публичных resolver'а (dns.fastdns24.com / 8.8.8.8 /
+   1.1.1.1 / 77.88.8.8) подхватили новый IP за <5 минут. Post-swap
+   `curl -I https://lk.transapp.ru/` → 200; payment-api 201.
+
+**Rollback окно**: TTL у FastVPS — 3600s (не понижали — направление
+миграции одностороннее). Soft-rollback через смену A-record обратно
+работает в течение часа после swap'а — нужно только если что-то
+критичное обнаружится в первый час, дальше fix-forward.
+
+**Legacy VM** `185.76.253.6` остаётся обслуживать `transapp.ru` (apex) +
+`www.transapp.ru` + `transapp.ru/api` backend (используется мобильным
+приложением и нашим nginx как upstream). Иван гасит VM на своё
+усмотрение в будущем — наша сторона не зависит.
 
 ### What we will NOT do
 
-- **Do not move NS for `transapp.ru` to Yandex Cloud DNS.** That would force us
-  to recreate every record (A, MX, SPF, lk, www) before the cut, with risk of
-  email/legacy outage. Out of scope until `lk.transapp.ru` is fully on our
-  stack and the colleague is comfortable.
-- **Do not put payment endpoint on a different subdomain than the web app.**
-  `deploy-web.yml` serves both under one nginx + one cert. Same-origin payment
-  API also avoids CORS configuration in nginx. Path-based split is enough
-  (`/` → Expo Web, `/api/` → payment-service).
+- **Do not move NS for `transapp.ru` to Yandex Cloud DNS.** Зона содержит
+  legacy-записи (MX, SPF, apex A, www) — переезд требует их recreate'а с
+  риском email/legacy outage. Не надо. После cutover'а `lk.*` единственные
+  записи, которые нам интересны (lk A + `_acme-challenge.lk` CNAME), уже
+  под нашим контролем через FastVPS-кабинет.
+- **Do not put payment endpoint on a different subdomain.** `deploy-web.yml`
+  serves both web и payment-api под одним nginx + одним SAN cert. Same-origin
+  payment API избавляет от CORS-настройки в nginx. Path-based split
+  достаточно: `/` → Expo Web, `/payment-api/` → payment-service, `/api/`
+  → proxy на legacy `ivan.trans-konsalt.ru` backend.
 
 ---
 
@@ -600,8 +627,10 @@ These are explicit, prioritised questions that need a decision before code or
 infra moves. Status updated 2026-04-26.
 
 1. ~~**Domain registrar of `transapp.ru`?**~~ ✅ reg.ru (we own the registrar
-   account). Records managed via fastdns24, controlled by the colleague —
-   see "DNS strategy" above.
+   account). DNS-records managed through **FastVPS panel**
+   (`my.fastvps.ru`, DNS backend = fastdns24 NS). До 2026-05-14 единый POC
+   был Иван; с 2026-05-14 FastVPS-кабинет также доступен нашей стороне
+   (получили креды для cutover'а `lk.transapp.ru`). См. «DNS strategy» выше.
 2. ~~**Yandex Cloud account and folder.**~~ ✅ Decided 2026-04-26: deploy
    into **the existing folder `b1g2p4bd4r3v0ggge11d`**, the same one that
    hosts `tradesu-moderator`. Rationale: shared billing, shared admin scope,
