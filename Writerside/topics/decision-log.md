@@ -1287,3 +1287,119 @@ pipeline.**
 сравнивать image digest вместо metadata-diff (не анонсировано),
 либо мы переходим на уникальные image tag'и per run и `BUILD_ID`
 становится избыточным.
+
+---
+
+### ADR-018: Auto list sort modes — UI toggle + server-side sort migration (2026-05-14)
+
+**Context.** ADR-? (not formal, PR #12 commit `cb4b97d` from 2026-04-29)
+introduced client-side sorting of the vehicle list by the numeric
+segment of the licence plate. The implementation re-sorts the merged
+list every time a new page is appended via `loadMore()`. Backend
+(legacy `/get-auto-list` on `ivan.trans-konsalt.ru`) paginates
+lexicographically, so each new page makes the merged set re-shuffle
+client-side — vehicles already visible can move position. This was
+documented as a known limitation, deferred as «invisible at fleet
+sizes < 100». Current data: max fleet is 150 vehicles (3 customers
+>100, 12 in the 40–100 range), so the problem is at the boundary of
+visibility for the largest customers. New domain `lk.transapp.ru`
+(ADR-017) hasn't shipped yet — no real users have used the
+plate-digit sort, regression-free window for fixing the behaviour.
+
+**Decision.** Two-phase migration:
+
+Phase 1 (frontend-only, this PR): introduce a user-facing segmented
+control with the leading label «Сортировка по» and two genitive
+options «алфавиту» / «номеру» in `AutoCountToolbar` (visible above
+the list, not hidden behind a modal). Single shared component
+`SortToggle.tsx` for both platforms — react-native-web maps the
+Pressable segments to focusable `<div>`s with the right
+`accessibilityRole="radio"` semantics. Two sort modes:
+
+- `lexicographic` («алфавиту», **default**) — standard pagination
+  (`limit=10`, `onEndReached`), server's lex order preserved, no
+  client-side sort. Stable order because no client-side re-sort
+  happens during pagination. Same behaviour the app had before the
+  plate-digit experiment, so the first-paint cost is unchanged from
+  the legacy baseline.
+- `plate_digits` («номеру», opt-in) — fetch the entire fleet in one
+  request (`auto_list_limit = 2000`, `auto_list_from = 0`),
+  client-side sort by `compareByPlateNumber`, `loadMore` is a no-op.
+  Stable order at any scroll position. Triggers the load-all info
+  banner.
+
+The selected mode persists in `AsyncStorage` (key `ta_sort_mode`),
+globally per user (not per organisation). A dismissible info banner
+explains the load-all behaviour and previews the upcoming server-side
+sort improvement.
+
+Phase 2 (when backend ships): add `sort_by: 'plate_digits' |
+'lexicographic'` parameter to `/get-auto-list`, both modes revert to
+standard pagination, the load-all branch and the info banner are
+removed, client-side sort becomes a no-op safeguard (or is removed).
+
+**Rationale.**
+
+- Server-side sort is the architecturally correct long-term answer —
+  it eliminates the conflict between pagination and ordering. But
+  the legacy backend is a different team / different repo, release
+  cadence is not on our schedule. Phase 1 must work without their
+  cooperation.
+- Load-all in `plate_digits` mode is the simplest strategy that
+  fully solves the shuffle problem on the frontend. With current
+  data (max 150 vehicles, ~80–200 KB response, ~1–2s on average
+  networks) the cost is acceptable.
+- A toggle (rather than silent default switch) gives users an
+  escape hatch: anyone affected by the loading time of large
+  fleets in `plate_digits` mode can switch to `lexicographic` and
+  get instant paginated browsing. It also surfaces the existence of
+  the sort modes — managers can validate the requested behaviour
+  themselves.
+- Default `lexicographic` (alphabet) so first-paint cost matches the
+  legacy app — managers' requested «по номеру» sort is one tap away.
+  Reasoning: making everyone pay the load-all cost (a ~150-vehicle
+  payload on the largest current customer) on every cold start is
+  not justified when only some users actively benefit from numeric
+  ordering. The dismissible info banner also fires only when the
+  user opts in, not at first login, so the experience is quieter by
+  default.
+- Considered alternatives:
+  - Pure Variant A (just add `sort_by` to backend) — depends on
+    other team, no Phase 1 frontend-only fix.
+  - Pure Variant B (load all unconditionally) — same risk if fleets
+    grow, and no escape hatch for users who prefer pagination.
+  - Variant C (toggle without changing load strategy) — keeps the
+    shuffle bug in `plate_digits` mode, just makes it «opt-in».
+  - Variant D (cursor-based pagination) — much larger API redesign,
+    not justified for current scale.
+
+**Consequences.**
+
+- Frontend now owns sort state and persistence. New `SortToggle`
+  and `SortBanner` components, expanded `useAutoData` (sortMode +
+  load-all branch + native AsyncStorage hydrate), expanded
+  `AutoCountToolbar` (sort toggle props, responsive wrap).
+- `plate_digits` first-paint is heavier than before (one big
+  request instead of one 10-row request). Mitigation: limit `2000`
+  is well above current max fleet size; if/when a customer exceeds
+  ~1000 vehicles, Phase 2 must ship.
+- The info banner adds visual noise in `plate_digits` mode for
+  users who care to read it; the dismissal mechanism (persisted ✕)
+  removes it from regular use. The banner is removed entirely in
+  Phase 2.
+- Coordination with backend team is a separate, non-blocking
+  workstream. Phase 2 PR is mechanical once `sort_by` ships.
+- Plan and full implementation map:
+  `.claude/plans/2026-05-14-auto-list-sort-toggle.md`.
+- Tests: 7 new cases in `src/hooks/__tests__/useAutoData.test.tsx`
+  cover default mode, lexicographic mode behaviour, persistence,
+  hydration, load-more no-op in `plate_digits`, lexicographic
+  pagination, banner dismissal.
+
+**Reverses if.** Backend's `sort_by` ships and is stable on
+production data — at that point Phase 2 supersedes the load-all
+branch (toggle UI and persisted choice stay). Reversal happens
+through deletion of code, not rollback. If backend never ships
+`sort_by` and customers exceed ~1000 vehicles, we need to add
+background batch loading to `plate_digits` mode (Variant B2 in the
+plan) — that's a refinement of Phase 1, not a full reversal.

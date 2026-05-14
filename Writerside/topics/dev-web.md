@@ -164,6 +164,34 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 5. Replace inline headers with `<ScreenHeader>`
 6. Add web a11y polish (ARIA where applicable, keyboard nav, loading states)
 
+## Auto list sort toggle («Сортировка по …»)
+
+Vehicle list supports two sort modes — see the canonical
+**[«Auto list ordering» section in dev-mobile.md](dev-mobile.md)** for
+the full specification, rationale, and Phase 2 migration plan. Both
+platforms share the same hook (`useAutoData`) and the same `SortToggle`
+shared component (segmented control with a leading «Сортировка по»
+label and two options «алфавиту» / «номеру»), embedded in
+`AutoCountToolbar`.
+
+Web-specific notes:
+
+- `AutoCountToolbar` lives directly under the screen header on
+  `AutoListScreen.web.tsx`, between the active filter chips (if any)
+  and the `FlatList`. Width is the full viewport (no
+  `WebScreenContainer` wrapper at this level).
+- Sort mode persists via `AsyncStorage` which on web is backed by
+  `localStorage`. The lazy initializer in `useAutoData` reads the
+  stored value synchronously at first render so the toggle never
+  flashes the default on page load.
+- The info banner (`SortBanner`) appears between `AutoCountToolbar`
+  and the grid when `sortMode === 'plate_digits'` and the user hasn't
+  dismissed it. On `plate_digits` the entire fleet is fetched in one
+  request (`auto_list_limit = 2000`), so the first paint after toggle
+  switch may take ~1–2s on slow networks for large fleets; the
+  responsive grid handles the result the same way it handles a normal
+  paginated load.
+
 ## Auto card button row layout
 
 `AutoListItem` (shared between mobile and web via ADR-005) renders two

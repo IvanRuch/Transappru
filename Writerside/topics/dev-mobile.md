@@ -74,10 +74,19 @@ fallback `"node"` через PATH срабатывает корректно.
 
 ## Auto list ordering
 
-Vehicle list is sorted by the **main numeric segment** of the licence
-plate, not by the leading letter. Manager-team request: «`А456БВ77,
-К123ОР99, М234ХА50` → `К123ОР99, М234ХА50, А456БВ77`» (123 < 234 < 456,
-буквы и регион не учитываются).
+Vehicle list supports **two sort modes**, chosen by the user via a
+toggle in `AutoCountToolbar` (the row above the list). The selection
+persists across sessions and platforms (`AsyncStorage`, key
+`ta_sort_mode`). See ADR-018 and
+`.claude/plans/2026-05-14-auto-list-sort-toggle.md` for the full
+design rationale.
+
+| Mode | Default? | Order |
+|------|----------|-------|
+| `lexicographic` («алфавиту») | **Yes** | server order (backend's `ORDER BY auto_number`) — standard pagination, stable on `loadMore`. |
+| `plate_digits` («номеру») | No (opt-in) | numeric segment of licence plate, ascending — «`К123ОР99, М234ХА50, А456БВ77`» (123 < 234 < 456, leading letter and region ignored). Opting in triggers a load-all fetch and shows an info banner. |
+
+### Sort keys (plate_digits)
 
 | Sort key | Source field | Behaviour |
 |----------|-------------|-----------|
@@ -86,42 +95,90 @@ plate, not by the leading letter. Manager-team request: «`А456БВ77,
 
 ### Where it lives
 
-- Single source of truth: `sortAutoListByPlateNumber()` in
-  `src/utils/plateHelpers.ts` (alongside `plateSortKey` and
-  `compareByPlateNumber`).
-- Wired into `src/hooks/useAutoData.ts` in three spots — initial set,
-  cache write, pagination append. The shared hook is consumed by both
+- Sort comparator: `sortAutoListByPlateNumber()` /
+  `compareByPlateNumber()` / `plateSortKey()` in
+  `src/utils/plateHelpers.ts` — single source of truth.
+- Sort mode state + load strategy: `src/hooks/useAutoData.ts`
+  (`sortMode` state, `setSortMode()`, `dismissSortBanner()`,
+  `LOAD_ALL_LIMIT` constant). The hook is consumed by both
   `AutoListScreen.tsx` and `AutoListScreen.web.tsx`, so mobile and web
-  see identical order without per-screen code.
-- Sort is **immutable** (`[...items].sort`) — does not mutate the
-  fetched array, keeps React's reference-based change detection clean.
-- **Idempotent**: if the legacy `/get-auto-list` backend ever adopts the
-  same numeric order, our sort becomes O(n) on already-sorted input
-  (Timsort) — no rollback needed.
+  see identical behaviour.
+- UI: `SortToggle` (segmented control with a leading «Сортировка по»
+  label and two options «алфавиту» / «номеру») + `SortBanner` (info
+  banner) in `src/components/auto/`. The control is embedded in
+  `AutoCountToolbar` between the count and the «Добавить авто» action.
+  On narrow viewports (< 520px width) it wraps onto a second row
+  inside the toolbar. Genitive option labels read naturally after the
+  «Сортировка по …» prefix; the same shared component renders on both
+  mobile and web (RN-Web maps the segmented buttons to focusable
+  `<div>`s with the right `accessibilityRole="radio"` semantics).
 
-### Why frontend, not backend
+### How pagination interacts with each mode
 
-The list comes from the legacy `/get-auto-list` service on
-`ivan.trans-konsalt.ru` / `transapp.ru` — separate team, separate repo.
-Coordinating a release there is high-friction. Frontend post-sort runs
-on the already-fetched array (fleet sizes are dozens, not thousands —
-< 1 ms) and ships immediately for both platforms.
+This is the critical part — see ADR-018 «Pagination conflict» section.
 
-### Pagination caveat
+**`plate_digits` mode — load-all strategy.** Because the backend sorts
+strictly lexicographically, naive pagination + client-side numeric sort
+causes vehicles to shuffle position when later pages arrive (a vehicle
+fetched on page 2 may sort before vehicles already visible from page
+1). To eliminate the shuffle, `plate_digits` fetches the **entire
+fleet in one request** (`auto_list_limit = 2000`, `auto_list_from = 0`)
+and `loadMore()` is a no-op. The full sorted list is held in memory;
+scrolling is purely client-side, the list is stable.
 
-Because the backend paginates lexicographically, pressing "load more"
-fetches the next 30 server-side and we re-merge the result into the
-numeric order on the frontend. The window may shift slightly when more
-data is loaded, but this is invisible at typical fleet sizes (one
-organisation rarely has > 100 vehicles). When that ever becomes a
-problem the right fix is to add `sort_by=plate_digits` on the backend.
+Limit `2000` is a generous upper bound for the current data — max
+fleet size is 150 vehicles (3 customers above 100, 12 with 40–100).
+If a future customer exceeds ~1000 we'll need to either move to
+server-side sort (Phase 2 of the plan) or add batched background load.
+
+**`lexicographic` mode — standard pagination.** `auto_list_limit = 10`,
+`onEndReached` increments offset, server returns pages in lex order
+and pages are appended without client-side re-sort. No shuffle because
+no client-side sort is applied.
+
+The client-side `sortAutoListByPlateNumber()` is applied **only** in
+`plate_digits` mode. It remains idempotent and ready to become a no-op
+the day the backend ships server-side plate-digit sort (Phase 2).
+
+### Info banner (plate_digits mode only)
+
+While `plate_digits` mode is selected, `SortBanner` renders above the
+list with a single sentence explaining the load-all behaviour and
+hinting at the upcoming server-side sort improvement. It is
+dismissible (✕ button), dismissal is persisted to `AsyncStorage` (key
+`ta_sort_banner_dismissed`). The banner is removed entirely in Phase 2
+when server-side sort replaces load-all.
+
+### Phase 2 plan (server-side sort_by)
+
+When the legacy backend team adds `sort_by: 'plate_digits' |
+'lexicographic'` to `/get-auto-list`:
+
+1. Frontend passes `sort_by` matching the active `sortMode`.
+2. `plate_digits` mode reverts to standard pagination (`limit=10`,
+   `onEndReached`); `LOAD_ALL_LIMIT` and the load-all branch are
+   removed.
+3. Client-side `sortAutoListByPlateNumber()` is removed (or left as
+   an idempotent safeguard).
+4. `SortBanner` and its `AsyncStorage` key are deleted.
+
+The toggle UI, persisted choice key, and user-visible behaviour all
+stay the same — the transition is invisible to users except for the
+disappearance of the first-load spinner in `plate_digits` mode.
 
 ### Tests
 
-`src/utils/__tests__/plateHelpers-sort.test.ts` — 11 cases covering
-`plateSortKey`, `compareByPlateNumber`, and `sortAutoListByPlateNumber`:
-extraction, region irrelevance, alphabetical tie-break, missing
-`auto_number_base` fallback, empty input, immutability, idempotency.
+- `src/utils/__tests__/plateHelpers-sort.test.ts` — 11 cases covering
+  `plateSortKey`, `compareByPlateNumber`, and
+  `sortAutoListByPlateNumber`: extraction, region irrelevance,
+  alphabetical tie-break, missing `auto_number_base` fallback, empty
+  input, immutability, idempotency.
+- `src/hooks/__tests__/useAutoData.test.tsx` — 7 cases for the sort
+  toggle: default mode + LOAD_ALL_LIMIT, lexicographic mode preserves
+  server order with `limit=10`, `setSortMode` persists to
+  `AsyncStorage`, hydrate from storage on mount, `loadMore` no-op in
+  `plate_digits`, pagination in lexicographic mode, `dismissSortBanner`
+  persists.
 
 ## Sidebar org-list count for the active org
 

@@ -26,6 +26,7 @@ import { AutoListItem }   from '../../components/auto/AutoListItem';
 import AutoListFilterChips from '../../components/auto/AutoListFilterChips';
 import AutoCountToolbar    from '../../components/auto/AutoCountToolbar';
 import AutoListEmptyState  from '../../components/auto/AutoListEmptyState';
+import { SortBanner }      from '../../components/auto/SortBanner';
 import {
   AddAutoModal, DeleteAutoModal, ContactsModal, DebtInfoModal,
 } from '../../components/auto/modals';
@@ -221,7 +222,15 @@ export default function AutoListScreen() {
         <AutoCountToolbar
           count={autoListHook.autoListCount || 0}
           onAddPress={() => autoActions.setModalAddAutoVisible(true)}
+          sortMode={autoListHook.sortMode}
+          onSortModeChange={autoListHook.setSortMode}
         />
+      )}
+
+      {!showGlobalLoading
+        && autoListHook.sortMode === 'plate_digits'
+        && !autoListHook.sortBannerDismissed && (
+        <SortBanner onDismiss={autoListHook.dismissSortBanner} />
       )}
 
       {showGlobalLoading ? (
