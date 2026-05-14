@@ -7,6 +7,7 @@ import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
 import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
 import { setCachedUserId } from '../utils/userIdCache';
+import { useOptionalUserData } from '../contexts/UserDataContext';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 import type { SortMode } from '../components/auto/SortToggle';
 
@@ -80,8 +81,18 @@ let _announceShown = getSessionFlag('ta_announce_shown');
 
 export function useAutoData() {
   const router = useRouter();
-  
+
+  // Shared snapshot context (web only, mounted by app/(authenticated)/_layout.web.tsx).
+  // `null` on native and on auth screens — code below transparently
+  // falls back to the local state in that case. See ADR-020.
+  const userDataCtx = useOptionalUserData();
+
   // Данные пользователя и сервисов
+  // On web (under Provider) these local cells are kept in sync from the
+  // context via the reflection effect below, so AutoListScreen / sidebar
+  // consumers that read `autoListHook.userData` keep working unchanged
+  // while the canonical state lives in the Context (single source).
+  // On native they are the primary source as before.
   const [userData, setUserData] = useState<UserData>({ id: '', firm: '', inn: '', phone: '' });
   const [managerData, setManagerData] = useState<ManagerData>({});
   const [techSupportData, setTechSupportData] = useState<ManagerData>({});
@@ -89,12 +100,43 @@ export function useAutoData() {
   const [userList, setUserList] = useState<UserData[]>([]);
   const [otherUserList, setOtherUserList] = useState<UserData[]>([]);
   const [ourServicesList, setOurServicesList] = useState<OurService[]>([]);
-  const [onboardingExpired, setOnboardingExpired] = useState(1);
+  const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
   const [announceOurServicesVisible, setAnnounceOurServicesVisible] = useState(false);
 
+  // Reflection from Context → local mirror (web only). Mirrors shared
+  // fields whenever the Context's snapshot changes (e.g. WebSidebar
+  // triggered `updateUserData()`), so AutoListScreen.web sees the same
+  // user data even if useAutoData itself did not fetch.
+  // No-op on native (userDataCtx is null there).
   // Состояние списка авто
   const [autoList, setAutoList] = useState<AutoItem[]>([]);
-  const [autoListCount, setAutoListCount] = useState(0);
+  // `autoListCount` is a shared field — kept in local mirror on web and
+  // as primary state on native. Backend ships it as a string ("14");
+  // normalisation to number happens in UserDataContext.syncFromAutoList
+  // on web (single point) and at the assignment site on native (see
+  // `Number(data.auto_list_count) || 0` below).
+  const [autoListCount, setAutoListCount] = useState<number>(0);
+
+  // Reflection from Context → local mirror (web only). Mirrors shared
+  // fields whenever the Context's snapshot changes (e.g. WebSidebar
+  // triggered `updateUserData()`), so AutoListScreen.web sees the same
+  // user data even if useAutoData itself did not fetch.
+  // No-op on native (userDataCtx is null there).
+  useEffect(() => {
+    if (!userDataCtx) return;
+    setUserData(userDataCtx.userData);
+    setOtherUserList(userDataCtx.otherUserList);
+    setOurServicesList(userDataCtx.ourServicesList);
+    setOnboardingExpired(userDataCtx.onboardingExpired);
+    setAutoListCount(userDataCtx.autoListCount);
+  }, [
+    userDataCtx?.userData,
+    userDataCtx?.otherUserList,
+    userDataCtx?.ourServicesList,
+    userDataCtx?.onboardingExpired,
+    userDataCtx?.autoListCount,
+    userDataCtx,
+  ]);
   
   // Флаги загрузки
   const [isLoading, setIsLoading] = useState(false); // Глобальная загрузка (первый вход)
@@ -235,7 +277,7 @@ export function useAutoData() {
         // src/utils/userIdCache.ts). Best-effort, never throws.
         void setCachedUserId(data.user_data.id);
         setManagerData(data.user_data.manager_data || data.manager_data || {});
-        
+
         const tsData = data.user_data.tech_support_data || {};
         setTechSupportData(tsData);
         setTechSupportName(tsData.name || '');
@@ -320,8 +362,22 @@ export function useAutoData() {
       // значение напрямую и в первой странице, и в дозагрузке. Это
       // согласовано с `loadMore` проверкой `autoListLength >= autoListCount`
       // — она корректно остановится только когда мы реально догрузили всё
-      // отфильтрованное множество. См. ADR-019.
-      setAutoListCount(data.auto_list_count || 0);
+      // отфильтрованное множество. См. ADR-019. Backend ships counts as
+      // strings ("14") — coerce explicitly so downstream numeric comparisons
+      // do not get a string back.
+      setAutoListCount(Number(data.auto_list_count) || 0);
+
+      // Web only: also publish shared fields to the UserDataContext so
+      // WebSidebar (which reads exclusively from Context) sees the same
+      // snapshot as the screen. Drift between Context and local state
+      // is impossible because both writes originate from the same
+      // response object. The reflection effect at the top of this hook
+      // mirrors Context → local for updates that originate from the
+      // sidebar (e.g. its visibilitychange / pathname triggers).
+      // No-op on native (userDataCtx === null). See ADR-020.
+      if (userDataCtx) {
+        userDataCtx.syncFromAutoList(data);
+      }
 
       return data;
     } catch (error: any) {
@@ -490,6 +546,12 @@ export function useAutoData() {
       if (cachedFullList.length > 0 && !hasOtherFilters) {
         setAutoList(cachedFullList);
         setAutoListCount(cachedFullList.length);
+        // Web: publish the count change to Context so WebSidebar stays
+        // in sync without an extra /get-auto-list fetch (cache-restore
+        // path bypasses the network entirely).
+        if (userDataCtx) {
+          userDataCtx.syncFromAutoList({ auto_list_count: cachedFullList.length });
+        }
         return;
       }
     }
@@ -540,18 +602,28 @@ export function useAutoData() {
     if (cachedFullList.length > 0 && (now - cacheTimestamp < CACHE_LIFETIME_MS)) {
       setAutoList(cachedFullList);
       setAutoListCount(cachedFullList.length);
+      if (userDataCtx) {
+        userDataCtx.syncFromAutoList({ auto_list_count: cachedFullList.length });
+      }
     } else {
       const token = await AsyncStorage.getItem('token');
       if (token) fetchAutoList(token, emptyFilters, 0);
     }
-  }, [cachedFullList, cacheTimestamp, fetchAutoList]);
+  }, [cachedFullList, cacheTimestamp, fetchAutoList, userDataCtx]);
 
   const decrementNotificationCount = useCallback((count: number) => {
-    setUserData(prev => ({
+    const updater = (prev: UserData): UserData => ({
       ...prev,
-      notification_unviewed_count: Math.max(0, (prev.notification_unviewed_count || 0) - count)
-    }));
-  }, []);
+      notification_unviewed_count: Math.max(0, (prev.notification_unviewed_count || 0) - count),
+    });
+    // Web: route through Context so WebSidebar's badge updates too.
+    // Native: local state only (no sidebar to sync with).
+    if (userDataCtx) {
+      userDataCtx.setUserData(updater);
+    } else {
+      setUserData(updater);
+    }
+  }, [userDataCtx]);
 
   // Переключение режима сортировки. Persist'им выбор в AsyncStorage
   // (одинаково на mobile и web — на web AsyncStorage прозрачно работает
@@ -627,6 +699,16 @@ export function useAutoData() {
   const updateUserAbortRef = useRef<AbortController | null>(null);
 
   const updateUserDataOnly = useCallback(async () => {
+    // Web: delegate to the shared UserDataContext (single source on web,
+    // in-flight dedup, one /get-auto-list across sidebar+screen). Older
+    // call sites that still invoke this method via `autoListHook` won't
+    // produce a duplicate request.
+    if (userDataCtx) {
+      await userDataCtx.updateUserData();
+      return;
+    }
+
+    // Native path: own fetch (no Context, no sidebar).
     const token = await AsyncStorage.getItem('token');
     if (!token) return;
 
@@ -652,7 +734,7 @@ export function useAutoData() {
     } finally {
       if (updateUserAbortRef.current === controller) updateUserAbortRef.current = null;
     }
-  }, []);
+  }, [userDataCtx]);
 
   useEffect(() => () => updateUserAbortRef.current?.abort(), []);
 

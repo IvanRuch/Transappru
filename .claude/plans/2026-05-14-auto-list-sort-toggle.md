@@ -307,10 +307,14 @@ shared hook + один shared sub-component по ADR-003/ADR-005).
    `auto_list_count` (with filters applied) is now trusted unconditionally.
    Regression test `filter with partial result on first page does not
    block loadMore` added in `useAutoData.test.tsx`.
-2. **`/get-auto-list` дублирование между `WebSidebar` и `AutoListScreen`**
-   (`dev-web.md:462-466`) — известная минорная избыточность. Митигация
-   через `AbortController` уже есть. Если станет проблемой —
-   lift `user_data` + `other_user_list` в React Context.
+2. ~~**`/get-auto-list` дублирование между `WebSidebar` и `AutoListScreen`**
+   (`dev-web.md:462-466`) — известная минорная избыточность.~~
+   **Resolved (ADR-020, 2026-05-14)** — `UserDataContext` lifted shared
+   fields (`userData`, `otherUserList`, `autoListCount`,
+   `ourServicesList`, `onboardingExpired`) into a web-only Provider with
+   in-flight Promise dedup. WebSidebar and AutoListScreen.web now share
+   one snapshot and one in-flight `/get-auto-list` request. Plan:
+   `.claude/plans/2026-05-14-user-data-context.md`.
 3. **Cursor-based пагинация** (`/get-auto-list` через `next_cursor` вместо
    `offset`) — долгосрочный API redesign. Не часть этого плана.
 4. **Native поддержка sort_by** после Phase 2 — mobile уже использует тот

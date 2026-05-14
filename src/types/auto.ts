@@ -19,6 +19,7 @@ export interface UserData {
   user_confirmed?: number | string;
   user_auto_count?: number | string;
   manager_data?: ManagerData;
+  tech_support_data?: ManagerData;
   notification_unviewed_count?: number;
   other_user_notification_unviewed_count?: number;
   debt_sum?: string;

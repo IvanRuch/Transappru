@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/services/api';
 import { redirectToAuth } from '../../src/utils/redirectToAuth';
 import WebAppLayout from '../../src/components/web/WebAppLayout';
+import { UserDataProvider } from '../../src/contexts/UserDataContext';
 
 export default function AuthenticatedLayoutWeb() {
   const router = useRouter();
@@ -88,18 +89,24 @@ export default function AuthenticatedLayoutWeb() {
   }
 
   return (
-    <WebAppLayout>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="main"                 options={{ title: 'Главная' }} />
-        <Stack.Screen name="auto-list"            options={{ title: 'Автомобили' }} />
-        <Stack.Screen name="charges"              options={{ title: 'Начисления' }} />
-        <Stack.Screen name="services"             options={{ title: 'Услуги' }} />
-        <Stack.Screen name="auto/[id]"            options={{ title: 'Автомобиль' }} />
-        <Stack.Screen name="notification-settings" options={{ title: 'Настройки уведомлений' }} />
-        <Stack.Screen name="fine-payment-confirm" options={{ title: 'Оплата штрафа' }} />
-        <Stack.Screen name="fine-payment-webview" options={{ title: 'Оплата' }} />
-        <Stack.Screen name="fine-payment-success" options={{ title: 'Успех' }} />
-      </Stack>
-    </WebAppLayout>
+    // UserDataProvider deduplicates /get-auto-list between WebSidebar (chrome
+    // of WebAppLayout) and the authenticated screens (children). One in-flight
+    // request, one snapshot of userData/otherUserList/autoListCount/etc.
+    // See ADR-020.
+    <UserDataProvider>
+      <WebAppLayout>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="main"                 options={{ title: 'Главная' }} />
+          <Stack.Screen name="auto-list"            options={{ title: 'Автомобили' }} />
+          <Stack.Screen name="charges"              options={{ title: 'Начисления' }} />
+          <Stack.Screen name="services"             options={{ title: 'Услуги' }} />
+          <Stack.Screen name="auto/[id]"            options={{ title: 'Автомобиль' }} />
+          <Stack.Screen name="notification-settings" options={{ title: 'Настройки уведомлений' }} />
+          <Stack.Screen name="fine-payment-confirm" options={{ title: 'Оплата штрафа' }} />
+          <Stack.Screen name="fine-payment-webview" options={{ title: 'Оплата' }} />
+          <Stack.Screen name="fine-payment-success" options={{ title: 'Успех' }} />
+        </Stack>
+      </WebAppLayout>
+    </UserDataProvider>
   );
 }

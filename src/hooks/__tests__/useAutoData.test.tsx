@@ -43,8 +43,11 @@ describe('useAutoData', () => {
 
     expect(result.current.userData.firm).toBe('ООО Тест');
     expect(result.current.userData.inn).toBe('7700000001');
-    // Backend ships counts as strings; useAutoData passes through verbatim.
-    expect(result.current.autoListCount).toBe('3');
+    // Backend ships counts as strings; useAutoData coerces them to number
+    // at the assignment site (ADR-020 normalisation point) so downstream
+    // numeric comparisons in loadMore / count rendering work without
+    // ad-hoc `Number(...)` coercion at every read site.
+    expect(result.current.autoListCount).toBe(3);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.isRefreshing).toBe(false);
   });
@@ -369,8 +372,9 @@ describe('useAutoData', () => {
     await waitFor(() => expect(result.current.autoList).toHaveLength(8));
 
     // Critical: server's filtered total is preserved, NOT overwritten to
-    // the page size. Otherwise loadMore below would no-op.
-    expect(result.current.autoListCount).toBe('12');
+    // the page size. Otherwise loadMore below would no-op. Backend ships
+    // as string; useAutoData coerces to number (ADR-020).
+    expect(result.current.autoListCount).toBe(12);
 
     await act(async () => { await result.current.loadMore(); });
     await waitFor(() => expect(result.current.autoList).toHaveLength(12));

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,6 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-import api from '../../services/api';
 import { openAddAutoModalIfMounted } from '../../screens/auto/AutoListScreen.web';
 import {
   WEB_SIDEBAR_WIDTH_COLLAPSED,
@@ -25,28 +22,9 @@ import { OrgListItem, type OrgListItemData } from '../sidebar';
 import { RnisCheckModal, AddAccountModal } from '../inn';
 import { InviteUserModal } from '../user';
 import { ContactsModal } from '../auto/modals';
-import type { ManagerData } from '../../types/auto';
+import { useUserData } from '../../contexts/UserDataContext';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-interface UserData {
-  id?: string;
-  firm?: string;
-  inn?: string;
-  phone?: string;
-  user_auto_count?: number | string;
-  notification_unviewed_count?: number;
-  other_user_notification_unviewed_count?: number;
-  manager_data?: ManagerData;
-  tech_support_data?: ManagerData;
-}
-
-type OtherUser = OrgListItemData;
-
-interface OurService {
-  id: string;
-  header: string;
-}
 
 interface WebSidebarProps {
   expanded: boolean;
@@ -124,82 +102,44 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   const router     = useRouter();
   const pathname   = usePathname();
 
-  const [userData,       setUserData]       = useState<UserData>({});
-  const [otherUserList,  setOtherUserList]  = useState<OtherUser[]>([]);
-  // Backend asymmetry: `/get-auto-list` returns `user_auto_count` for
-  // every entry in `other_user_list`, but does NOT include it on the
-  // active org's `user_data` payload. The trustworthy source for the
-  // active row is `auto_list_count` (top-level, the same number the
-  // main screen renders as "Всего N авто"). Stored separately so the
-  // active row's count does not depend on the absent field.
-  const [autoListCount,  setAutoListCount]  = useState<number>(0);
-  const [ourServices,    setOurServices]    = useState<OurService[]>([]);
-  const [servicesOpen,   setServicesOpen]   = useState(false);
+  // Shared snapshot (single source of truth on web). The Context is
+  // mounted by app/(authenticated)/_layout.web.tsx and is also consumed
+  // by useAutoData in AutoListScreen.web — both surfaces see the same
+  // userData / otherUserList / autoListCount / ourServicesList /
+  // onboardingExpired without duplicate /get-auto-list requests. See
+  // ADR-020.
+  const {
+    userData,
+    otherUserList,
+    autoListCount,
+    ourServicesList,
+    onboardingExpired,
+    updateUserData,
+    optimisticOrgSwap,
+  } = useUserData();
+
+  // Local UI-only state (not shared with screens).
   const [loading,        setLoading]        = useState(true);
+  const [servicesOpen,   setServicesOpen]   = useState(false);
   // INN currently being switched to (null = idle). Drives per-row spinner.
   const [switchingInn,   setSwitchingInn]   = useState<string | null>(null);
-  const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
   const [rnisModalOpen,  setRnisModalOpen]  = useState(false);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [inviteOpen,     setInviteOpen]     = useState(false);
   const [contactsOpen,   setContactsOpen]   = useState(false);
 
-  // ── fetch sidebar data ──────────────────────────────────────────────────────
-  // `abortRef` implements "latest wins": if a new trigger (mount / pathname /
-  // visibility / post-switch) fires while an old `/get-auto-list` is still
-  // pending, the old request is aborted and the fresh one takes its place.
-  // This way a slow backend never blocks the user for 30s — as soon as they
-  // act again, the stale call is cancelled. Also cleans up on unmount.
-  const abortRef = useRef<AbortController | null>(null);
-
-  const loadData = useCallback(async () => {
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
-
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      const res = await api.post(
-        '/get-auto-list',
-        { token, auto_list_limit: 0 },
-        { signal: controller.signal },
-      );
-      // If a newer request was started meanwhile, discard this response.
-      if (controller.signal.aborted) return;
-
-      const d = res.data;
-      if (d.user_data) {
-        setUserData(d.user_data);
-        setOtherUserList(d.other_user_list || []);
-        setOurServices(d.our_services_list || []);
-        // Backend ships counts as strings ("14"), coerce explicitly so
-        // downstream comparisons / formatting do not get a string back.
-        setAutoListCount(Number(d.auto_list_count) || 0);
-      }
-      if (d.onboarding_expired !== undefined) {
-        setOnboardingExpired(d.onboarding_expired);
-      }
-    } catch (e) {
-      // Ignore aborts (expected when a fresh trigger supersedes us).
-      // All other errors are silent — sidebar is non-critical.
-      if (axios.isCancel(e)) return;
-    } finally {
-      if (abortRef.current === controller) abortRef.current = null;
-      setLoading(false);
-    }
-  }, []);
-
-  // Abort any in-flight request on unmount so we don't touch state on a
-  // dead component and don't waste bandwidth.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // ── refresh triggers ────────────────────────────────────────────────────────
+  // The Context handles the fetch + in-flight dedup + AbortController. The
+  // sidebar only owns *when* to refresh — keeping these triggers here means
+  // unrelated layouts on web don't have to know about them.
+  const refresh = useCallback(async () => {
+    await updateUserData();
+    setLoading(false);
+  }, [updateUserData]);
 
   // Refetch on mount and whenever the user navigates between routes — keeps
-  // `other_user_list[].notification_unviewed_count` fresh. Since `loadData`
-  // has a stable identity (useCallback with no deps), the effect re-fires
-  // purely on `pathname` changes after the initial mount.
-  useEffect(() => { loadData(); }, [loadData, pathname]);
+  // `other_user_list[].notification_unviewed_count` fresh.
+  useEffect(() => { refresh(); }, [refresh, pathname]);
 
   // Refetch when the browser tab regains focus. Catches the common case
   // where the user switched to another tab, received a notification on
@@ -208,32 +148,29 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') loadData();
+      if (document.visibilityState === 'visible') refresh();
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [loadData]);
+  }, [refresh]);
 
   // ── org switch ──────────────────────────────────────────────────────────────
   // Delegates to shared util (src/utils/switchOrganization.ts) so mobile
   // (useAutoActions) and web sidebar stay in lockstep.
   //
   // UX note: the backend tends to serialise requests per session, so the
-  // sidebar's own `/get-auto-list` fetch ends up queued behind AutoListScreen's
-  // full fetch + its own `updateUserDataOnly` — meaning the footer would keep
-  // showing the previous org for several seconds after the fleet already
-  // rendered. To fix this we do an **optimistic swap** the moment
-  // `/set-current-inn` succeeds:
+  // sidebar's `/get-auto-list` fetch ends up queued behind AutoListScreen's
+  // full fetch — meaning the footer would keep showing the previous org
+  // for several seconds after the fleet already rendered. To fix this we
+  // do an **optimistic swap** the moment `/set-current-inn` succeeds:
   //   - the clicked org moves from `otherUserList` into `userData`
   //   - the previously-current org takes its place in `otherUserList`
-  //   - the user's phone stays (it belongs to the session, not the org)
   // The real refetch still runs in the background so any drifted fields
-  // (user_auto_count on the swapped-back entry, etc.) get reconciled.
+  // get reconciled. Optimistic-swap logic is encapsulated in the
+  // Context (see UserDataContext.optimisticOrgSwap) so both this sidebar
+  // and any future consumer apply the same algorithm.
   const switchOrg = useCallback(async (inn: string) => {
     if (switchingInn) return;
-
-    const previousUser = userData;
-    const targetOrg = otherUserList.find(o => o.inn === inn);
 
     setSwitchingInn(inn);
     try {
@@ -247,43 +184,15 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
         return;
       }
 
-      if (targetOrg) {
-        setUserData({
-          ...previousUser,
-          firm: targetOrg.firm,
-          inn: targetOrg.inn,
-          user_auto_count: targetOrg.user_auto_count,
-          notification_unviewed_count: targetOrg.notification_unviewed_count,
-        });
-        // Optimistically promote target's count to be the new active
-        // count — `other_user_list` carries it, so no estimate needed.
-        // Background `loadData()` will reconcile to `auto_list_count`.
-        setAutoListCount(Number(targetOrg.user_auto_count) || 0);
-        setOtherUserList(prev => {
-          const withoutTarget = prev.filter(o => o.inn !== inn);
-          if (!previousUser.inn) return withoutTarget;
-          const previousAsOther: OrgListItemData = {
-            inn: previousUser.inn,
-            firm: previousUser.firm,
-            // Use `autoListCount` (the top-level `auto_list_count` we
-            // just had as active) instead of `previousUser.user_auto_count`
-            // — backend doesn't ship the field on `user_data`, so the
-            // latter is `undefined` and the de-promoted row would show 0.
-            user_auto_count: autoListCount,
-            user_confirmed: 1,
-            phone_inn_confirmed: 1,
-            notification_unviewed_count: previousUser.notification_unviewed_count,
-          };
-          return [previousAsOther, ...withoutTarget];
-        });
-      }
-
-      loadData(); // background sync — latest-wins via AbortController
+      optimisticOrgSwap(inn);
+      // Background sync — Context.updateUserData dedupes against any
+      // in-flight call so we don't queue duplicate requests.
+      void updateUserData();
       router.replace('/(authenticated)/auto-list' as any);
     } finally {
       setSwitchingInn(null);
     }
-  }, [switchingInn, userData, otherUserList, autoListCount, loadData, router]);
+  }, [switchingInn, optimisticOrgSwap, updateUserData, router]);
 
   // ── active path helper ──────────────────────────────────────────────────────
   const isActive = (path: string) => pathname.startsWith(path);
@@ -348,7 +257,7 @@ export default function WebSidebar({ expanded, onToggle }: WebSidebarProps) {
           active={false}
           expanded={expanded}
         />
-        {servicesOpen && ourServices.map(svc => (
+        {servicesOpen && ourServicesList.map(svc => (
           <NavItem
             key={svc.id}
             icon={require('../../../assets/images/menu_left_our_services.png')}

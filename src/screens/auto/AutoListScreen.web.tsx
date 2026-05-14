@@ -33,6 +33,7 @@ import {
 import { AnnounceOurServicesModal } from '../../components/auto/modals/AnnounceOurServicesModal';
 import { FindAutoPanel }  from '../../components/auto/FindAutoPanel';
 import { useNotification } from '../../contexts/NotificationContext';
+import { useUserData } from '../../contexts/UserDataContext';
 import { showAlert } from '../../utils/alert';
 
 // Module-level callback so sidebar "Пропуск" can open AddAutoModal in-place
@@ -48,6 +49,7 @@ export default function AutoListScreen() {
   const autoListHook = useAutoList();
   const autoActions  = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
   const { resetViewedCount } = useNotification();
+  const userDataCtx  = useUserData();
   const { columns }  = useWebLayout();
 
   useEffect(() => {
@@ -59,7 +61,10 @@ export default function AutoListScreen() {
     useCallback(() => {
       const viewedCount = resetViewedCount();
       if (viewedCount > 0) autoListHook.decrementNotificationCount(viewedCount);
-      autoListHook.updateUserData();
+      // Refresh user-data through the shared Context (ADR-020). Dedupes
+      // against the WebSidebar's own mount/pathname/visibility triggers
+      // so each route focus = at most one /get-auto-list, not two.
+      void userDataCtx.updateUserData();
       autoListHook.startPulseAnimation();
       return () => autoListHook.stopPulseAnimation();
     }, [])

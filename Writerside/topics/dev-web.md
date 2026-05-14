@@ -465,54 +465,81 @@ leak into the web JS bundle when a sibling `Modal.web.tsx` exists
 (grep `/_expo/static/js/web/*.js` for the bottom-sheet's unique style
 markers like `justifyContent:"flex-end",margin:0` — zero matches).
 
-### Sidebar data freshness
+### Sidebar data freshness (UserDataContext, ADR-020)
 
-`WebSidebar.loadData()` (`POST /get-auto-list` with `auto_list_limit: 0`) runs on
-four triggers to keep `userData`, `otherUserList` and notification badges current:
+Shared snapshot for `userData`, `otherUserList`, `autoListCount`,
+`ourServicesList`, `onboardingExpired` lives in
+`src/contexts/UserDataContext.tsx` and is mounted by
+`app/(authenticated)/_layout.web.tsx`. Both `WebSidebar` and
+`AutoListScreen.web` consume it — one in-flight `/get-auto-list` with
+`auto_list_limit: 0` at any moment, one snapshot.
 
-| Trigger | Why |
-|---|---|
-| Component mount | Initial load. |
-| `pathname` change | User navigated between routes — any counts may have changed. |
-| `document.visibilitychange` → visible | User switched tabs and came back; may have received notifications elsewhere. |
-| Successful `switchOrg` | `router.replace('/auto-list')` from `/auto-list` does **not** change pathname, and the sidebar does not unmount across the redirect — without this explicit call the footer would keep showing the previous org. Called fire-and-forget in parallel with navigation. |
+`UserDataContext.updateUserData()` triggers a refresh. The component
+owns *when* to call it; the Context owns *how* (in-flight Promise
+dedup, AbortController on unmount, silent error handling for
+non-critical sidebar UX).
 
-All triggers share one `useCallback`-stable `loadData` reference; re-renders do
-not create duplicate listeners or extra in-flight requests. `loadData` uses an
-`AbortController` ref with **latest-wins** semantics — if a new trigger fires
-while an old `/get-auto-list` is still pending, the old request is aborted and
-the fresh one replaces it. This prevents a slow or stalled backend (e.g., the
-30s axios client timeout) from blocking the user for half a minute: as soon as
-they act again, the stale call is cancelled. The same controller is aborted on
-unmount, so we never call `setState` on a dead component and never waste
-bandwidth after navigation away.
+**Trigger inventory (live as of 2026-05-14):**
 
-> Known minor redundancy: on web, `AutoListScreen.web.tsx` also fires
-> `/get-auto-list` via its own `useFocusEffect` → `updateUserDataOnly`. The
-> sidebar fetch and the screen fetch are independent state. If this becomes a
-> perf concern, the natural next step is to lift `user_data` + `other_user_list`
-> into a React context shared by both consumers.
+| Trigger | Where | Why |
+|---|---|---|
+| Component mount | `WebSidebar` `useEffect([refresh, pathname])` | Initial load. |
+| `pathname` change | `WebSidebar` `useEffect([refresh, pathname])` | User navigated — any counts may have changed. |
+| `document.visibilitychange` → visible | `WebSidebar` `useEffect([refresh])` | User switched tabs and came back; may have received notifications elsewhere. |
+| Successful `switchOrg` | `WebSidebar.switchOrg` | After optimistic swap, background reconcile of any drifted fields. |
+| Route focus | `AutoListScreen.web` `useFocusEffect` | Returns from auto detail / settings; refresh badge counts. |
+
+All five collapse into **at most one** outgoing request via
+`inFlightRef` in the Provider — a second concurrent caller receives
+the same `Promise<void>` without firing a new fetch. AbortController is
+managed centrally; component unmount or Provider teardown cancels the
+in-flight request without `setState` on a dead component.
+
+`useAutoData` is Context-aware:
+
+- A reflection `useEffect` mirrors Context → local state so consumers
+  reading `autoListHook.userData / .otherUserList / .autoListCount /
+  .ourServicesList / .onboardingExpired` keep working unchanged.
+- Every fetch path (`fetchAutoList`, cache-restore in `setFilterValue`
+  / `clearFilters`) publishes the response into Context via
+  `syncFromAutoList` so the sidebar mirrors the screen's state without
+  an extra request.
+- `decrementNotificationCount` routes through `context.setUserData`
+  so the sidebar's badge decreases the moment the screen marks
+  notifications viewed.
+- `updateUserDataOnly` on web delegates to `context.updateUserData()`
+  — legacy call sites via `autoListHook` do not produce duplicate
+  requests.
+
+On native there is no `UserDataProvider`; `useOptionalUserData()`
+returns null and `useAutoData` falls back to local state bit-for-bit
+as before. Existing `useAutoData` tests pass under this no-Provider
+fallback unchanged.
 
 ### Optimistic swap on org switch
 
-The backend serialises requests per session, so the sidebar's own `/get-auto-list`
-ends up queued behind `AutoListScreen.loadData()` + `updateUserDataOnly` right after
-a switch — the footer would otherwise keep the previous org visible for several
-seconds after the fleet already rendered.
+The backend serialises requests per session, so the sidebar's refresh
+after `/set-current-inn` ends up queued behind `AutoListScreen`'s full
+fetch — the footer would otherwise keep the previous org visible for
+several seconds after the fleet already rendered.
 
-Fix: as soon as `/set-current-inn` succeeds, `WebSidebar.switchOrg` performs an
-**optimistic swap** in local state *before* firing the refetch:
+Fix: as soon as `/set-current-inn` succeeds, `WebSidebar.switchOrg`
+calls **`UserDataContext.optimisticOrgSwap(inn)`** (ADR-020) *before*
+firing the refetch:
 
-- The clicked org moves from `otherUserList` into `userData` (firm, inn,
-  user_auto_count, notification_unviewed_count). The phone stays — it's bound
-  to the session, not the org.
-- The previously-current org takes the clicked org's slot in `otherUserList`,
-  with `user_confirmed = phone_inn_confirmed = 1` (the current org is confirmed
-  by definition).
+- The clicked org moves from `otherUserList` into `userData` (firm,
+  inn, user_auto_count, notification_unviewed_count). The phone stays
+  — it's bound to the session, not the org.
+- The previously-current org takes the clicked org's slot in
+  `otherUserList`, with `user_confirmed = phone_inn_confirmed = 1`
+  (the current org is confirmed by definition).
 
-The background `loadData()` still runs and reconciles any drifted fields when
-the server eventually responds, but the user sees the new org in the footer
-and the list reshuffled the instant the switch is acknowledged.
+The background `context.updateUserData()` still runs and reconciles any
+drifted fields when the server eventually responds, but the user sees
+the new org in the footer (sidebar) **and** the fleet on the screen
+flip in lockstep the instant the switch is acknowledged — the Context's
+reflection effect propagates the swap into `useAutoData`'s local state
+without an extra request.
 
 ### Organization switcher parity (shared `OrgListItem`)
 

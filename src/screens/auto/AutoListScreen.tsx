@@ -317,7 +317,7 @@ export default function AutoListScreen() {
         ourServicesList={autoListHook.ourServicesList}
         otherUserList={autoListHook.otherUserList}
         autoListCount={Number(autoListHook.autoListCount) || 0}
-        onboardingExpired={autoListHook.onboardingExpired}
+        onboardingExpired={Number(autoListHook.onboardingExpired) || 0}
         pulseFontSize={autoListHook.pulseFontSize}
         onClose={() => autoActions.setMenuLeftVisible(false)}
         onNavigateToOnBoarding={autoActions.navigateToOnBoarding}

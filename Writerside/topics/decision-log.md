@@ -1482,3 +1482,142 @@ and asserts `loadMore` reaches the full filtered total.
 **Reverses if.** Backend regresses and stops accounting for filters in
 `auto_list_count`. In that case, fix backend; if hard-blocked, restore
 the defensive branch as a temporary mitigation and re-evaluate.
+
+---
+
+### ADR-020: Shared UserDataContext for web (2026-05-14)
+
+**Context.** `/get-auto-list` was being fired twice in parallel on every
+authenticated route open on web:
+
+- `WebSidebar.loadData()` on mount / `pathname` change /
+  `document.visibilitychange` / post-`switchOrg`.
+- `useAutoData.updateUserDataOnly()` invoked from
+  `AutoListScreen.web.useFocusEffect` on every route focus.
+
+Both calls used `auto_list_limit: 0` and consumed the same shared
+fields (`user_data`, `other_user_list`, `our_services_list`,
+`auto_list_count`, `onboarding_expired`). Each component kept its own
+`useState` copies, so even with both requests resolving, the two
+surfaces could end up looking at slightly different snapshots. The
+gap was already proven harmful by PR #16 (`user_auto_count` asymmetry
+fix) — a fairly minor data-asymmetry bug that nonetheless reached
+production because there was no single source of truth on web.
+
+`AbortController` per-component mitigates *successive* triggers (a
+later mount overrides an in-flight earlier mount) but never the *first*
+parallel pair, where both components legitimately want fresh data at
+the same time.
+
+`dev-web.md:462-466` had already flagged the duplication explicitly:
+"if it becomes a problem, lift `user_data` + `other_user_list` into a
+React Context and have both components subscribe". This ADR follows
+that recommendation.
+
+**Decision.** Introduce `UserDataContext` (mounted by
+`app/(authenticated)/_layout.web.tsx`, web-only) as the single source
+of truth on web for the five shared fields. The Context owns:
+
+- The snapshot state (`userData`, `otherUserList`, `autoListCount`,
+  `ourServicesList`, `onboardingExpired`).
+- `updateUserData()`: in-flight-deduplicated fetch of
+  `/get-auto-list?auto_list_limit=0`. Concurrent callers (sidebar
+  mount + screen focus, sidebar visibility-change while screen still
+  loading, etc.) share one `Promise` and one HTTP request.
+- `syncFromAutoList(data)`: lets `useAutoData` push a freshly-fetched
+  full response into the shared snapshot without a second request.
+- `optimisticOrgSwap(targetInn)`: encapsulates the `switchOrg`
+  swap/demote logic that used to live inline in `WebSidebar`.
+- `setUserData(updater)`: functional update so consumers (e.g.
+  notification-badge decrement) can patch a single field without a
+  re-fetch.
+
+`WebSidebar` reads exclusively from Context and no longer owns
+fetching / state for shared fields (its own `loadData()` + state +
+`AbortController` are removed). `AutoListScreen.web` adds a
+`useUserData()` call and routes its `useFocusEffect` refresh through
+`context.updateUserData()`.
+
+`useAutoData` is Context-aware via `useOptionalUserData()`:
+
+- A reflection `useEffect` mirrors Context → local state for the five
+  shared fields so existing consumers reading `autoListHook.userData`
+  / `.otherUserList` / `.autoListCount` keep working unchanged.
+- On every fetch path (`fetchAutoList`, `clearFilters` cache-restore,
+  `setFilterValue` cache-restore) it also publishes the response into
+  Context via `syncFromAutoList(...)` — both surfaces see the same
+  snapshot.
+- `updateUserDataOnly()` on web delegates to `context.updateUserData()`
+  so older call sites that still invoke it (via `autoListHook`) do not
+  produce a duplicate request.
+- `decrementNotificationCount()` routes through `context.setUserData`
+  so the sidebar's badge decreases the moment the screen marks
+  notifications as viewed.
+
+On native (no `UserDataProvider`), `useOptionalUserData()` returns
+`null` and every branch falls back to its original local-state
+behaviour. **Existing useAutoData tests pass unchanged** because
+`renderHook(() => useAutoData())` under `jest-rn-stub` runs the
+native path.
+
+**Rationale.**
+
+- Single source of truth on web — drift between sidebar and screen is
+  constructively impossible: every write originates either from the
+  Provider's own fetch or from a single response object pushed through
+  `syncFromAutoList`.
+- Dedup is centralised; we don't need each component to invent its
+  own AbortController dance.
+- Provider-only-on-web preserves native behaviour bit-for-bit. The
+  same hook (`useAutoData`) works on both platforms — no parallel
+  implementations.
+- Reflection mirror keeps the public `autoListHook.*` surface stable
+  so `AutoListScreen.web` (and any future web consumer of
+  `useAutoList`) doesn't need to learn about the Context to read user
+  data. The Context is the truth, the mirror is read-only.
+- Considered alternatives (variant labels from research):
+  - **Variant A (full Context over useAutoData)**: rejected — would
+    globalise screen-local state (`autoList`, `filters`, `sortMode`)
+    and risk regressing native behaviour.
+  - **Variant C (request-level dedup without Context)**: rejected —
+    fixes duplicate requests but leaves the two components with
+    independent state copies, the drift surface that caused PR #16.
+  - **Variant D (React Query / SWR)**: rejected — new dependency,
+    learning curve, large refactor of `useAutoData`. Unjustified for
+    this single deduplication need.
+
+**Consequences.**
+
+- One in-flight `/get-auto-list` with `auto_list_limit: 0` at any
+  given moment on web. `WebSidebar` and `AutoListScreen.web` see the
+  same `userData / otherUserList / autoListCount /
+  ourServicesList / onboardingExpired` at any moment.
+- `autoListCount` is now normalised to `number` (backend ships as
+  string `"14"`) at one point — `UserDataContext.syncFromAutoList`
+  on web and at the assignment site on native. Eliminates ad-hoc
+  `Number(...)` coercion at every read site. `useAutoData` tests
+  updated (`'3'` → `3`, `'12'` → `12`) to match.
+- `UserData` type in `src/types/auto.ts` gains
+  `tech_support_data?: ManagerData` (was only on WebSidebar's local
+  interface, now lifted to the global type so Context can carry it).
+- WebSidebar loses ~110 LOC (local state, `loadData`, abort ref, three
+  triggers' effects, inline optimistic swap), gains ~25 LOC for the
+  Context wiring and the refresh trigger.
+- New tests: `src/contexts/__tests__/UserDataContext.test.tsx`
+  (11 cases) covering initial state, fetch + dedup, partial sync,
+  optimistic swap, throw outside Provider, value inside Provider,
+  number coercion.
+- Plan file: `.claude/plans/2026-05-14-user-data-context.md`.
+- ADR-018 follow-up #2 (`/get-auto-list` duplication between sidebar
+  and screen) is closed by this ADR.
+
+**Reverses if.** A future requirement makes the shared snapshot
+contention-prone (e.g. cross-tab broadcast invalidation, large frequent
+updates) and React Context's re-render granularity becomes a
+bottleneck. At that point migrating to a per-field subscription
+mechanism (`use-context-selector` or React Query) is the natural next
+step. Full revert is possible by reintroducing local state in
+`WebSidebar` and the `loadData()` it owned — `useAutoData` on web
+would silently fall back to its own state because the reflection
+effect is a no-op when `userDataCtx` is null.
+
