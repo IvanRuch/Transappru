@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import axios from 'axios';
+import { isCancel } from 'axios';
 import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
 import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
@@ -382,7 +382,7 @@ export function useAutoData() {
       return data;
     } catch (error: any) {
       // Ignore aborts — a fresh fetch superseded this one, or the hook unmounted.
-      if (axios.isCancel(error)) return null;
+      if (isCancel(error)) return null;
       console.log('Error fetching auto list:', error);
       if (error.response?.status === 401) {
         redirectToAuth(router);
@@ -729,7 +729,7 @@ export function useAutoData() {
         if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
       }
     } catch (e) {
-      if (axios.isCancel(e)) return;
+      if (isCancel(e)) return;
       console.log('UserData update error', e);
     } finally {
       if (updateUserAbortRef.current === controller) updateUserAbortRef.current = null;
