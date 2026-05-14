@@ -26,6 +26,11 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# JetBrains IDE — machine-specific module config (rewrites on every
+# project open with different absolute paths, version markers, JDK
+# locations). Shared .idea/*.xml configs stay tracked.
+.idea/*.iml
+
 # macOS
 .DS_Store
 *.pem
