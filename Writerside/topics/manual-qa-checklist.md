@@ -252,3 +252,124 @@ Accessibility audit sign-off (separate role if available):
 | VoiceOver on iOS / Safari | | |
 | NVDA on Windows / Firefox | | |
 | axe-core / Lighthouse scan | | |
+
+---
+
+## 2026-05-14 release batch — Phase 1 sort toggle + follow-ups
+
+Covers four PRs that landed in quick succession on 2026-05-14. They
+interlock (the later ones build on Phase 1's `useAutoData` refactor),
+so QA should run the full block on each platform rather than per-PR.
+
+### Source of truth
+
+- **#36** (ADR-018) — auto list sort toggle + load-all strategy
+- **#38** (ADR-019) — trust server `auto_list_count` for filtered lists
+- **#39** (ADR-020) — UserDataContext deduplicates `/get-auto-list` on web
+- **#40** — spinner during sort/filter switch instead of empty state
+
+Plan files: `.claude/plans/2026-05-14-auto-list-sort-toggle.md` and
+`.claude/plans/2026-05-14-user-data-context.md`. ADRs live in
+`Writerside/topics/decision-log.md`.
+
+### Pre-flight setup
+
+- Test customer with **≥ 12 vehicles** under one organisation (so
+  paginated `lexicographic` mode actually paginates — default page
+  size is 10).
+- A second organisation switchable via «Организации» in the sidebar
+  (for switchOrg test).
+- A vehicle plate prefix that's likely to **match more than one page**
+  when filtered (e.g. all plates start with «А», so `autoStr=А` returns
+  the full fleet).
+- DevTools Network tab open on Chrome for the deduplication checks.
+
+### Block A — Sort toggle (#36, ADR-018)
+
+- [ ] First login after this release: default sort mode is **«алфавиту»**
+      (lexicographic). List paginates as before (Network: `auto_list_limit=10`,
+      successive requests with growing `auto_list_from`).
+- [ ] Toggle the sidebar control to **«номеру»**: list reloads as a
+      single request (`auto_list_limit=2000`, `auto_list_from=0`).
+      Vehicles render sorted by digit segment of plate (e.g. К123ОР
+      before М234ХА before А456БВ).
+- [ ] `SortBanner` appears in `plate_digits` mode with the message
+      «Сортировка по номеру применяется ко всему парку...». Dismiss it
+      with ✕. Reload the page (web) / kill+reopen the app (mobile).
+      Banner stays hidden.
+- [ ] Toggle back to «алфавиту»: standard pagination resumes
+      (`auto_list_limit=10`).
+- [ ] Logout, login again: persisted choice is honoured (whichever was
+      last selected).
+- [ ] Mobile portrait (Pixel 7 emulator): toggle wraps to a second row
+      inside `AutoCountToolbar`. Tap target on each segment ≥ 44pt.
+- [ ] Web narrow viewport (< 520px): toggle wraps under the count +
+      action row. Layout doesn't shift the list when toggle wraps.
+
+### Block B — Filter pagination fix (#38, ADR-019)
+
+- [ ] Apply a plate filter that returns **more than 10 matches** (e.g.
+      a prefix that matches the whole fleet).
+- [ ] First page shows 10 items. Bottom counter reads the full filtered
+      total (e.g. «Всего 12 авто»), **not** 10.
+- [ ] Scroll to bottom: `onEndReached` fires `loadMore`. Remaining
+      matches load. Final list size matches the counter.
+- [ ] Before this PR the bug would block `loadMore` at 8/12 if first
+      page came short. Regression test in code is
+      `filter with partial result on first page does not block loadMore`
+      in `useAutoData.test.tsx`.
+
+### Block C — UserDataContext deduplication (#39, ADR-020) — **web only**
+
+- [ ] Open `/auto-list` with DevTools Network filtered to `get-auto-list`.
+      Initial route open fires **one** `POST /get-auto-list?auto_list_limit=0`
+      (sidebar refresh) **plus** the main list fetch. Before this PR
+      the `auto_list_limit=0` request was duplicated (sidebar + screen).
+- [ ] Navigate `/auto-list` → `/charges` → `/auto-list` back: each focus
+      should fire at most one `auto_list_limit=0` request.
+- [ ] Switch tabs, come back: visibility-change triggers one
+      `auto_list_limit=0` request (sidebar refresh only, screen doesn't
+      re-fetch on tab focus).
+- [ ] Switch organisation via the sidebar org list: footer (sidebar)
+      and screen header («Мой автопарк ИНН/Firm») flip in **lockstep**
+      — no several-second lag where sidebar still shows the old org.
+      Background reconcile request fires once after the switch.
+- [ ] Mark a notification as viewed on the notifications screen:
+      sidebar's red badge count decreases immediately (no refetch
+      needed).
+- [ ] Refresh the page (Cmd-R): sort mode + dismissed banner state +
+      org footer all restored on first paint (no flash of default).
+
+### Block D — Loading flash UX (#40)
+
+- [ ] On `/auto-list` with the list already loaded, switch sort toggle
+      from «алфавиту» → «номеру». Between the click and the response,
+      a **spinner** appears under the toolbar — **not** «Список авто
+      пуст».
+- [ ] Apply a search filter that returns 0 items: empty-state **does**
+      appear with the «нет совпадений» message (this is correct
+      behaviour — spinner only when loading).
+- [ ] Initial app cold start: full-screen spinner before the list
+      renders (unchanged from before).
+- [ ] On a slow network (DevTools throttling: «Slow 3G»), every
+      sort/filter switch shows the inline spinner for the full duration
+      of the fetch. No flicker of empty-state at any point.
+
+### Cross-cutting
+
+- [ ] Mobile (iOS + Android) parity: sidebar items B+D run on mobile
+      too (no sidebar there, but sort/filter/load-flash are screen-level).
+- [ ] Pull-to-refresh on `/auto-list` (mobile) and the `<RefreshControl>`
+      gesture on web: list re-fetches, sidebar in sync. No double request.
+- [ ] No new console errors (filter DevTools console by «Refused to load»
+      to catch any CSP regressions, by «Warning» for React).
+
+### Sign-off
+
+| Platform | Tester | Date |
+|---|---|---|
+| iOS | | |
+| Android | | |
+| Chrome desktop 1920 | | |
+| Chrome desktop 1280 | | |
+| Chrome mobile 375 | | |
