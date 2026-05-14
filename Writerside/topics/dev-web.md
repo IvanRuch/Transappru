@@ -532,14 +532,44 @@ spec, browsers use only the first `<title>` they see — so a static
 the tab would fall back to displaying the URL ("`localhost:8081/auto-list`").
 
 Solution: feed the title through helmet via `expo-router/head` instead.
-`src/components/web/DynamicTitle.tsx` calls `usePathname()`, looks up the
-current route in a `STATIC_TITLES` map (with a few `DYNAMIC_TITLES`
+`src/components/web/DynamicTitle.web.tsx` calls `usePathname()`, looks up
+the current route in a `STATIC_TITLES` map (with a few `DYNAMIC_TITLES`
 regex entries for things like `/auto/[id]`), and renders
 `<Head><title>...</title></Head>`. Helmet swaps the empty placeholder for
 this value — single, correct `<title>` tag.
 
 Mounted in `app/_layout.tsx` **above** the splash early-return so static
 SSG and the splash screen both carry a valid title.
+
+**Platform split (`.web.tsx` + native stub).** `expo-router/head` on
+native (iOS/Android) drives Apple Continuity / Handoff via
+`NSUserActivity` and requires a canonical web origin baked into the
+native binary at build time through the `expo-router` Config Plugin's
+`origin` option. Without it the native runtime throws:
+
+```
+Expo Head: Add the handoff origin to the Expo Config (requires rebuild).
+Add the Config Plugin { plugins: [["expo-router", { origin: "..." }]] }
+```
+
+Native screen titles are owned by the navigation bar, not by HTML
+`<title>` — so the component is split:
+
+| File | Platform | Behavior |
+|------|----------|----------|
+| `DynamicTitle.web.tsx` | web | Real impl: `usePathname()` → lookup → `<Head><title>` |
+| `DynamicTitle.tsx` | iOS, Android | No-op stub: `() => null` |
+
+Metro's platform-specific resolution picks up `.web.tsx` for web builds
+and the bare `.tsx` for native. The import site in `app/_layout.tsx`
+stays platform-agnostic: `import { DynamicTitle } from '@/src/components/web/DynamicTitle'`.
+
+**Revisit trigger (Handoff/Continuity)**: when the `lk.transapp.ru`
+cutover lands (see plan `2026-05-06-lk-transapp-cutover.md`, ADR-017)
+and a stable canonical production origin is in place, add
+`["expo-router", { origin: "https://<prod-host>" }]` to `app.json`
+`plugins`, do `npx expo prebuild --clean` + EAS rebuild, and replace the
+native stub body with the same implementation as the web file.
 
 | Route | Title |
 |-------|-------|

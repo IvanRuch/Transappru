@@ -1,63 +1,36 @@
-// Sets the browser tab <title> per route through expo-router/head, which
-// feeds the value into the same react-helmet-async <title data-rh="true">
-// that Expo Router injects first in <head>. Without this, the helmet tag
-// stays empty and browsers fall back to displaying the URL in the tab.
+// Native (iOS / Android) stub for `DynamicTitle`.
 //
-// Lookup-table approach: cheaper than spreading <Head> across 30 screen
-// files, and gives one obvious place to edit when adding a route or
-// renaming a section.
+// On web, `DynamicTitle.web.tsx` renders `<Head><title>...</title></Head>` via
+// `expo-router/head` to keep the browser tab title in sync with the current
+// route. On native that same `<Head>` mounts Apple Continuity / Handoff via
+// `NSUserActivity`, which **requires** the canonical web origin to be baked
+// into the native binary at build time (Expo Config Plugin `expo-router`
+// `origin` option). Without it, the native runtime throws:
+//
+//   "Expo Head: Add the handoff origin to the Expo Config (requires rebuild).
+//    Add the Config Plugin { plugins: [["expo-router", { origin: "..." }]] }"
+//
+// We intentionally render `null` on native because:
+//   1. iOS/Android screen titles are owned by the native navigation bar, not
+//      by HTML `<title>`. `DynamicTitle` is purely a browser-tab concern.
+//   2. Handoff has no user value while the web app lives on the staging
+//      domain `transapp-dev.ru` behind an auth-gate without cross-device
+//      session continuity — a Mac receiving the Handoff link would land on
+//      the login screen.
+//
+// TODO(continuity): Revisit once the lk.transapp.ru cutover lands and the
+// web app has a stable canonical production origin (see
+// `.claude/plans/2026-05-06-lk-transapp-cutover.md`, ADR-017). At that point,
+// to enable Apple Handoff:
+//   1. Add `["expo-router", { origin: "https://<prod-host>" }]` to the
+//      `plugins` array in `app.json` (or `app.config.*`).
+//   2. Rebuild native: `npx expo prebuild --clean` followed by a fresh EAS
+//      build / dev client. The `origin` value is baked into the native
+//      binary at build time and cannot be changed at runtime.
+//   3. Replace the body of this stub with the same implementation as
+//      `DynamicTitle.web.tsx`. Metro's platform-specific resolution will
+//      pick up this file on native and `.web.tsx` on web.
 
-import Head from 'expo-router/head';
-import { usePathname } from 'expo-router';
-
-const SUFFIX = ' — TransApp';
-const DEFAULT_TITLE = 'TransApp — управление автопарком и штрафами';
-
-// Static path → title (no suffix applied; full title written explicitly)
-const STATIC_TITLES: Record<string, string> = {
-  '/': DEFAULT_TITLE,
-  '/pin': `Вход${SUFFIX}`,
-  '/onboarding': `Знакомство${SUFFIX}`,
-  '/user': `Профиль${SUFFIX}`,
-  '/invite-user': `Пригласить${SUFFIX}`,
-  '/deleted': `Аккаунт удалён${SUFFIX}`,
-  '/auto-list': `Автопарк${SUFFIX}`,
-  '/main': `Главная${SUFFIX}`,
-  '/charges': `Штрафы${SUFFIX}`,
-  '/drivers': `Водители${SUFFIX}`,
-  '/services': `Услуги${SUFFIX}`,
-  '/notifications': `Уведомления${SUFFIX}`,
-  '/notification-settings': `Настройки уведомлений${SUFFIX}`,
-  '/pass': `Пропуска${SUFFIX}`,
-  '/pass-yamap': `Карта пропусков${SUFFIX}`,
-  '/inn': `Привязка ИНН${SUFFIX}`,
-  '/auto-fine': `Штраф${SUFFIX}`,
-  '/auto-driver': `Водитель авто${SUFFIX}`,
-  '/del-user': `Удаление аккаунта${SUFFIX}`,
-  '/fine-payment-select': `Оплата штрафа${SUFFIX}`,
-  '/fine-payment-confirm': `Подтверждение оплаты${SUFFIX}`,
-  '/fine-payment-success': `Оплата выполнена${SUFFIX}`,
-  '/fine-payment-webview': `Оплата${SUFFIX}`,
-};
-
-// Dynamic patterns — order-sensitive: first match wins.
-const DYNAMIC_TITLES: Array<{ test: (path: string) => boolean; title: string }> = [
-  { test: (p) => /^\/auto\/[^/]+$/.test(p), title: `Авто${SUFFIX}` },
-];
-
-function resolveTitle(pathname: string): string {
-  if (STATIC_TITLES[pathname]) return STATIC_TITLES[pathname];
-  for (const entry of DYNAMIC_TITLES) {
-    if (entry.test(pathname)) return entry.title;
-  }
-  return DEFAULT_TITLE;
-}
-
-export function DynamicTitle() {
-  const pathname = usePathname();
-  return (
-    <Head>
-      <title>{resolveTitle(pathname)}</title>
-    </Head>
-  );
+export function DynamicTitle(): null {
+  return null;
 }
