@@ -45,7 +45,7 @@ Use legacy apps as reference to ensure nothing useful is missed.
 |---------------|------------------|-----------|-------|
 | Auth (`Auth.js`) | `screens/auth/AuthScreen.tsx` | ✅ Done | `.web.tsx`: two-column layout, HTML input, phone formatting, cursor lock after "+7" |
 | PIN (`Pin.js`) | `screens/auth/PinScreen.tsx` | ✅ Done | `.web.tsx`: 4 separate OTP-style digit fields, auto-advance, backspace, paste support |
-| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar, equal-height cards per row (via `fillHeight` on `AutoListItem`) |
+| Auto list (`AutoList.js`) | `screens/auto/AutoListScreen.tsx` | ✅ Done | `.web.tsx`: responsive grid, inline search bar, equal-height cards per row (via `fillHeight` on `AutoListItem`). Card button row uses **proportional flex by label length** — see "Auto card button row layout" below |
 | Auto detail (`Auto.js`) | `screens/auto/AutoDetailScreen.tsx` | ✅ Done | `.web.tsx`: functional component, 8 tabs split into `web/` sub-components, HTML file upload, browser download, responsive tab bar |
 | Driver list (`DriverList.js`) | `screens/drivers/DriverListScreen.tsx` | ✅ Done | `.web.tsx`: wraps DriversTab in WebAppLayout |
 | INN (`Inn.js`) | `screens/inn/InnScreen.tsx` | ✅ Done | `.web.tsx`: INN binding + RNIS check, latin→cyrillic |
@@ -163,6 +163,106 @@ plus cross-cutting helpers. Screens become thin orchestrators. Visual parity bet
 4. Replace `Alert.alert` / `window.alert` with `showAlert()`
 5. Replace inline headers with `<ScreenHeader>`
 6. Add web a11y polish (ARIA where applicable, keyboard nav, loading states)
+
+## Auto card button row layout
+
+`AutoListItem` (shared between mobile and web via ADR-005) renders two
+rows of toggle buttons inside each card:
+
+| Row | Buttons (RU labels) | Label lengths | `flex` per button |
+|---|---|---|---|
+| 1 | «Штрафы», «Платные дороги» | 7, 14 chars | **7, 14** |
+| 2 | «ОСАГО», «ДК», «РНИС» | 5, 2, 4 chars | 1, 1, 1 |
+
+**Why proportional, not plain `flex: 1`.** Equal `flex: 1` on Row 1
+forced the longer label to wrap to a second visual line on narrow
+cards (e.g. 4-column grid on a 16-inch laptop: 1680px viewport / 240px
+sidebar → ~348px card → ~150px per button → «Платные дороги» + chevron
+icon overflowed and wrapped). Proportional flex (`7 : 14` ≈ `1 : 2`
+mirrors the underlying character-count ratio) gives the longer button
+twice the horizontal real estate, which leaves comfortable padding at
+every grid width.
+
+**Row 2 stays `flex: 1`** for each button because all three labels are
+short (≤ 5 chars) and any allocation strategy produces visually
+acceptable results; equal flex keeps the row symmetric.
+
+### Pass-row cells (above the button rows)
+
+Same rationale applies to the pass-info row that sits above the toggle
+buttons. The row shows up to four cells:
+
+| Cell | Source / typical content | `flex` | Width % |
+|---|---|---|---|
+| Icon | `pass_item.png` (20×20 fixed image) | **2** | 10% |
+| Тип пропуска | `item.check_passes_year_propusktype` («СК», «МКАД», «ТТК», …; 2–4 chars) | **3** | 15% |
+| Тип действия | `item.check_passes_year_type_of_pass_string` («Дневной», «Ночной», «Круглосуточный»; 6–14 chars) | **6** | 30% |
+| Статус | «Действителен» / «Аннулирован» (fixed, 11–12 chars) | **9** | 45% |
+
+Total 20 units across the four cells. The `2 / 3 / 6 / 9` ratio reflects
+the actual rendered width of each label class:
+
+- Cyrillic at the default 14pt RN font averages ~9.5px per character,
+  so «Действителен» renders at ~114px — needs at least a 134px cell
+  to read comfortably with ~10px of horizontal padding on each side.
+- «Дневной» (~66px rendered) is the median label; its column also has
+  to accept the outlier «Круглосуточный» (~133px), which truncates via
+  `numberOfLines={1}` when present.
+- «СК» / «МКАД» / «ТТК» fit in a much narrower cell (~45px) so the
+  column doesn't waste space and visually balances the row.
+
+Previous allocations `1 / 2 / 2 / 3` (total 8) and `1 / 2 / 3 / 4`
+(total 10) gave 25–40% of row width to the propusktype column while
+squeezing status to 37.5–40%. Visually the propusktype cell looked
+overpadded while «Действителен» either truncated to «Действител…»
+(when guarded by `numberOfLines={1}`) or quietly overflowed its cell
+(when not) — both unacceptable on a 4-column 16-inch layout.
+
+**Secondary pass-row** («Еще один пропуск» for cars with two passes)
+uses the same `2 / 3 / 6 / 9` allocation for visual parity.
+
+**Status заявки row** (3 cells, no icon column) uses `2 / 3 / 5`
+(total 10) — different label set (`status_header` is typically 10–20
+chars, independent calibration).
+
+**Fallback / loading-state rows** use `flex 18` for the single content
+cell next to the icon (icon `flex 2` + content `flex 18` = data-row
+total 20) — visual parity with cards that have full pass data.
+
+`styles.passCell` uses `minHeight: 29` (not fixed `height`) so any
+unexpected wrap won't break the row's vertical rhythm.
+`styles.passCellText` carries `flexShrink: 1` + `minWidth: 0` for the
+same RN-Web ellipsis reason as `checkTabText`. Every dynamic-text Text
+inside a pass-row cell is `numberOfLines={1}` (guardrail against
+unusually long propusktype / type strings).
+
+**Stylesheet contract** (`src/components/auto/AutoListItem.tsx`,
+`styles.checksRow` + `styles.checkTab` + `styles.checkTabInner` +
+`styles.checkTabText`):
+
+- `checksRow` uses `gap: 6` instead of per-tab `marginRight` — no
+  trailing-child special case, additions/removals don't ripple.
+- `checkTab` defines `minHeight: 29` (not fixed `height`) +
+  `paddingHorizontal: 8` / `paddingVertical: 4` + `borderRadius: 4`.
+  No `flex` in the base style — set inline at the call site.
+- `checkTabInner` is the row-flex container for `<Text> + <Image>`
+  with `flexShrink: 1` + `minWidth: 0` so the Text child can truncate
+  via `numberOfLines={1}` instead of pushing the chevron past the
+  right edge.
+- `checkTabText` carries the same `flexShrink: 1` + `minWidth: 0` —
+  required for RN-Web to apply `text-overflow: ellipsis` when
+  `numberOfLines={1}` is set on a Text inside a row-flex parent.
+- Every `<Text>` inside a check tab is given `numberOfLines={1}` as a
+  guardrail. If the proportional ratio is ever miscalibrated (e.g. a
+  future label exceeds 14 chars), text truncates with `…` instead of
+  silently wrapping and breaking the card's vertical rhythm.
+
+**Rule for adding new toggle buttons to the row**: compute `flex` as
+the character count of the label (rounded). If the new button shares a
+row with siblings, keep the same ratio logic — the sum of all `flex`
+values is the only thing that matters for distribution, so adding a
+6-char button to Row 2 next to «ОСАГО»/«ДК»/«РНИС» as `flex: 6` next
+to `flex: 5 / 2 / 4` produces visually proportional widths.
 
 ## Yandex Maps (Web — ADR-004)
 

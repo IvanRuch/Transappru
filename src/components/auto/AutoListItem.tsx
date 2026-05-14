@@ -93,36 +93,44 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
         {item.check_passes_expared == 0 ? (
           <>
             <View style={styles.passRow}>
-              {/* Иконка пропуска */}
-              <View style={[styles.passCell, { flex: 1, backgroundColor: getBgColor('white'), marginRight: 5 }]}>
+              {/* Иконка пропуска — flex 2 (icon column = 10% при total 20) */}
+              <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white'), marginRight: 5 }]}>
                 <Image source={require('../../../assets/images/pass_item.png')} />
               </View>
 
               {item.check_passes_year_propusktype && item.check_passes_year_propusktype !== '' ? (
                 <>
-                  {/* СК */}
-                  <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                    <Text style={styles.passCellText}>{item.check_passes_year_propusktype}</Text>
+                  {/* СК (тип пропуска) — flex 3 (15%); короткие лейблы (СК/МКАД/ТТК) */}
+                  <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('white') }]}>
+                    <Text numberOfLines={1} style={styles.passCellText}>
+                      {item.check_passes_year_propusktype}
+                    </Text>
                   </View>
-                  {/* Дневной */}
-                  <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                    <Text style={styles.passCellText}>{item.check_passes_year_type_of_pass_string}</Text>
+                  {/* Тип действия — flex 6 (30%); «Дневной»/«Ночной»/«Круглосуточный» */}
+                  <View style={[styles.passCell, { flex: 6, backgroundColor: getBgColor('white') }]}>
+                    <Text numberOfLines={1} style={styles.passCellText}>
+                      {item.check_passes_year_type_of_pass_string}
+                    </Text>
                   </View>
-                  {/* Действителен/Аннулирован */}
+                  {/* Действителен/Аннулирован — flex 9 (45%); самый длинный лейбл в строке */}
                   {item.check_passes_year_cancelled != 1 ? (
-                    <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('green') }]}>
-                      <Text style={{ color: getTextColor('green') }}>Действителен</Text>
+                    <View style={[styles.passCell, { flex: 9, backgroundColor: getBgColor('green') }]}>
+                      <Text numberOfLines={1} style={[styles.passCellText, { color: getTextColor('green') }]}>
+                        Действителен
+                      </Text>
                     </View>
                   ) : (
-                    <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('red') }]}>
-                      <Text style={{ color: getTextColor('red') }}>Аннулирован</Text>
+                    <View style={[styles.passCell, { flex: 9, backgroundColor: getBgColor('red') }]}>
+                      <Text numberOfLines={1} style={[styles.passCellText, { color: getTextColor('red') }]}>
+                        Аннулирован
+                      </Text>
                     </View>
                   )}
                 </>
               ) : (
-                // Если нет детальных данных, но есть строка - показываем ее в одном блоке
-                // Если и строки нет - показываем "нет данных"
-                <View style={[styles.passCell, { flex: 7, backgroundColor: getBgColor('white') }]}>
+                // Если нет детальных данных, но есть строка - показываем ее в одном блоке.
+                // Если и строки нет - показываем "нет данных". flex 18 = data-row total (20) − icon (2).
+                <View style={[styles.passCell, { flex: 18, backgroundColor: getBgColor('white') }]}>
                   <Text style={styles.passCellText}>{item.check_passes_string || 'нет данных'}</Text>
                 </View>
               )}
@@ -148,19 +156,25 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             )}
 
-            {/* Еще один пропуск (если есть) */}
+            {/* Еще один пропуск (если есть) — те же flex-пропорции (2/3/6/9 = 20), что и у первичного pass-row */}
             {item.check_passes_another_year_propusktype && item.check_passes_another_year_propusktype !== '' && (
               <>
                 <View style={styles.passRow}>
-                  <View style={[styles.passCell, { flex: 1, marginRight: 5 }]} />
-                  <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                    <Text style={styles.passCellText}>{item.check_passes_another_year_propusktype}</Text>
+                  <View style={[styles.passCell, { flex: 2, marginRight: 5 }]} />
+                  <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('white') }]}>
+                    <Text numberOfLines={1} style={styles.passCellText}>
+                      {item.check_passes_another_year_propusktype}
+                    </Text>
                   </View>
-                  <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                    <Text style={styles.passCellText}>{item.check_passes_another_year_type_of_pass_string}</Text>
+                  <View style={[styles.passCell, { flex: 6, backgroundColor: getBgColor('white') }]}>
+                    <Text numberOfLines={1} style={styles.passCellText}>
+                      {item.check_passes_another_year_type_of_pass_string}
+                    </Text>
                   </View>
-                  <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('green') }]}>
-                    <Text style={{ color: getTextColor('green') }}>Действителен</Text>
+                  <View style={[styles.passCell, { flex: 9, backgroundColor: getBgColor('green') }]}>
+                    <Text numberOfLines={1} style={[styles.passCellText, { color: getTextColor('green') }]}>
+                      Действителен
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.daysRow}>
@@ -178,10 +192,11 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
           </>
         ) : (
           <View style={styles.passRow}>
-            <View style={[styles.passCell, { flex: 1, backgroundColor: getBgColor('white'), marginRight: 5 }]}>
+            <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white'), marginRight: 5 }]}>
               <Image source={require('../../../assets/images/pass_item.png')} />
             </View>
-            <View style={[styles.passCell, { flex: 6, backgroundColor: getBgColor('white') }]}>
+            {/* flex 18 = data-row total (20) − icon (2) — visual parity с pass-row */}
+            <View style={[styles.passCell, { flex: 18, backgroundColor: getBgColor('white') }]}>
               <View style={{ alignItems: 'center', flexDirection: 'row' }}>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
                 <Text style={[styles.passCellText, { paddingLeft: 10 }]}>обновление...</Text>
@@ -190,18 +205,18 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
           </View>
         )}
 
-        {/* Статус заявки */}
+        {/* Статус заявки — 3 cell-row, оставляем без icon-колонки; ratio 2 / 3 / 5 параллельно pass-row data total */}
         {!!item.status_header && item.status_header !== '' && (
           <>
             <View style={styles.passRow}>
               <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                <Text style={styles.passCellText}>{item.status_propusktype}</Text>
+                <Text numberOfLines={1} style={styles.passCellText}>{item.status_propusktype}</Text>
               </View>
-              <View style={[styles.passCell, { flex: 2, backgroundColor: getBgColor('white') }]}>
-                <Text style={styles.passCellText}>{item.status_type_of_pass_string}</Text>
+              <View style={[styles.passCell, { flex: 3, backgroundColor: getBgColor('white') }]}>
+                <Text numberOfLines={1} style={styles.passCellText}>{item.status_type_of_pass_string}</Text>
               </View>
-              <View style={[styles.passCell, { flex: 4, backgroundColor: getBgColor('yellow') }]}>
-                <Text style={{ fontSize: 14, color: getTextColor('yellow') }}>
+              <View style={[styles.passCell, { flex: 5, backgroundColor: getBgColor('yellow') }]}>
+                <Text numberOfLines={1} style={[styles.passCellText, { color: getTextColor('yellow') }]}>
                   {item.status_header}
                 </Text>
               </View>
@@ -229,16 +244,21 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
 
         {/* Штрафы - Платные дороги */}
         <View style={styles.checksRow}>
-          {/* Штрафы */}
+          {/* Штрафы — flex 7 (label length proxy) */}
           {item.check_fines_expared == 0 ? (
             <TouchableHighlight
-              style={[styles.checkTab, { backgroundColor: getBgColor(item.check_fines_color || 'white') }]}
+              style={[styles.checkTab, { flex: 7, backgroundColor: getBgColor(item.check_fines_color || 'white') }]}
               activeOpacity={1}
               underlayColor={getBgColor(item.check_fines_color || 'white')}
               onPress={() => onShowHideTab('fines', index)}
             >
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: getTextColor(item.check_fines_color || 'white') }}>Штрафы</Text>
+              <View style={styles.checkTabInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.checkTabText, { color: getTextColor(item.check_fines_color || 'white') }]}
+                >
+                  Штрафы
+                </Text>
                 {item.check_fines_tab_show != 0 ? (
                   <Image source={require('../../../assets/images/arrow_hide.png')} />
                 ) : (
@@ -247,24 +267,31 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             </TouchableHighlight>
           ) : (
-            <View style={[styles.checkTab, { backgroundColor: getBgColor('white') }]}>
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: '#3A3A3A', paddingRight: 5 }}>Штрафы</Text>
+            <View style={[styles.checkTab, { flex: 7, backgroundColor: getBgColor('white') }]}>
+              <View style={styles.checkTabInner}>
+                <Text numberOfLines={1} style={[styles.checkTabText, { color: '#3A3A3A', paddingRight: 5 }]}>
+                  Штрафы
+                </Text>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
               </View>
             </View>
           )}
 
-          {/* Платные дороги */}
+          {/* Платные дороги — flex 14 (label twice as long as Штрафы) */}
           {item.check_avtodor_expared == 0 ? (
             <TouchableHighlight
-              style={[styles.checkTab, { backgroundColor: getBgColor(item.check_avtodor_color || 'white') }]}
+              style={[styles.checkTab, { flex: 14, backgroundColor: getBgColor(item.check_avtodor_color || 'white') }]}
               activeOpacity={1}
               underlayColor={getBgColor(item.check_avtodor_color || 'white')}
               onPress={() => onShowHideTab('avtodor', index)}
             >
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: getTextColor(item.check_avtodor_color || 'white') }}>Платные дороги</Text>
+              <View style={styles.checkTabInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.checkTabText, { color: getTextColor(item.check_avtodor_color || 'white') }]}
+                >
+                  Платные дороги
+                </Text>
                 {item.check_avtodor_tab_show != 0 ? (
                   <Image source={require('../../../assets/images/arrow_hide.png')} />
                 ) : (
@@ -273,9 +300,11 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             </TouchableHighlight>
           ) : (
-            <View style={[styles.checkTab, { backgroundColor: getBgColor('white') }]}>
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: '#3A3A3A', paddingRight: 5 }}>Платные дороги</Text>
+            <View style={[styles.checkTab, { flex: 14, backgroundColor: getBgColor('white') }]}>
+              <View style={styles.checkTabInner}>
+                <Text numberOfLines={1} style={[styles.checkTabText, { color: '#3A3A3A', paddingRight: 5 }]}>
+                  Платные дороги
+                </Text>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
               </View>
             </View>
@@ -284,16 +313,21 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
 
         {/* ОСАГО - ДК */}
         <View style={styles.checksRow}>
-          {/* ОСАГО */}
+          {/* ОСАГО — flex 1 */}
           {item.check_osago_expared == 0 ? (
             <TouchableHighlight
-              style={[styles.checkTab, { backgroundColor: getBgColor(item.check_osago_period_color || 'white') }]}
+              style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor(item.check_osago_period_color || 'white') }]}
               activeOpacity={1}
               underlayColor={getBgColor(item.check_osago_period_color || 'white')}
               onPress={() => onShowHideTab('osago', index)}
             >
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: getTextColor(item.check_osago_period_color || 'white') }}>ОСАГО</Text>
+              <View style={styles.checkTabInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.checkTabText, { color: getTextColor(item.check_osago_period_color || 'white') }]}
+                >
+                  ОСАГО
+                </Text>
                 {item.check_osago_tab_show != 0 ? (
                   <Image source={require('../../../assets/images/arrow_hide.png')} />
                 ) : (
@@ -302,24 +336,31 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             </TouchableHighlight>
           ) : (
-            <View style={[styles.checkTab, { backgroundColor: getBgColor('white') }]}>
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: '#3A3A3A', paddingRight: 5 }}>ОСАГО</Text>
+            <View style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor('white') }]}>
+              <View style={styles.checkTabInner}>
+                <Text numberOfLines={1} style={[styles.checkTabText, { color: '#3A3A3A', paddingRight: 5 }]}>
+                  ОСАГО
+                </Text>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
               </View>
             </View>
           )}
 
-          {/* ДК */}
+          {/* ДК — flex 1 */}
           {item.check_diagnostic_card_expared == 0 ? (
             <TouchableHighlight
-              style={[styles.checkTab, { backgroundColor: getBgColor(item.check_diagnostic_card_period_color || 'white') }]}
+              style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor(item.check_diagnostic_card_period_color || 'white') }]}
               activeOpacity={1}
               underlayColor={getBgColor(item.check_diagnostic_card_period_color || 'white')}
               onPress={() => onShowHideTab('diagnostic_card', index)}
             >
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: getTextColor(item.check_diagnostic_card_period_color || 'white') }}>ДК</Text>
+              <View style={styles.checkTabInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.checkTabText, { color: getTextColor(item.check_diagnostic_card_period_color || 'white') }]}
+                >
+                  ДК
+                </Text>
                 {item.check_diagnostic_card_tab_show != 0 ? (
                   <Image source={require('../../../assets/images/arrow_hide.png')} />
                 ) : (
@@ -328,24 +369,31 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             </TouchableHighlight>
           ) : (
-            <View style={[styles.checkTab, { backgroundColor: getBgColor('white') }]}>
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: '#3A3A3A', paddingRight: 5 }}>ДК</Text>
+            <View style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor('white') }]}>
+              <View style={styles.checkTabInner}>
+                <Text numberOfLines={1} style={[styles.checkTabText, { color: '#3A3A3A', paddingRight: 5 }]}>
+                  ДК
+                </Text>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
               </View>
             </View>
           )}
 
-          {/* РНИС */}
+          {/* РНИС — flex 1 */}
           {item.check_rnis_expared == 0 ? (
             <TouchableHighlight
-              style={[styles.checkTab, { backgroundColor: getBgColor(item.check_rnis_color || 'white') }]}
+              style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor(item.check_rnis_color || 'white') }]}
               activeOpacity={1}
               underlayColor={getBgColor(item.check_rnis_color || 'white')}
               onPress={() => onShowHideTab('rnis', index)}
             >
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: getTextColor(item.check_rnis_color || 'white') }}>РНИС</Text>
+              <View style={styles.checkTabInner}>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.checkTabText, { color: getTextColor(item.check_rnis_color || 'white') }]}
+                >
+                  РНИС
+                </Text>
                 {item.check_rnis_tab_show != 0 ? (
                   <Image source={require('../../../assets/images/arrow_hide.png')} />
                 ) : (
@@ -354,9 +402,11 @@ export const AutoListItem = memo(({ item, index, onPress, onMark, onShowHideTab,
               </View>
             </TouchableHighlight>
           ) : (
-            <View style={[styles.checkTab, { backgroundColor: getBgColor('white') }]}>
-              <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                <Text style={{ color: '#3A3A3A', paddingRight: 5 }}>РНИС</Text>
+            <View style={[styles.checkTab, { flex: 1, backgroundColor: getBgColor('white') }]}>
+              <View style={styles.checkTabInner}>
+                <Text numberOfLines={1} style={[styles.checkTabText, { color: '#3A3A3A', paddingRight: 5 }]}>
+                  РНИС
+                </Text>
                 <ActivityIndicator size="small" color="#313131" animating={true} />
               </View>
             </View>
@@ -484,13 +534,24 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   passCell: {
+    // Per-cell `flex` is set inline at the call site, proportional to
+    // the longest realistic content of each column (icon 1, propusktype
+    // 2, type 3, status 4 → total 10). `minHeight` instead of fixed
+    // `height` so the cell can absorb an unexpected wrap without
+    // breaking the row's vertical rhythm.
     alignItems: 'center',
-    height: 29,
+    minHeight: 29,
     padding: 5,
     marginRight: 5,
     justifyContent: 'center',
   },
   passCellText: {
+    // flexShrink + minWidth:0 let RN-Web apply text-overflow:ellipsis
+    // when numberOfLines={1} is set on the Text inside the row-flex
+    // parent. Without these, the Text refuses to shrink below content
+    // width and overflows past the cell's right edge.
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 14,
     color: '#3A3A3A',
   },
@@ -508,15 +569,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     marginTop: 10,
+    // `gap` replaces per-tab marginRight — no need to special-case the
+    // last child and visual rhythm stays consistent when buttons are
+    // added or removed from the row.
+    gap: 6,
   },
   checkTab: {
-    flex: 1,
+    // Per-button `flex` is set inline at the call site, proportional to
+    // label length (Row 1: «Штрафы» 7 vs «Платные дороги» 14 → flex 7
+    // vs 14; Row 2: «ОСАГО»/«ДК»/«РНИС» → flex 1 each). Plain `flex: 1`
+    // on Row 1 forced the longer label to wrap to a second visual line
+    // on narrow cards (e.g. 4-column grid on 16-inch laptops).
     alignItems: 'center',
-    height: 29,
-    padding: 5,
-    marginRight: 5,
+    minHeight: 29,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     justifyContent: 'center',
     borderRadius: 4,
+  },
+  checkTabInner: {
+    // flexShrink lets the inner row collapse below its content size when
+    // the parent button doesn't have enough room — the Text child can
+    // then truncate via numberOfLines={1} instead of pushing the icon
+    // past the right edge.
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  checkTabText: {
+    // Same rationale: a Text inside a row-flex needs flexShrink:1 +
+    // minWidth:0 for RN-Web to apply text-overflow:ellipsis when
+    // numberOfLines={1} is set.
+    flexShrink: 1,
+    minWidth: 0,
   },
   detailsRow: {
     flexDirection: 'row',
