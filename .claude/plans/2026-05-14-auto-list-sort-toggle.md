@@ -301,10 +301,12 @@ shared hook + один shared sub-component по ADR-003/ADR-005).
 
 ## Follow-ups (отдельные задачи, не часть этого плана)
 
-1. **`useAutoData.ts:238-245`** — странная логика переписи `autoListCount`
-   на `newItems.length` при фильтрах на первой странице. Может приводить к
-   преждевременной остановке дозагрузки в режиме «Алфавит» при определённых
-   фильтрах. Отдельный issue → отдельный PR. Не блокирует этот план.
+1. ~~**`useAutoData.ts:238-245`** — странная логика переписи `autoListCount`
+   на `newItems.length` при фильтрах на первой странице.~~ **Resolved
+   (ADR-019, 2026-05-14)** — defensive branch removed, server's
+   `auto_list_count` (with filters applied) is now trusted unconditionally.
+   Regression test `filter with partial result on first page does not
+   block loadMore` added in `useAutoData.test.tsx`.
 2. **`/get-auto-list` дублирование между `WebSidebar` и `AutoListScreen`**
    (`dev-web.md:462-466`) — известная минорная избыточность. Митигация
    через `AbortController` уже есть. Если станет проблемой —

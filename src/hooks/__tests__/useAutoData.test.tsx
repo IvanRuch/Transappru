@@ -326,4 +326,53 @@ describe('useAutoData', () => {
     expect(result.current.sortBannerDismissed).toBe(true);
     expect(await AsyncStorage.getItem('ta_sort_banner_dismissed')).toBe('1');
   });
+
+  // ───────── ADR-019: trust server auto_list_count for filtered lists ─────────
+
+  it('filter with partial result on first page does not block loadMore', async () => {
+    // Regression test for ADR-018 follow-up #1, fixed in ADR-019.
+    //
+    // Before ADR-019 useAutoData overwrote `autoListCount` to the current
+    // page size whenever `hasActiveFilters && requestOffset === 0 &&
+    // newItems.length < serverCount`. That made `loadMore` exit early on
+    // its `autoListLength >= autoListCount` guard, silently leaving the
+    // user with only the first page of filtered results — the extra
+    // matches on the next page were unreachable.
+    //
+    // Fix: trust the server's `auto_list_count` (which already accounts
+    // for active filters) unconditionally.
+    server.use(
+      http.post(GET_AUTO_LIST, async ({ request }) => {
+        const body: any = await request.json();
+        const offset: number = body.auto_list_from || 0;
+        // First page: 8 items, second page: 4 items, filtered total = 12.
+        const page = offset === 0
+          ? makeAutoList(8)
+          : makeAutoList(4).map((it, i) => ({
+              ...it,
+              id: String(9 + i),
+              auto_number: `А${800 + i}АА77`,
+              auto_number_base: `А${800 + i}АА`,
+            }));
+        return HttpResponse.json(makeGetAutoListResponse({
+          auto_list: page,
+          auto_list_count: '12',
+        }));
+      }),
+    );
+
+    const { result } = renderHook(() => useAutoData());
+
+    // Applying a filter triggers a fresh fetch with offset=0 (debounced
+    // inside setFilterValue, so we wait for the resulting list).
+    act(() => { result.current.setFilterValue('autoStr', 'А8'); });
+    await waitFor(() => expect(result.current.autoList).toHaveLength(8));
+
+    // Critical: server's filtered total is preserved, NOT overwritten to
+    // the page size. Otherwise loadMore below would no-op.
+    expect(result.current.autoListCount).toBe('12');
+
+    await act(async () => { await result.current.loadMore(); });
+    await waitFor(() => expect(result.current.autoList).toHaveLength(12));
+  });
 });

@@ -315,14 +315,13 @@ export function useAutoData() {
         });
       }
 
-      // Обновление счетчика
-      const serverCount = data.auto_list_count || 0;
-      const hasActiveFilters = Object.values(requestFilters).some(v => !!v);
-      if (hasActiveFilters && requestOffset === 0 && newItems.length < serverCount) {
-        setAutoListCount(newItems.length);
-      } else {
-        setAutoListCount(serverCount);
-      }
+      // Обновление счётчика. Backend возвращает `auto_list_count` с учётом
+      // активных фильтров (отфильтрованный total), поэтому используем это
+      // значение напрямую и в первой странице, и в дозагрузке. Это
+      // согласовано с `loadMore` проверкой `autoListLength >= autoListCount`
+      // — она корректно остановится только когда мы реально догрузили всё
+      // отфильтрованное множество. См. ADR-019.
+      setAutoListCount(data.auto_list_count || 0);
 
       return data;
     } catch (error: any) {

@@ -1403,3 +1403,82 @@ through deletion of code, not rollback. If backend never ships
 `sort_by` and customers exceed ~1000 vehicles, we need to add
 background batch loading to `plate_digits` mode (Variant B2 in the
 plan) — that's a refinement of Phase 1, not a full reversal.
+
+---
+
+### ADR-019: Trust server `auto_list_count` for filtered lists (2026-05-14)
+
+**Context.** From the very first commit of `useAutoData.ts` (`73b82c8`,
+February 2026) the count-update block carried a defensive special case:
+
+```ts
+const hasActiveFilters = Object.values(requestFilters).some(v => !!v);
+if (hasActiveFilters && requestOffset === 0 && newItems.length < serverCount) {
+  setAutoListCount(newItems.length);    // <-- overwrites server's filtered total
+} else {
+  setAutoListCount(serverCount);
+}
+```
+
+No commit message or surrounding comment explained the rationale. The
+ADR-018 follow-up section flagged the block as suspicious. A research
+pass during that follow-up confirmed there is a real bug attached:
+
+- User applies a filter (e.g. plate search `autoStr=А1`).
+- Server returns the first 8 of 12 matching cars on page one
+  (`auto_list_count = 12`, `newItems.length = 8`).
+- `hasActiveFilters && requestOffset === 0 && 8 < 12` ⇒ the block
+  overwrites `autoListCount` from `12` to `8`.
+- `loadMore` then short-circuits on its `autoListLength >= autoListCount`
+  guard (`8 >= 8`) — the remaining four matches are unreachable.
+
+After ADR-018 Phase 1 the same block also became logically inconsistent
+in `plate_digits` mode: it checks `requestOffset` instead of the
+post-Phase-1 `effectiveOffset`. The bug is not user-visible there
+because `loadMore` is already a no-op for that mode, but it is a code
+smell that gets harder to reason about as the hook grows.
+
+The legacy `/get-auto-list` backend on `ivan.trans-konsalt.ru` already
+returns `auto_list_count` accounting for active filters (confirmed via
+existing PR #16 probe + ADR-018 testing under MSW).
+
+**Decision.** Drop the special case entirely. Always write
+`setAutoListCount(data.auto_list_count || 0)`. Add a regression test
+in `useAutoData.test.tsx` that mimics the partial-first-page scenario
+and asserts `loadMore` reaches the full filtered total.
+
+**Rationale.**
+
+- The defensive branch was protecting against a backend bug that does
+  not exist in the current contract. Removing it eliminates the real,
+  reproducible loadMore-block bug (ADR-018 follow-up #1).
+- Single source of truth for count: the server. If backend ever ships
+  a wrong count, the right fix is in backend, not in frontend
+  compensation that silently truncates user-visible data.
+- Removes a code path that would need separate Phase 2 review
+  (`requestOffset` vs `effectiveOffset` mismatch). After the deletion
+  the count update is invariant to sort mode.
+- Considered alternatives:
+  - Keep the branch but switch `requestOffset` to `effectiveOffset` —
+    addresses the Phase 1 inconsistency but leaves the original
+    loadMore-block bug untouched.
+  - Run a live probe against `/get-auto-list` before deciding —
+    overkill; the regression test under MSW is enough, and any
+    backend regression would surface during manual QA on staging.
+
+**Consequences.**
+
+- `useAutoData.ts` loses three lines of conditional logic and gains a
+  short comment explaining the new invariant.
+- One new MSW-backed test case (`filter with partial result on first
+  page does not block loadMore`). useAutoData suite goes from 14 to
+  15 tests, full project from 113 to 114.
+- ADR-018 follow-up #1 closed; the plan file is updated to point at
+  this ADR.
+- No user-facing UI change in the happy path (counts looked correct
+  whenever the bug didn't fire). The bug-affected scenario now
+  shows the full filtered count and scrolls all the way through.
+
+**Reverses if.** Backend regresses and stops accounting for filters in
+`auto_list_count`. In that case, fix backend; if hard-blocked, restore
+the defensive branch as a temporary mitigation and re-evaluate.
