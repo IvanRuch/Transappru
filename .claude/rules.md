@@ -206,7 +206,11 @@ red badge as part of the incident audit trail; document the bypass in
 - UI changes MUST include before/after screenshots (mobile + web if both affected)
 - Open as `--draft` if work is incomplete; `gh pr ready` when done
 - Squash-merge into master for linear history (`gh pr merge --squash`)
-- Delete the branch after merge
+- Delete the branch after merge — repo setting
+  `deleteBranchOnMerge=true` is enabled (since 2026-05-15), so
+  `gh pr merge --squash` deletes the head branch automatically. If
+  the setting ever flips back, restore it with
+  `gh repo edit TransKonsalt/TransApp --delete-branch-on-merge`.
 
 **Supporting infra:**
 - `/pr-open` — opens a draft PR with an auto-generated structured body
