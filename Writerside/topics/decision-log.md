@@ -1734,3 +1734,89 @@ step. Full revert is possible by reintroducing local state in
 would silently fall back to its own state because the reflection
 effect is a no-op when `userDataCtx` is null.
 
+### ADR-021: Keep `.idea/TransApp_upd.iml` tracked in git (revert ADR-less #41) (2026-05-15)
+
+**Context.** Commit `4323c2d` (chore PR #41, 2026-05-14) added
+`.idea/*.iml` to `.gitignore` and `git rm`-ed `.idea/TransApp_upd.iml`
+to silence the per-open working-tree diff that IntelliJ/RubyMine
+produces (absolute paths, JDK markers, version stamps rewrite the
+file every time the project opens). The PR description assumed
+"Developers retain the file locally; git just stops noticing it" —
+which is true only for the machine that authored the commit.
+
+On the next pull on a different workstation `.idea/TransApp_upd.iml`
+disappeared from the working tree (or was never created — fresh clones
+hit the same problem). `.idea/modules.xml` still references the file:
+
+```xml
+<module fileurl="file://$PROJECT_DIR$/.idea/TransApp_upd.iml"
+        filepath="$PROJECT_DIR$/.idea/TransApp_upd.iml" />
+```
+
+When IntelliJ resolved the module pointer to a non-existent file it
+loaded **zero modules**. The Project tool window therefore showed only
+global nodes (`External Libraries`, `Scratches and Consoles`) and the
+content root tree disappeared completely — the IDE was effectively
+unusable for navigation.
+
+**Decision.** Revert `4323c2d` in full (`git revert 4323c2d`). The
+`.iml` returns to git tracking; `.idea/*.iml` is removed from
+`.gitignore`. `.idea/modules.xml` keeps its existing pointer — no
+rewrite needed.
+
+**Rationale.**
+
+- A broken Project view on every fresh clone / new dev workstation is
+  a much higher cost than the cosmetic per-open diff PR #41 was trying
+  to silence.
+- The `.iml` baseline we now ship is intentionally minimal (`<module
+  type="JAVA_MODULE">` with a single `content url="file://$MODULE_DIR$"`
+  and `inheritedJdk`). IntelliJ rewrites it on first open with the
+  developer's local JDK / module type, but the rewritten variants are
+  functionally equivalent and IntelliJ does not re-prompt for a
+  module on next open — the project structure survives.
+- `modules.xml` is already tracked, so any "module structure" changes
+  worth sharing across the team go there, not into `.iml`. Tracking
+  `.iml` is the price of having `modules.xml` work at all on a fresh
+  checkout.
+- Considered alternatives:
+  - **Variant A (keep `.iml` ignored, add a setup step that creates
+    a stub on clone)**: rejected — every new dev would have to read
+    setup docs before opening the project; first-open experience is
+    "broken Project view" until they do.
+  - **Variant B (drop the JetBrains module entirely, rely on
+    "directory project" mode without `.iml`)**: rejected — requires
+    deleting `modules.xml` and `misc.xml` references too, and loses
+    excludeFolder/JDK config that IntelliJ honours.
+  - **Variant C (keep PR #41, mitigate per-machine noise via `git
+    update-index --skip-worktree .idea/TransApp_upd.iml`)**: this is
+    available **on top of** ADR-021 for any developer who wants it —
+    purely local, no repo change. Documented as the recommended
+    individual workflow in `setup-mac-m2.md`.
+
+**Consequences.**
+
+- Fresh clones / new workstations get a working Project view out of
+  the box. IntelliJ loads the module from `modules.xml` → `.iml`
+  successfully on first open.
+- The per-open diff on `.iml` returns. Developers who find it
+  distracting can run locally:
+
+  ```sh
+  git update-index --skip-worktree .idea/TransApp_upd.iml
+  ```
+
+  which makes git ignore changes to the file in their checkout
+  without affecting the repo. (`--no-skip-worktree` reverses it if
+  needed for an intentional update.)
+- This ADR explicitly documents the trade-off so the next person
+  thinking "the `.iml` diff is annoying, let me ignore it" finds the
+  history first and understands why the obvious fix was reverted.
+
+**Reverses if.** A future IntelliJ/RubyMine version stops rewriting
+`.iml` on open (the per-machine drift goes away naturally), or the
+project migrates to a non-JetBrains-aware build setup that no longer
+needs `.iml`. At that point the `.gitignore` line can be reintroduced
+safely **and** `modules.xml` updated/removed in the same commit — the
+two files are coupled and must move together.
+
