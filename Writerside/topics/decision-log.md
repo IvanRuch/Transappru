@@ -1820,3 +1820,53 @@ needs `.iml`. At that point the `.gitignore` line can be reintroduced
 safely **and** `modules.xml` updated/removed in the same commit — the
 two files are coupled and must move together.
 
+---
+
+### ADR-022: Centralize RNIS check-response interpretation in `src/utils/rnisStatus.ts` (2026-05-18)
+
+**Context.** `/get-auto-check-rnis` returns `registrationOk`,
+`telematicsOk`, `telematics_date` as **strings** (`'1'`, `'0'`,
+`'2026-05-16 15:52:39'`). Two frontend surfaces displayed this data:
+`src/screens/auto/web/RnisTab.tsx` (web detail tab) and the inline
+RNIS block in `src/screens/auto/AutoDetailScreen.tsx` (mobile).
+
+Both were ported from the legacy web (`transappweb/src/Auto.js`) but
+accumulated two independent regressions:
+
+1. **Strict equality against numbers** — `!== 1`, `=== 0` — which
+   never holds when backend returns strings. The web tab always showed
+   «Данные о регистрации в РНИС не найдены» for registered vehicles
+   and «Телематика передается» for stale transmissions.
+2. **Lost three-way telematics branch** — legacy distinguished
+   `telematicsOk='0' + date!='0'` (stale, >24 h) from
+   `telematicsOk='0' + date='0'` (never transmitted) and rendered the
+   phrase «последняя передача телематики более суток назад». Both
+   ported screens collapsed this to a binary «не поступали / передаётся».
+
+**Decision.** Extract a pure function `getRnisStatus(data)` →
+`RnisStatus | null` in `src/utils/rnisStatus.ts`. It normalizes
+backend field types via `String()` coercion (handles both `'1'` and
+`1`) and implements the three-way telematics logic from legacy.
+Both `RnisTab.tsx` and `AutoDetailScreen.tsx` call this helper; JSX
+rendering stays local to each screen.
+
+Telematics block is rendered **only when `registered === true`**,
+matching legacy behaviour.
+
+**Consequences.**
+
+- Single source of truth for RNIS field interpretation; future screens
+  (or type drift on backend) need only update `rnisStatus.ts`.
+- 13 unit tests cover all input variants including number/string
+  coercion edge cases (`src/utils/__tests__/rnisStatus.test.ts`).
+- Web detail tab: registration and telematics now match the list-card
+  phrasing assembled by the backend.
+- Mobile detail tab: gains the «более суток назад» stale-telematics
+  branch previously missing.
+- ESLint `eqeqeq` warnings in `rnisStatus.ts`: none — all comparisons
+  use `String()` coercion before strict equality.
+
+**Does not affect.** `src/components/inn/RnisResultCard.tsx` (uses
+`/check-rnis` response with a different field shape: `rnis_status`,
+`rnis_owner`, etc.).
+

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { getRnisStatus } from '../../../utils/rnisStatus';
 
 interface Props {
   loading: boolean;
@@ -11,46 +12,69 @@ export function RnisTab({ loading, data }: Props) {
     return <ActivityIndicator size="large" color="#313131" style={styles.loader} />;
   }
 
-  const hasRegistration = typeof data.registrationOk !== 'undefined';
+  const status = getRnisStatus(data);
 
-  return (
-    <View style={styles.content}>
-      {/* Registration status */}
-      {!hasRegistration || data.registrationOk !== 1 ? (
+  if (!status) {
+    return (
+      <View style={styles.content}>
         <View style={styles.row}>
           <Image source={require('../../../../assets/images/rnis_unsuccess.png')} style={styles.icon} />
           <Text style={styles.text}>Данные о регистрации в РНИС не найдены</Text>
         </View>
-      ) : (
+      </View>
+    );
+  }
+
+  if (!status.registered) {
+    return (
+      <View style={styles.content}>
         <View style={styles.row}>
-          <Image source={require('../../../../assets/images/rnis_success.png')} style={styles.icon} />
+          <Image source={require('../../../../assets/images/rnis_unsuccess.png')} style={styles.icon} />
+          <Text style={styles.text}>Данные о регистрации в РНИС не найдены</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.content}>
+      {/* Registration */}
+      <View style={styles.row}>
+        <Image source={require('../../../../assets/images/rnis_success.png')} style={styles.icon} />
+        <View>
+          <Text style={styles.text}>Зарегистрирован в РНИС.</Text>
+          {status.registeredAt != null && (
+            <Text style={styles.text}>Дата регистрации: {status.registeredAt}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Telematics */}
+      {status.telematics === 'never' ? (
+        <View style={[styles.row, styles.rowMargin]}>
+          <Image source={require('../../../../assets/images/rnis_unsuccess.png')} style={styles.icon} />
+          <Text style={styles.text}>Навигационные данные в РНИС не поступали</Text>
+        </View>
+      ) : status.telematics === 'stale' ? (
+        <View style={[styles.row, styles.rowMargin]}>
+          <Image source={require('../../../../assets/images/rnis_unsuccess.png')} style={styles.icon} />
           <View>
-            <Text style={styles.text}>Зарегистрирован в РНИС.</Text>
-            {data.rnis_registered != null && (
-              <Text style={styles.text}>Дата регистрации: {data.rnis_registered}</Text>
+            <Text style={styles.text}>Последняя передача телематики более суток назад</Text>
+            {status.lastTransmissionAt != null && (
+              <Text style={styles.text}>Последняя передача: {status.lastTransmissionAt}</Text>
             )}
           </View>
         </View>
-      )}
-
-      {/* Telematics status (only if registration data exists) */}
-      {hasRegistration && (
-        data.telematicsOk === 0 ? (
-          <View style={[styles.row, styles.rowMargin]}>
-            <Image source={require('../../../../assets/images/rnis_unsuccess.png')} style={styles.icon} />
-            <Text style={styles.text}>Навигационные данные в РНИС не поступали</Text>
+      ) : (
+        <View style={[styles.row, styles.rowMargin]}>
+          <Image source={require('../../../../assets/images/rnis_success.png')} style={styles.icon} />
+          <View>
+            <Text style={styles.text}>Телематика передается.</Text>
+            {status.lastTransmissionAt != null && (
+              <Text style={styles.text}>Последняя передача: {status.lastTransmissionAt}</Text>
+            )}
           </View>
-        ) : (
-          <View style={[styles.row, styles.rowMargin]}>
-            <Image source={require('../../../../assets/images/rnis_success.png')} style={styles.icon} />
-            <View>
-              <Text style={styles.text}>Телематика передается.</Text>
-              {data.telematics_date !== 0 && (
-                <Text style={styles.text}>Последняя передача: {data.telematics_date}</Text>
-              )}
-            </View>
-          </View>
-        )
+        </View>
       )}
     </View>
   );

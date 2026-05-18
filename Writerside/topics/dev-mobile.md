@@ -193,6 +193,25 @@ and substitutes it for the active row's `user_auto_count`.
 `AutoListScreen.tsx` provides the value from `useAutoData.autoListCount`
 (coerced via `Number(x) || 0` because backend ships it as a string).
 
+## RNIS detail block (`AutoDetailScreen.tsx`)
+
+Backend `/get-auto-check-rnis` returns `registrationOk`, `telematicsOk`, `telematics_date` as **strings**.
+All interpretation is done by the shared helper `src/utils/rnisStatus.ts` (ADR-022):
+
+```ts
+import { getRnisStatus } from '../../utils/rnisStatus';
+
+const status = getRnisStatus(this.state.auto_rnis_data);
+// null → "Данные о регистрации в РНИС не найдены"
+// status.registered=false → same
+// status.registered=true → show registration + telematics block
+```
+
+Telematics block is shown **only when `registered === true`**.
+Three states: `'never'` / `'stale'` (>24 h, показывает дату) / `'active'` (показывает дату).
+Do not add inline comparisons against these backend fields — update `rnisStatus.ts` instead.
+Unit tests: `src/utils/__tests__/rnisStatus.test.ts` (13 cases).
+
 ## Data quality monitoring (banner + report button)
 
 Vehicle data (fines / OSAGO / passes / diagnostic-card / RNIS / tolled

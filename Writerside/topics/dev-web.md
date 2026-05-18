@@ -330,11 +330,31 @@ The mobile version is a single 2400-line class component. The web version is spl
 | `web/AvtodorTab.tsx` | Toll roads (paid/unpaid) |
 | `web/OsagoTab.tsx` | Insurance policy |
 | `web/DiagnosticCardTab.tsx` | Diagnostic card |
-| `web/RnisTab.tsx` | RNIS registry check |
+| `web/RnisTab.tsx` | RNIS registry check (see note below) |
 | `web/FilesTab.tsx` | File management |
 | `web/FileEditModal.tsx` | Upload/edit files (HTML `<input type="file">`) |
 | `web/FileDeleteModal.tsx` | Delete confirmation |
 | `web/PaginatedList.tsx` | "Show more" for long lists |
+
+**`RnisTab.tsx` — RNIS field interpretation.** Backend `/get-auto-check-rnis` returns `registrationOk`, `telematicsOk`, `telematics_date` **as strings** (`'1'`, `'0'`, `'2026-05-16 15:52:39'`). Do not compare these with strict equality against numbers. Use the shared helper `src/utils/rnisStatus.ts`:
+
+```ts
+import { getRnisStatus } from '../../../utils/rnisStatus';
+
+const status = getRnisStatus(data); // null → "не найдены"
+// status.telematics: 'never' | 'stale' | 'active'
+// status.lastTransmissionAt: string | null
+```
+
+Three-way telematics states (mirrors legacy `transappweb/src/Auto.js:881-913`):
+
+| `telematics` | Shown text |
+|---|---|
+| `'never'` | Навигационные данные в РНИС не поступали |
+| `'stale'` | Последняя передача телематики более суток назад + дата |
+| `'active'` | Телематика передается. + дата (if any) |
+
+Telematics block is rendered **only when `status.registered === true`**. See ADR-022.
 
 **Key web replacements:**
 - `DocumentPicker` → HTML `<input type="file">` via `useRef`

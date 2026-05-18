@@ -17,6 +17,7 @@ import Api from "../../utils/Api";
 import { SHOW_PAYMENT_UI } from '../../config/features';
 import { DataIssueReportButton } from '../../components/DataIssueReportButton';
 import { isProviderId } from '../../constants/providerLabels';
+import { getRnisStatus } from '../../utils/rnisStatus';
 
 // Компонент для постраничного вывода длинных списков
 const PaginatedList = ({ data, renderItem, initialCount = 5, step = 20 }: { data: any[], renderItem: (item: any, index: number) => React.ReactNode, initialCount?: number, step?: number }) => {
@@ -2185,67 +2186,61 @@ class Auto extends React.Component<AutoProps, AutoState> {
                   ) : (
                     <View style={{ flexDirection: "column", margin: 20, padding: 10 }}>
 
-                      { typeof(this.state.auto_rnis_data.registrationOk) == 'undefined' ? (
-                          <View style={{
-                              flexDirection: "row"
-                          }}>
-                            <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
-                            <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
-                          </View>
-                        ) : (
-                          <>
-                            { this.state.auto_rnis_data.registrationOk != 1 ? (
-                            <View style={{
-                              flexDirection: "row"
-                            }}>
-                              <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
-                              <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
-                            </View>
-                              ) : (
-                                <View style={{
-                                  flexDirection: "row"
-                                }}>
-                                  <Image source={require('../../../assets/images/rnis_success.png')}/>
-                                  <View style={{
-                                    paddingLeft: 10
-                                  }}>
-                                    <Text style={{ fontSize: 15, color: "#313131"}}>Зарегистрирован в РНИС. </Text>
-                                    { this.state.auto_rnis_data.rnis_registered != null ? (
-                                        <Text style={{ fontSize: 15, color: "#313113"}}>Дата регистрации: {this.state.auto_rnis_data.rnis_registered}</Text>
-                                        ) : null
-                                    }
-                                  </View>
+                      { (() => {
+                          const rnisStatus = getRnisStatus(this.state.auto_rnis_data);
+                          if (!rnisStatus || !rnisStatus.registered) {
+                            return (
+                              <View style={{ flexDirection: "row" }}>
+                                <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
+                                <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Данные о регистрации в РНИС не найдены</Text>
+                              </View>
+                            );
+                          }
+                          return (
+                            <>
+                              <View style={{ flexDirection: "row" }}>
+                                <Image source={require('../../../assets/images/rnis_success.png')}/>
+                                <View style={{ paddingLeft: 10 }}>
+                                  <Text style={{ fontSize: 15, color: "#313131"}}>Зарегистрирован в РНИС. </Text>
+                                  { rnisStatus.registeredAt != null ? (
+                                      <Text style={{ fontSize: 15, color: "#313113"}}>Дата регистрации: {rnisStatus.registeredAt}</Text>
+                                    ) : null
+                                  }
                                 </View>
-                              )
-                            }
+                              </View>
 
-                            { this.state.auto_rnis_data.telematicsOk == 0 ? (
-                                <View style={{
-                                    flexDirection: "row"
-                                }}>
-                                  <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
-                                  <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Навигационные данные в РНИС не поступали</Text>
-                                </View>
-                              ) : (
-                                <View style={{
-                                  flexDirection: "row"
-                                }}>
-
-                                  <Image source={require('../../../assets/images/rnis_success.png')}/>
-                                  <View style={{
-                                    paddingLeft: 10
-                                  }}>
-                                    <Text style={{ fontSize: 15, color: "#313131"}}>Телематика передается. </Text>
-                                    { this.state.auto_rnis_data.telematics_date != 0 ? (
-                                        <Text style={{ fontSize: 15, color: "#313113"}}>Последняя передача: {this.state.auto_rnis_data.telematics_date}</Text>
-                                        ) : null
-                                    }
+                              { rnisStatus.telematics === 'never' ? (
+                                  <View style={{ flexDirection: "row" }}>
+                                    <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
+                                    <Text style={{ paddingLeft: 10, fontSize: 15, color: "#313131"}}>Навигационные данные в РНИС не поступали</Text>
                                   </View>
-                                </View>
-                              )
-                            }
-                          </>
-                        )
+                                ) : rnisStatus.telematics === 'stale' ? (
+                                  <View style={{ flexDirection: "row" }}>
+                                    <Image source={require('../../../assets/images/rnis_unsuccess.png')}/>
+                                    <View style={{ paddingLeft: 10 }}>
+                                      <Text style={{ fontSize: 15, color: "#313131"}}>Последняя передача телематики более суток назад</Text>
+                                      { rnisStatus.lastTransmissionAt != null ? (
+                                          <Text style={{ fontSize: 15, color: "#313113"}}>Последняя передача: {rnisStatus.lastTransmissionAt}</Text>
+                                        ) : null
+                                      }
+                                    </View>
+                                  </View>
+                                ) : (
+                                  <View style={{ flexDirection: "row" }}>
+                                    <Image source={require('../../../assets/images/rnis_success.png')}/>
+                                    <View style={{ paddingLeft: 10 }}>
+                                      <Text style={{ fontSize: 15, color: "#313131"}}>Телематика передается. </Text>
+                                      { rnisStatus.lastTransmissionAt != null ? (
+                                          <Text style={{ fontSize: 15, color: "#313113"}}>Последняя передача: {rnisStatus.lastTransmissionAt}</Text>
+                                        ) : null
+                                      }
+                                    </View>
+                                  </View>
+                                )
+                              }
+                            </>
+                          );
+                        })()
                       }
 
                     </View>
