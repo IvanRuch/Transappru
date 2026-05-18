@@ -52,6 +52,70 @@ Plan Mode for multi-file changes, proactive `/compact focus on <task>` and
 Session state between compactions is auto-saved to `.claude/session-state.md`
 by the `PreCompact` hook — `/start` reads it back on next session.
 
+## Project Tasks
+
+`.claude/tasks.md` — единственный источник open/done задач проекта.
+Файл закоммичен в репо; в Obsidian vault виден через симлинки
+`<vault>/1 Projects/TransApp/tasks.md` (на этот файл) и
+`<vault>/1 Projects/TransApp/plans` (на `.claude/plans/`). Репо
+владеет файлами, vault только рендерит.
+
+### Структура
+
+```markdown
+## Открытые
+- [ ] ...
+
+## Выполнено
+- [x] ... ✅ 2026-05-15
+```
+
+При закрытии: `[x]`, добавить `✅ YYYY-MM-DD`, переместить строку
+в **верх** `## Выполнено`. Никогда не удалять выполненные —
+история сохраняется, фильтрация делается dashboard-запросом.
+
+### Каноничный формат строки
+
+```
+- [ ] `[transapp]` <self-explanatory summary> — [[plans/<basename>]] 🔼 ⏳ <date> #project/transapp
+```
+
+Обязательно:
+- Префикс `` `[transapp]` `` в literal backticks (CSS-хук для
+  vault-снэппета `tasks-prefix-dim`).
+- `#project/transapp` в конце строки.
+- Vault-relative wikilink `[[plans/<basename>]]` без пути
+  `.claude/` и без расширения `.md` — резолвится через симлинк
+  `1 Projects/TransApp/plans/`.
+- Self-explanatory description: будущему-себе понятно из dashboard'а
+  без открытия плана. Не «реализовать план», а конкретно
+  («Дедуп `/get-auto-list` через UserDataContext (web, ADR-020)»).
+
+Опционально: priority (`🔺`/`⏫`/`🔼`/`🔽`/`⏬`), `⏳ scheduled`,
+`📅 due` (только hard deadlines), `🛫 start`, `#epic/<slug>` для
+группировки нескольких задач одного направления.
+
+Полная спецификация — глобальный `~/.claude/CLAUDE.md` → раздел
+«Cross-project task tracking».
+
+### Plan ↔ Tasks
+
+После `ExitPlanMode` (когда план записан в `.claude/plans/<basename>.md`):
+дописать строку в `## Открытые` со ссылкой `[[plans/<basename>]]` и
+self-explanatory summary. Wikilink — vault-relative, не `.claude/plans/...`.
+
+Когда план реализован — пометить ту же строку `[x]` **в том же коммите**
+что и реализация, переместить в `## Выполнено`. Summary не переписывать
+на момент закрытия (`✅ <date>` просто append).
+
+### Commit
+
+- Stage by name: `git add .claude/tasks.md`, никогда `git add -A`.
+- Conventional Commits, без `--no-verify`. См. `## Git Commit & Push`.
+- Логические границы: правка `tasks.md` идёт **вместе** с кодом/планом
+  в одном коммите, не отдельным «обновил чек-боксы».
+- Push — только по явной команде пользователя.
+
 ## Coding conventions (auto-loaded per directory)
 
 - `src/CLAUDE.md` — RN/Expo/TypeScript conventions
