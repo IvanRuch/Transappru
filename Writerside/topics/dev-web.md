@@ -316,6 +316,32 @@ Mobile uses `react-native-yamap-plus` (native SDK). Web uses **Yandex Maps JS AP
 All `.web.tsx` screens use `import api from '../../services/api'` (the unified API client).
 The old `utils/Api.ts` is no longer used in web screens.
 
+### `/api/*` proxy on `lk.transapp.ru` (ADR-025, 2026-05-20)
+
+Since the cutover (ADR-017) the web frontend lives on our Yandex
+Cloud VM and `/api/*` is reverse-proxied to Ivan's legacy perl
+backend through `nginx/nginx.prod.conf`. Two non-obvious points:
+
+1. **Upstream targets the prod-apex vhost.** `upstream main_api`
+   points at `transapp.ru:443` (185.76.253.6), the same vhost the
+   mobile app hits direct. The proxy also forces `Host: transapp.ru`
+   and `proxy_ssl_name transapp.ru` because Ivan's perl router
+   selects the vhost by `Host` header, not by IP. Before ADR-025
+   the config pointed at `ivan.trans-konsalt.ru` (staging IP
+   .4, staging vhost on Ivan's side) — a leftover from the dev
+   config (`src/services/api.web.ts` uses staging for `localhost`
+   web-dev). Symptoms of the bug: response payloads 36 646 bytes
+   instead of 36 662, frequent multi-second spikes on
+   `lk.transapp.ru` that did not appear on mobile.
+2. **Upstream keepalive is on.** `keepalive 16` in the upstream
+   block plus `proxy_http_version 1.1` + `proxy_set_header
+   Connection ""` in the location block. Without the second pair,
+   nginx silently falls back to a fresh TLS handshake per request
+   even though the `keepalive` directive is set.
+
+If you change the proxy target in the future, keep the trio in
+sync: `upstream server`, `proxy_set_header Host`, `proxy_ssl_name`.
+
 ## AutoDetailScreen (web)
 
 The mobile version is a single 2400-line class component. The web version is split into sub-components:

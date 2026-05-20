@@ -12,6 +12,7 @@
 
 
 ## Выполнено
+- [x] `[transapp • web-infra]` nginx `/api/*` proxy перенацелен с staging vhost Ивана (`ivan.trans-konsalt.ru` / 185.76.253.4) на prod-apex (`transapp.ru` / 185.76.253.6) + upstream keepalive — fix регрессии ADR-017 cutover'а, обнаруженной через мониторинг (ADR-025) — RFC `Writerside/topics/decision-log.md` (ADR-025) 🔺 #project/transapp #epic/web-infra ✅ 2026-05-20
 - [x] `[transapp • resilience]` Устранение двойного `/get-auto-list` на mount + правильная классификация native timeout + per-request timeout 60s→90s + debug-логи под `__DEV__` (ADR-024) — [[plans/2026-05-20-auto-list-native-parity]] 🔺 #project/transapp #epic/resilience ✅ 2026-05-20
 - [x] `[transapp • resilience]` Resilient bootstrap главного экрана авто при медленном `/get-auto-list` (ADR-023): убран `userData.firm` gate с chrome, loadError UI с retry, per-request timeout 60s, persisted userData — [[plans/2026-05-20-auto-list-resilient-bootstrap]] 🔺 #project/transapp #epic/resilience ✅ 2026-05-20
 - [x] `[transapp • auto-list-ux]` Дедуп `/get-auto-list` через UserDataContext (web, ADR-020) — [[plans/2026-05-14-user-data-context]] ⏫ #project/transapp #epic/auto-list-ux ✅ 2026-05-14

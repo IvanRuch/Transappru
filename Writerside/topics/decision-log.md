@@ -2151,3 +2151,142 @@ cold `/get-auto-list`:
 **Plan reference.**
 `.claude/plans/2026-05-20-auto-list-native-parity.md`.
 
+
+### ADR-025: nginx `/api/` proxy targets prod-apex (`transapp.ru`), not staging (`ivan.trans-konsalt.ru`) (2026-05-20)
+
+**Context.** ADR-017 cutover (2026-05-14) moved `lk.transapp.ru` from
+Ivan's legacy VM (185.76.253.6) onto our Yandex Cloud VM
+(81.26.191.68). Web frontend now lives on our box; `/api/*` is
+proxied to Ivan's perl backend via nginx.
+
+After ADR-023/024 client-side hardening, monitor probes
+(`~/transapp-monitor/probe.sh` — 15 s interval, three entry points,
+valid token, 60+ data points) and on-demand `curl` comparisons
+revealed:
+
+- `transapp.ru` direct (185.76.253.6, mobile target) — mean 4.62 s,
+  max 6.07 s, one mild spike out of 46 probes.
+- `lk.transapp.ru` via our nginx — mean 5.46 s, max 19.75 s,
+  multiple spikes.
+- `ivan.trans-konsalt.ru` direct (185.76.253.4, web-dev target) —
+  mean 5.90 s, max 25.51 s.
+
+Three signals pinpointed the root cause:
+
+1. **Response-size delta.** `transapp.ru` returns 36 662 bytes;
+   `lk.transapp.ru` and `ivan.trans-konsalt.ru` both return 36 646
+   bytes. A stable 16-byte delta = different vhost on Ivan's side
+   (URLs / env strings baked into the response differ between
+   prod-apex and staging).
+2. **Forced-IP test.** With `--resolve transapp.ru:443:185.76.253.4`
+   the staging machine still returns the **36 662-byte** payload.
+   Routing on Ivan's side is by `Host` header, not by physical IP.
+3. **`nginx.prod.conf`** explicitly set `proxy_pass
+   https://ivan.trans-konsalt.ru/api/;` and `proxy_set_header Host
+   ivan.trans-konsalt.ru;` (pre-fix). Every prod web user since
+   2026-05-14 has been hitting the **staging vhost** of Ivan's
+   backend — smaller cache, longer cold-call, larger spikes. Mobile
+   was unaffected because it connects to `transapp.ru` direct.
+
+The original `proxy_pass` target was almost certainly a leftover
+from the dev configuration (`src/services/api.web.ts:9-13` uses
+`https://ivan.trans-konsalt.ru/api/` for `localhost` web-dev),
+copied into the prod nginx config during cutover without
+substituting the prod hostname.
+
+**Decision.** Re-target the `/api/` proxy at the production apex
+vhost and, while we're in this block, enable upstream keepalive to
+remove a redundant TLS handshake on every request:
+
+```nginx
+upstream main_api {
+    server transapp.ru:443;
+    keepalive 16;
+}
+
+location /api/ {
+    proxy_pass https://main_api/api/;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_ssl_server_name on;
+    proxy_ssl_name transapp.ru;
+    proxy_set_header Host transapp.ru;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 120s;
+    proxy_connect_timeout 10s;
+}
+```
+
+Three behaviour-affecting fields:
+- `proxy_pass` and `proxy_set_header Host` now name the prod-apex
+  vhost — web-prod traffic finally lands on the same backend the
+  mobile app uses.
+- `proxy_http_version 1.1` + empty `Connection` header activate the
+  `keepalive 16` pool. Without these two lines the upstream block
+  is just a name-binding — nginx would still fall back to one TLS
+  handshake per request.
+- `proxy_ssl_name transapp.ru` ensures the SNI sent during the
+  upstream TLS handshake matches the prod vhost certificate.
+
+**Alternatives considered.**
+
+- *Hard-coded IP in `proxy_pass`* (`https://185.76.253.6/api/`).
+  Rejected — Ivan's apex IP can rotate (rare, but possible); a
+  hostname plus SNI keeps the dependency declarative.
+- *Keep `proxy_pass ivan.trans-konsalt.ru` and just change `Host`
+  to `transapp.ru`*. Would also work — Ivan's routing is by Host
+  header — but leaves a confusingly-named upstream and uses the
+  staging IP for the network path. Worse for clarity, no
+  performance benefit.
+- *Disable proxy entirely; serve the API from our payment-service*.
+  Out of scope — the perl backend is still the source of truth
+  until the rewrite. Documented as a future task.
+
+**Consequences.**
+
+- Web-prod users (and the monitor's `lk.transapp.ru` probe) now hit
+  the same prod-apex backend as mobile. Expected effect on probe:
+  `lk.transapp.ru` `size_download` aligns with `transapp.ru`
+  (36 662 bytes), mean TTFB drops to ~4.5–5 s, p95 stops being
+  dominated by staging-only spikes.
+- Upstream TLS handshake is amortised across requests via the
+  keepalive pool — additional ~300–500 ms saved per request under
+  load.
+- Mobile traffic is not affected (still direct to `transapp.ru`).
+- No backend change, no Ivan involvement required.
+- Standing tasks for the backend rewrite
+  (`#waiting/external-dependency`) remain — this ADR does not
+  address Ivan's perl handler cold-call itself.
+
+**Verification.**
+
+- nginx config syntax sanity-checked manually (Docker daemon was
+  not running during the patch). Run `docker run --rm -v
+  ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro -v
+  ./nginx/security-headers.partial.conf:/etc/nginx/security-headers.partial.conf:ro
+  nginx:alpine nginx -t` before merge if Docker is available.
+- Post-deploy:
+  ```bash
+  curl -s -o /dev/null -w 'size=%{size_download} ip=%{remote_ip}\n' \
+    -X POST https://lk.transapp.ru/api/get-auto-list \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode 'token=<VALID_TOKEN>' \
+    --data 'auto_list_limit=0'
+  ```
+  Expect `size=36662` (prod-apex), not `size=36646` (staging).
+- Monitor (`~/transapp-monitor/probe.sh`) — let the post-deploy
+  rollup accumulate ≥ 30 minutes, then run
+  `~/transapp-monitor/summary.sh --since 1h`. `lk.transapp.ru`
+  spike count and mean TTFB should drop noticeably.
+
+**Deploy notes.** Production deploy runs via
+`.github/workflows/deploy-web.yml` (workflow_dispatch). Trigger
+manually after PR merge. `BUILD_ID` busts the YC COI metadata
+cache so the new nginx container is actually picked up by
+`yc-container-daemon`.
+
+**Files.** `nginx/nginx.prod.conf`.
+
+
