@@ -1870,3 +1870,284 @@ matching legacy behaviour.
 `/check-rnis` response with a different field shape: `rnis_status`,
 `rnis_owner`, etc.).
 
+
+### ADR-023: Resilient bootstrap for `/get-auto-list` — decoupled chrome, classified loadError, per-request 60 s timeout, persisted userData (2026-05-20)
+
+**Context.** A live customer reported: «Список авто пуст» on the
+main screen while the database held five vehicles. The filter button
+in the header and the left-menu (hamburger → `LeftMenuModal`) were
+**also missing**. Pull-to-refresh, app reinstall, phone reboot did
+not help. On web DevTools the failing call was
+`POST /get-auto-list` with `AxiosError: timeout of 30000ms exceeded`;
+`UserDataContext.updateUserData` timed out symmetrically. After one
+request eventually "broke through" on the backend, the screen
+recovered simultaneously on mobile and web — the classic
+cold/heavy-query symptom on the upstream service (which is owned by
+an external developer and not directly diagnosable from this
+repository).
+
+The backend problem is one half of the story. The other half was on
+the client: a short outage on a hot endpoint left users in an
+unrecoverable state because the screen design assumed the endpoint
+would always return usable data. Four coupled failures made the
+incident unbreakable:
+
+1. `src/screens/auto/AutoListScreen.tsx:71` and `:216` rendered the
+   entire chrome (drawer toggle, filter button, notifications, debt
+   indicator, bottom menu) under one gate
+   `!!(userData && userData.firm)`. Any failure of `/get-auto-list`
+   left `userData.firm === ''` (initial state from
+   `src/hooks/useAutoData.ts:96`) and the chrome disappeared.
+2. `useAutoData.ts:383-396` silently swallowed every non-401 error.
+   The screen showed «Список авто пуст» with no signal that anything
+   failed and no retry control. Logout (only reachable through the
+   drawer, which had just disappeared) was inaccessible.
+3. Global axios `timeout: 30000` is too short for the heavy cold
+   call on accounts with non-trivial joins.
+4. `userData` is not persisted — every cold start depends on a
+   fresh response.
+
+The brief was: do what is possible on the client, as professionally
+as possible, without scope creep and without auto-retry.
+
+**Decision.** Five surgical client-side changes:
+
+1. **Decouple chrome from data.** Remove the `userData.firm` gate
+   from header and bottom menu in `AutoListScreen.tsx`. Chrome is
+   rendered while the user is authenticated; data-dependent inner
+   elements stay condition-rendered on their own fields and degrade
+   to empty when not yet populated. Web parity preserved — its
+   chrome lives in `WebAppLayout`/`WebSidebar` and was never gated
+   on `firm`.
+
+2. **`loadError` state + classification helper.** New
+   `src/utils/loadError.ts` exports `LoadErrorKind` (`'timeout' |
+   'network' | 'server' | 'unknown'`) and `classifyLoadError(error)`.
+   `useAutoData` and `UserDataContext` both expose a `loadError`
+   field; catch blocks set it, success paths clear it, the
+   `refreshData` retry path clears it synchronously before the new
+   fetch fires (responsive retry). 401 is intentionally not
+   classified here — the axios interceptor handles it.
+
+3. **`AutoListLoadError` component.** Sibling to
+   `AutoListEmptyState`. Russian subtitle keyed by `kind`,
+   "Попробовать ещё раз" button. Plumbed into the
+   `ListEmptyComponent` slot of both `AutoListScreen.tsx` and
+   `AutoListScreen.web.tsx` with the resolution order: in-flight →
+   spinner; loadError → AutoListLoadError; otherwise the genuine
+   empty state.
+
+4. **Per-request `timeout: 60000` for `/get-auto-list`.** Applied at
+   the three call sites — `useAutoData.fetchAutoList`,
+   `useAutoData.updateUserDataOnly`, `UserDataContext.updateUserData`
+   — via `api.post(..., { signal, timeout: 60000 })`. Global 30 s
+   stays in place for other endpoints. No automatic retry is
+   layered on: the upstream service is already the bottleneck, and
+   an auto-retry storm would make it worse. The manual retry button
+   on `AutoListLoadError` is the right primitive.
+
+5. **Persisted `userData` snapshot.** New `src/utils/userDataCache.ts`
+   reads/writes/clears `ta_user_data_cache_v1` against AsyncStorage
+   (which transparently uses localStorage on web). One owner per
+   platform avoids double writes: native — `useAutoData` writes on
+   success and restores on mount when no Context is present; web —
+   `UserDataContext.syncFromAutoList` writes and the Provider
+   restores on mount. Restore is guarded by
+   `setUserData(prev => prev.firm ? prev : cached)` so a fresh
+   response that races ahead of storage read is never overwritten.
+   Logout (`useUserProfile.logout` and `deleteProfile`) calls
+   `clearCachedUserData()`.
+
+**Alternatives considered.**
+
+- *Auto-retry with exponential backoff on the failed call.* Rejected.
+  The upstream service is the bottleneck on these incidents — a
+  client-driven retry storm worsens the actual cause. A manual retry
+  button restores agency to the user without amplifying server load.
+- *Move `UserDataContext` to mobile (full ADR-020 generalization).*
+  Out of scope for a hotfix; the local-state path in `useAutoData`
+  already works on native, and the persistence layer is the smaller
+  delta that achieves the cold-start chrome goal.
+- *Show last list from a separate cache when fetch fails.* Rejected:
+  stale list items can mislead about pass / fine / OSAGO state. The
+  chrome (drawer, filter, count) is safe to surface from cache; the
+  list itself stays under freshness guarantee — when the call fails
+  the user sees an explicit error UI, not silently-stale rows.
+- *Bump the global axios timeout to 60 s.* Rejected — other endpoints
+  do not need that latitude and a longer global timeout makes
+  unrelated calls feel worse on legitimate failures. A per-request
+  override is the right granularity.
+
+**Consequences.**
+
+- The screen survives a slow or failed `/get-auto-list`: the user
+  has working navigation, can read previously-cached company info,
+  can retry, and can logout via the drawer.
+- The retry button hits the same `refreshData` codepath as
+  pull-to-refresh — no new retry channel to keep in sync.
+- An extra AsyncStorage read on hook mount (web Provider, native
+  `useAutoData`). One async call, no UI thread block.
+- A new persistence key (`ta_user_data_cache_v1`) to keep in mind for
+  schema changes. Versioned suffix makes future invalidation easy.
+- 10 new tests (6 in `useAutoData.test.tsx`, 4 in
+  `UserDataContext.test.tsx`) cover error classification, recovery,
+  restore, persist, and the responsive-retry guarantee.
+- The backend root cause is *not* addressed. A separate task to
+  request the upstream owner to diagnose the heavy query for the
+  affected account remains open. Further client-side improvements
+  beyond this are bounded.
+
+**Files.** `src/utils/loadError.ts`,
+`src/utils/userDataCache.ts`,
+`src/components/auto/AutoListLoadError.tsx`,
+`src/hooks/useAutoData.ts`,
+`src/contexts/UserDataContext.tsx`,
+`src/hooks/useUserProfile.ts`,
+`src/screens/auto/AutoListScreen.tsx`,
+`src/screens/auto/AutoListScreen.web.tsx`,
+`src/hooks/__tests__/useAutoData.test.tsx`,
+`src/contexts/__tests__/UserDataContext.test.tsx`.
+
+**Plan reference.**
+`.claude/plans/2026-05-20-auto-list-resilient-bootstrap.md`.
+
+
+### ADR-024: Eliminate double `/get-auto-list` on mount; native parity for timeout classification; per-request timeout 90s; debug logs under `__DEV__` (2026-05-20)
+
+**Context.** Follow-up to ADR-023 driven by evidence from real
+device logs (`adb logcat`) captured after debug interceptor
+instrumentation was added. Four concrete client-side defects
+showed up that were amplifying the underlying backend slowness on
+cold `/get-auto-list`:
+
+1. **Double parallel `/get-auto-list` on every AutoListScreen mount.**
+   `useFocusEffect` → `autoListHook.updateUserData()` →
+   `useAutoData.updateUserDataOnly()` issues one
+   `POST /get-auto-list` (`limit=0`, abort controller A). In parallel
+   `useEffect([])` → `autoListHook.loadData()` →
+   `useAutoData.fetchAutoList()` issues a second
+   `POST /get-auto-list` (`limit=10`, abort controller B). Both
+   abort controllers are independent — neither aborts the other —
+   so two heavy queries land on the backend for the same user_id
+   simultaneously and contend for the same DB lock. The symptom is
+   symmetric on web (`AutoListScreen.web` + `userDataCtx.updateUserData`
+   + `loadData`); ADR-020 only deduplicated the WebSidebar ↔ screen
+   `updateUserData` path, not the loadData path.
+2. **Native axios reports timeouts as `ERR_NETWORK`**, not
+   `ECONNABORTED`. Web emits `ECONNABORTED` with a `'timeout of
+   …ms exceeded'` message that the ADR-023 `classifyLoadError`
+   pattern-matches; native emits the same shape as offline / DNS
+   failure. Real timeouts on native were therefore misclassified
+   as `network`, and AutoListLoadError showed «Проверьте подключение
+   к интернету» despite working connectivity.
+3. **60-second per-request timeout was too tight.** A real prod
+   cold-call observed in the logs took 21,056 ms; subsequent calls
+   dropped to ~3 s. The 60 s ceiling (ADR-023) was occasionally
+   cutting off responses that the backend was about to deliver.
+4. **Debug interceptor logs (`⬆️ ⬇️ ✗`)** were added globally
+   without a `__DEV__` guard. Useful in dev/staging, but they
+   would spam production logs in a release build.
+
+**Decision.** Five surgical client-side fixes; no backend changes.
+
+1. **First-focus skip in AutoListScreen** (both native and web).
+   `firstFocusRef = useRef(true)` flips to `false` on the very
+   first focus pass. While `true`, `updateUserData()` is **not**
+   called from `useFocusEffect` — `loadData()` from `useEffect([])`
+   already covers the userData refresh via the success path of
+   `fetchAutoList`. On subsequent focuses (user returned from
+   another screen) `loadData` doesn't re-run, so we want the
+   lightweight `updateUserData()` (`limit=0`) for refreshing
+   profile/notifications/onboarding — that path stays.
+
+2. **Module-level in-flight Promise dedup for `updateUserDataOnly`
+   on native.** `let _inFlightUpdateUserData: Promise<void> | null
+   = null` at module scope in `useAutoData.ts`. When a concurrent
+   caller arrives while the request is in flight, it gets the
+   existing Promise instead of starting a parallel
+   `POST /get-auto-list`. Mirrors web `UserDataContext.inFlightRef`
+   (ADR-020). Module scope (not `useRef`) because hook
+   unmount/remount must not lose the guard — same lifecycle rule
+   as the neighbouring `_onboardingRedirectDone` and
+   `_announceShown` flags.
+
+3. **`GET_AUTO_LIST_TIMEOUT_MS` 60000 → 90000** at both call sites
+   (`useAutoData.ts`, `UserDataContext.tsx`). Per-request override;
+   global axios timeout for everything else remains 30 s. 90 s is
+   chosen to comfortably cover the observed 21 s cold-call plus
+   mobile-network jitter, without enabling auto-retry pressure on
+   the backend.
+
+4. **`classifyLoadError` accepts `{ durationMs, timeoutMs }`** and
+   reclassifies an `ERR_NETWORK` whose duration reached ≥ 90 % of
+   the configured timeout as `'timeout'`. Also handles `ETIMEDOUT`
+   explicitly. Call sites read `error.config?.metadata?.t0`
+   (stamped by the axios request interceptor) to compute
+   `durationMs`. Without this hint the result falls back to
+   `'network'` (the safe default for unknown duration).
+
+5. **Debug interceptor logs gated to `__DEV__`** in both
+   `src/services/api.ts` and `src/services/api.web.ts`. The
+   `metadata.t0` stamp itself is still applied unconditionally —
+   `classifyLoadError` depends on it. Only the `console.log`
+   lines are gated. In release builds the strings disappear at
+   the bundler level; in dev/staging the rich timing trace
+   remains for future incidents.
+
+**Alternatives considered.**
+
+- *Cross-call dedup between `fetchAutoList` and `updateUserDataOnly`*
+  (when the heavy request is in flight, the lightweight one waits
+  for its result and pulls `user_data` from it). Architecturally
+  preferable and would shave another request in the «route focus +
+  filter change» scenario, but requires careful AbortController
+  coordination and state-update ordering. Risk of subtle
+  regressions outweighs the marginal benefit on the path to the
+  upcoming backend rewrite. Kept as a follow-up task in
+  `.claude/tasks.md`.
+- *Drop `updateUserDataOnly` entirely and always refresh via
+  `fetchAutoList`.* Rejected — would replace a small `limit=0`
+  call with a large `limit=10` (or 2000) call on every focus,
+  more bandwidth and more backend work for no UX gain.
+- *Lift `GET_AUTO_LIST_TIMEOUT_MS` further (120 s, 180 s).*
+  Rejected — 90 s already gives a 4× safety margin over the
+  observed cold-call. Going higher just delays the manual retry
+  prompt without changing the win/lose balance.
+- *Keep debug logs unconditional.* Rejected — production noise
+  is a real concern when SDKs or Sentry start ingesting them.
+  `__DEV__` is a free, zero-cost gate.
+
+**Consequences.**
+
+- One `POST /get-auto-list` per AutoListScreen mount instead of
+  two. Backend lock contention for the same user_id is halved on
+  the cold path.
+- AutoListLoadError on native now correctly says «Сервер отвечает
+  дольше обычного» instead of «Проверьте подключение к
+  интернету» when the backend is the cause.
+- Cold-call wins (≤ 90 s) now succeed instead of being cut off
+  at 60 s.
+- 12 new unit tests in `src/utils/__tests__/loadError.test.ts`
+  cover the new classification matrix; one new test in
+  `useAutoData.test.tsx` mirrors the existing
+  `UserDataContext.test.tsx:85-108` dedup test for the native
+  path.
+- The backend root cause (~21 s cold aggregate query for
+  authenticated `/get-auto-list`) is **still not addressed** on
+  the client — it can't be. A follow-up task to the backend
+  owner remains; full rewrite from perl to a modern stack is
+  expected eventually.
+
+**Files.** `src/hooks/useAutoData.ts`,
+`src/contexts/UserDataContext.tsx`,
+`src/utils/loadError.ts`,
+`src/screens/auto/AutoListScreen.tsx`,
+`src/screens/auto/AutoListScreen.web.tsx`,
+`src/services/api.ts`,
+`src/services/api.web.ts`,
+`src/utils/__tests__/loadError.test.ts` (new),
+`src/hooks/__tests__/useAutoData.test.tsx`.
+
+**Plan reference.**
+`.claude/plans/2026-05-20-auto-list-native-parity.md`.
+

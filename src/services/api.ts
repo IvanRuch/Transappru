@@ -46,9 +46,17 @@ class ApiService {
   }
 
   private setupInterceptors(instance: AxiosInstance) {
-    // Request interceptor
+    // Request interceptor — always stamp t0 on the request config so
+    // catch sites (useAutoData, UserDataContext) can compute duration
+    // for classifyLoadError. The accompanying console.log is gated to
+    // __DEV__ — useful in dev/staging for tracing /get-auto-list
+    // slowness, silent in production. See ADR-024.
     instance.interceptors.request.use(
       async config => {
+        (config as any).metadata = { t0: Date.now() };
+        if (__DEV__) {
+          console.log(`⬆️ [API] ${(config.method || 'POST').toUpperCase()} ${config.url} @ ${(config as any).metadata.t0}`);
+        }
         return config;
       },
       error => Promise.reject(error)
@@ -56,28 +64,48 @@ class ApiService {
 
     // Response interceptor
     instance.interceptors.response.use(
-      response => response,
+      response => {
+        if (__DEV__) {
+          const t0 = (response.config as any).metadata?.t0;
+          const dt = t0 ? Date.now() - t0 : -1;
+          let size = -1;
+          try { size = JSON.stringify(response.data ?? '').length; } catch { /* ignore */ }
+          console.log(`⬇️ [API] ${response.status} ${response.config.url} in ${dt}ms, size=${size}`);
+        }
+        return response;
+      },
       async error => {
         if (error.response) {
           const { status, data } = error.response;
-          
+
           if (status === 401) {
             console.log('API: 401 Unauthorized - clearing token');
             await AsyncStorage.removeItem('token');
           }
-          
-          console.log('API Error:', {
-            url: error.config?.url,
-            method: error.config?.method,
-            status,
-            data
-          });
+
+          if (__DEV__) {
+            const t0 = error.config?.metadata?.t0;
+            const dt = t0 ? Date.now() - t0 : -1;
+            console.log('✗ [API] Error:', {
+              url: error.config?.url,
+              method: error.config?.method,
+              status,
+              dt_ms: dt,
+              data,
+            });
+          }
         } else if (error.request) {
-          console.log('API: Network Error - no response received', error.message);
+          if (__DEV__) {
+            const t0 = error.config?.metadata?.t0;
+            const dt = t0 ? Date.now() - t0 : -1;
+            console.log(`✗ [API] Network/Timeout on ${error.config?.url} after ${dt}ms — code=${error.code}, msg=${error.message}`);
+          }
         } else {
-          console.log('API: Request Setup Error -', error.message);
+          if (__DEV__) {
+            console.log(`✗ [API] Request Setup Error on ${error.config?.url} - ${error.message}`);
+          }
         }
-        
+
         return Promise.reject(error);
       }
     );

@@ -2,7 +2,14 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import api from '../services/api';
+import { classifyLoadError, type LoadError } from '../utils/loadError';
+import { readCachedUserData, writeCachedUserData } from '../utils/userDataCache';
 import type { ManagerData, OurService, UserData } from '../types/auto';
+
+// Per-request timeout for /get-auto-list — keep in sync with
+// useAutoData.GET_AUTO_LIST_TIMEOUT_MS. See rationale there.
+// 90s (ADR-024) — cold-call observed up to 21s on prod accounts.
+const GET_AUTO_LIST_TIMEOUT_MS = 90000;
 
 /**
  * Shape of `/get-auto-list` response fields that consumers of this
@@ -64,6 +71,16 @@ export interface UserDataContextValue {
    * consumers is impossible.
    */
   setUserData: React.Dispatch<React.SetStateAction<UserData>>;
+
+  /**
+   * Last classified failure of `/get-auto-list` (timeout / network /
+   * server / unknown), or `null` if the last call succeeded. Surfaced
+   * so AutoListScreen.web can render the same retry banner the mobile
+   * screen does. Cleared on next successful response. 401 is not
+   * represented here — the axios interceptor already handles it
+   * (clear token + redirect).
+   */
+  loadError: LoadError;
 }
 
 const UserDataContext = createContext<UserDataContextValue | null>(null);
@@ -95,6 +112,7 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
   const [autoListCount, setAutoListCount] = useState<number>(0);
   const [ourServicesList, setOurServicesList] = useState<OurService[]>([]);
   const [onboardingExpired, setOnboardingExpired] = useState<number | string>(1);
+  const [loadError, setLoadError] = useState<LoadError>(null);
 
   // Dedup: concurrent updateUserData calls share the same Promise.
   // Reset to null once the fetch settles.
@@ -106,8 +124,28 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
   // this the response would resolve into setState on a dead Provider.
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  // Cold-start restore. Reads `ta_user_data_cache_v1` once on mount
+  // (AsyncStorage transparently uses localStorage on web). Guard: only
+  // write when local state is still empty (`firm === ''`) so a fast
+  // /get-auto-list response that races ahead of storage.read isn't
+  // overwritten with a stale snapshot.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cached = await readCachedUserData();
+      if (cancelled || !cached) return;
+      setUserData(prev => (prev.firm ? prev : cached));
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const syncFromAutoList = useCallback((data: AutoListResponseLike) => {
-    if (data.user_data) setUserData(data.user_data);
+    if (data.user_data) {
+      setUserData(data.user_data);
+      // Persist for cold-start restore (single owner on web — see
+      // useAutoData skip-guard).
+      writeCachedUserData(data.user_data);
+    }
     if (data.other_user_list) setOtherUserList(data.other_user_list);
     if (data.our_services_list) setOurServicesList(data.our_services_list);
     // `auto_list_count` ships as a string from backend ("14"); coerce.
@@ -117,6 +155,8 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
     if (data.onboarding_expired !== undefined) {
       setOnboardingExpired(data.onboarding_expired);
     }
+    // Any successful sync drops a stale banner.
+    setLoadError(null);
   }, []);
 
   const updateUserData = useCallback(async (): Promise<void> => {
@@ -137,16 +177,27 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
         const res = await api.post(
           '/get-auto-list',
           { token, auto_list_limit: 0 },
-          { signal: controller.signal },
+          { signal: controller.signal, timeout: GET_AUTO_LIST_TIMEOUT_MS },
         );
         if (controller.signal.aborted) return;
         syncFromAutoList(res.data);
-      } catch (e) {
+      } catch (e: any) {
         // Ignore aborts (expected when a fresh trigger supersedes us).
-        // Other errors are silent — sidebar is non-critical, axios
-        // interceptor handles 401 by clearing the token.
         if (axios.isCancel(e)) return;
         console.log('UserDataContext.updateUserData error', e);
+        // 401 is handled by the axios interceptor (clear token +
+        // redirect). For everything else surface a classified error
+        // so AutoListScreen.web can render the retry banner.
+        // durationMs lets classifyLoadError disambiguate
+        // ERR_NETWORK-on-timeout from real network failure (ADR-024).
+        if (e?.response?.status !== 401) {
+          const t0 = e?.config?.metadata?.t0;
+          const durationMs = typeof t0 === 'number' ? Date.now() - t0 : undefined;
+          setLoadError(classifyLoadError(e, {
+            durationMs,
+            timeoutMs: GET_AUTO_LIST_TIMEOUT_MS,
+          }));
+        }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
         inFlightRef.current = null;
@@ -198,6 +249,7 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
     syncFromAutoList,
     optimisticOrgSwap,
     setUserData,
+    loadError,
   };
 
   return (

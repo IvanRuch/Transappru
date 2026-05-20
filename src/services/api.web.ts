@@ -72,13 +72,32 @@ class ApiService {
   }
 
   private setupInterceptors(instance: AxiosInstance) {
+    // Always stamp t0 on the request config — catch sites use it for
+    // classifyLoadError duration heuristic. The accompanying
+    // console.log lines are gated to __DEV__ (silent in prod). See
+    // ADR-024.
     instance.interceptors.request.use(
-      async config => config,
+      async config => {
+        (config as any).metadata = { t0: Date.now() };
+        if (__DEV__) {
+          console.log(`⬆️ [API Web] ${(config.method || 'POST').toUpperCase()} ${config.url} @ ${(config as any).metadata.t0}`);
+        }
+        return config;
+      },
       error => Promise.reject(error)
     );
 
     instance.interceptors.response.use(
-      response => response,
+      response => {
+        if (__DEV__) {
+          const t0 = (response.config as any).metadata?.t0;
+          const dt = t0 ? Date.now() - t0 : -1;
+          let size = -1;
+          try { size = JSON.stringify(response.data ?? '').length; } catch { /* ignore */ }
+          console.log(`⬇️ [API Web] ${response.status} ${response.config.url} in ${dt}ms, size=${size}`);
+        }
+        return response;
+      },
       async error => {
         if (error.response) {
           const { status, data } = error.response;
@@ -101,13 +120,21 @@ class ApiService {
             }
           }
           // Only log actionable errors. Auth-flow 401s handled silently above.
-          if (!(status === 401 && onAuthFlow)) {
-            console.log('API Web Error:', { url: error.config?.url, status, data });
+          if (__DEV__ && !(status === 401 && onAuthFlow)) {
+            const t0 = error.config?.metadata?.t0;
+            const dt = t0 ? Date.now() - t0 : -1;
+            console.log('✗ [API Web] Error:', { url: error.config?.url, status, dt_ms: dt, data });
           }
         } else if (error.request) {
-          console.log('API Web: Network Error -', error.message);
+          if (__DEV__) {
+            const t0 = error.config?.metadata?.t0;
+            const dt = t0 ? Date.now() - t0 : -1;
+            console.log(`✗ [API Web] Network/Timeout on ${error.config?.url} after ${dt}ms — code=${error.code}, msg=${error.message}`);
+          }
         } else {
-          console.log('API Web: Request Setup Error -', error.message);
+          if (__DEV__) {
+            console.log(`✗ [API Web] Request Setup Error on ${error.config?.url} - ${error.message}`);
+          }
         }
         return Promise.reject(error);
       }

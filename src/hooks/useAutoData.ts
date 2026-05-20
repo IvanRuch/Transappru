@@ -7,9 +7,23 @@ import api from '../services/api';
 import { redirectToAuth } from '../utils/redirectToAuth';
 import { sortAutoListByPlateNumber } from '../utils/plateHelpers';
 import { setCachedUserId } from '../utils/userIdCache';
+import { classifyLoadError, type LoadError } from '../utils/loadError';
+import { readCachedUserData, writeCachedUserData } from '../utils/userDataCache';
 import { useOptionalUserData } from '../contexts/UserDataContext';
 import type { AutoItem, UserData, ManagerData, OurService } from '../types/auto';
 import type { SortMode } from '../components/auto/SortToggle';
+
+// Per-request timeout for /get-auto-list. The global axios timeout is
+// 30s (see src/services/api.ts), which is fine for most endpoints, but
+// /get-auto-list does heavy server-side aggregation (user_data + auto
+// list + counts) and on cold sessions for some accounts blows past 30s.
+// A real prod cold-call observed in adb logcat took 21s; subsequent
+// calls dropped to ~3s. 90s gives the backend full headroom for the
+// first hit (incl. slow mobile networks) without an auto-retry storm;
+// users see a clear error UI with manual Retry only when this expires
+// (see AutoListLoadError). Keep in sync with UserDataContext.
+// See ADR-023 (introduced 60s) and ADR-024 (bumped to 90s).
+export const GET_AUTO_LIST_TIMEOUT_MS = 90000;
 
 const AUTO_LIST_LIMIT = 10;
 // Generous upper bound for the load-all strategy used in `plate_digits`
@@ -79,6 +93,15 @@ function getLocalFlag(key: string): boolean {
 let _onboardingRedirectDone = getSessionFlag('ta_onboarding_redirect_done') || getLocalFlag('ta_onboarding_done');
 let _announceShown = getSessionFlag('ta_announce_shown');
 
+// Module-level in-flight Promise for `updateUserDataOnly` on native.
+// Mirrors the web-side dedup in UserDataContext.inFlightRef (ADR-020):
+// any concurrent caller while a request is in flight gets the existing
+// Promise instead of starting a second parallel /get-auto-list. Module
+// scope rather than useRef because hook unmount/remount must not lose
+// the guard — same pattern as `_onboardingRedirectDone` /
+// `_announceShown` above. Cleared in the finally block. See ADR-024.
+let _inFlightUpdateUserData: Promise<void> | null = null;
+
 export function useAutoData() {
   const router = useRouter();
 
@@ -143,6 +166,14 @@ export function useAutoData() {
   const [isRefreshing, setIsRefreshing] = useState(false); // Обновление списка (pull-to-refresh)
   const [isSearching, setIsSearching] = useState(false); // Поиск/фильтрация
   const [isLoadingMore, setIsLoadingMore] = useState(false); // Дозагрузка (пагинация)
+
+  // Last classified failure of /get-auto-list (timeout / network / 5xx /
+  // unknown). Cleared on every successful response. Surfaced through
+  // useAutoList so AutoListScreen can render AutoListLoadError with a
+  // retry button instead of an empty list + missing chrome. 401 does
+  // NOT land here — the axios interceptor handles it (clear token +
+  // redirect to auth).
+  const [loadError, setLoadError] = useState<LoadError>(null);
   
   // Фильтры
   const [filters, setFilters] = useState({
@@ -257,7 +288,7 @@ export function useAutoData() {
           auto_list_from: effectiveOffset,
           auto_list_limit: requestLimit,
         },
-        { signal: controller.signal },
+        { signal: controller.signal, timeout: GET_AUTO_LIST_TIMEOUT_MS },
       );
       if (controller.signal.aborted) return null;
       
@@ -276,6 +307,10 @@ export function useAutoData() {
         // DataIssueReportButton on the auto detail screen — see ADR-012,
         // src/utils/userIdCache.ts). Best-effort, never throws.
         void setCachedUserId(data.user_data.id);
+        // Persist for cold-start restore on native. On web the
+        // UserDataContext.syncFromAutoList call below owns persistence,
+        // so we skip here to avoid double writes.
+        if (!userDataCtx) writeCachedUserData(data.user_data);
         setManagerData(data.user_data.manager_data || data.manager_data || {});
 
         const tsData = data.user_data.tech_support_data || {};
@@ -286,6 +321,9 @@ export function useAutoData() {
         setOtherUserList(data.other_user_list || []);
         setOurServicesList(data.our_services_list || []);
       }
+
+      // Success — drop any stale error banner the user might still see.
+      setLoadError(null);
       
       if (data.onboarding_expired !== undefined) {
           const needsOnboarding = data.onboarding_expired === 0 || data.onboarding_expired === '0';
@@ -386,6 +424,19 @@ export function useAutoData() {
       console.log('Error fetching auto list:', error);
       if (error.response?.status === 401) {
         redirectToAuth(router);
+      } else {
+        // Classify so the UI can show a meaningful retry banner instead
+        // of an empty list with hidden chrome. 401 is intentionally
+        // excluded — the interceptor already cleared the token and
+        // we're redirecting to auth, so a banner would never paint.
+        // durationMs lets the classifier disambiguate native
+        // ERR_NETWORK-on-timeout from real network failure (ADR-024).
+        const t0 = error.config?.metadata?.t0;
+        const durationMs = typeof t0 === 'number' ? Date.now() - t0 : undefined;
+        setLoadError(classifyLoadError(error, {
+          durationMs,
+          timeoutMs: GET_AUTO_LIST_TIMEOUT_MS,
+        }));
       }
     } finally {
       if (fetchAbortRef.current === controller) fetchAbortRef.current = null;
@@ -469,10 +520,13 @@ export function useAutoData() {
   }, [fetchAutoList]);
 
   const refreshData = useCallback(async () => {
+    // Clear stale banner immediately so retry feels responsive.
+    // If the new fetch also fails, the catch in fetchAutoList will set it again.
+    setLoadError(null);
     setIsRefreshing(true);
     setOffset(0);
     const token = await AsyncStorage.getItem('token');
-    
+
     const hasFilters = Object.values(stateRef.current.filters).some(v => !!v);
     if (!hasFilters) setCacheTimestamp(0);
 
@@ -698,7 +752,7 @@ export function useAutoData() {
   // it with a fresh one. The same controller is aborted on hook unmount.
   const updateUserAbortRef = useRef<AbortController | null>(null);
 
-  const updateUserDataOnly = useCallback(async () => {
+  const updateUserDataOnly = useCallback(async (): Promise<void> => {
     // Web: delegate to the shared UserDataContext (single source on web,
     // in-flight dedup, one /get-auto-list across sidebar+screen). Older
     // call sites that still invoke this method via `autoListHook` won't
@@ -708,31 +762,45 @@ export function useAutoData() {
       return;
     }
 
-    // Native path: own fetch (no Context, no sidebar).
-    const token = await AsyncStorage.getItem('token');
-    if (!token) return;
+    // Native path: own fetch (no Context, no sidebar). Dedup any
+    // concurrent caller via the module-level in-flight Promise
+    // (ADR-024) — symmetric to UserDataContext.inFlightRef on web.
+    if (_inFlightUpdateUserData) return _inFlightUpdateUserData;
 
-    updateUserAbortRef.current?.abort();
-    const controller = new AbortController();
-    updateUserAbortRef.current = controller;
+    const promise = (async () => {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) return;
 
-    try {
-      const res = await api.post(
-        '/get-auto-list',
-        { token, auto_list_limit: 0 },
-        { signal: controller.signal },
-      );
-      if (controller.signal.aborted) return;
-      if (res.data.user_data) {
-        setUserData(res.data.user_data);
-        void setCachedUserId(res.data.user_data.id);
-        if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
+      updateUserAbortRef.current?.abort();
+      const controller = new AbortController();
+      updateUserAbortRef.current = controller;
+
+      try {
+        const res = await api.post(
+          '/get-auto-list',
+          { token, auto_list_limit: 0 },
+          { signal: controller.signal, timeout: GET_AUTO_LIST_TIMEOUT_MS },
+        );
+        if (controller.signal.aborted) return;
+        if (res.data.user_data) {
+          setUserData(res.data.user_data);
+          void setCachedUserId(res.data.user_data.id);
+          writeCachedUserData(res.data.user_data);
+          if (res.data.other_user_list) setOtherUserList(res.data.other_user_list);
+        }
+      } catch (e) {
+        if (isCancel(e)) return;
+        console.log('UserData update error', e);
+      } finally {
+        if (updateUserAbortRef.current === controller) updateUserAbortRef.current = null;
       }
-    } catch (e) {
-      if (isCancel(e)) return;
-      console.log('UserData update error', e);
+    })();
+
+    _inFlightUpdateUserData = promise;
+    try {
+      await promise;
     } finally {
-      if (updateUserAbortRef.current === controller) updateUserAbortRef.current = null;
+      _inFlightUpdateUserData = null;
     }
   }, [userDataCtx]);
 
@@ -742,6 +810,25 @@ export function useAutoData() {
   // so it doesn't resolve with 401 and noise up the console after the
   // user has already left the authenticated area.
   useEffect(() => () => fetchAbortRef.current?.abort(), []);
+
+  // Cold-start restore of userData on native. On web the
+  // UserDataProvider owns persistence/restore (single source — see
+  // ADR-020), and the reflection effect above mirrors it into local
+  // state, so we skip here.
+  //
+  // Guard: only write if the local state is still empty (firm === '').
+  // A fresh /get-auto-list response can race ahead of AsyncStorage.read
+  // and we must not overwrite it with a stale snapshot.
+  useEffect(() => {
+    if (userDataCtx) return;
+    let cancelled = false;
+    (async () => {
+      const cached = await readCachedUserData();
+      if (cancelled || !cached) return;
+      setUserData(prev => (prev.firm ? prev : cached));
+    })();
+    return () => { cancelled = true; };
+  }, [userDataCtx]);
 
   return {
     autoList,
@@ -761,6 +848,7 @@ export function useAutoData() {
     isRefreshing,
     isSearching,
     isLoadingMore,
+    loadError,
 
     filters,
     setFilterValue,

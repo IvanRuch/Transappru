@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { View, Text, FlatList, TouchableHighlight, ActivityIndicator, StatusBar, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,6 +10,7 @@ import { AutoListItem } from '../../components/auto/AutoListItem';
 import AutoListFilterChips from '../../components/auto/AutoListFilterChips';
 import AutoCountToolbar from '../../components/auto/AutoCountToolbar';
 import AutoListEmptyState from '../../components/auto/AutoListEmptyState';
+import AutoListLoadError from '../../components/auto/AutoListLoadError';
 import { SortBanner } from '../../components/auto/SortBanner';
 import {
   MenuUser, MenuContacts, SelMenuDelItem, SelMenuPass, SelMenuUndoSelect, MenuInviteUser,
@@ -29,11 +30,26 @@ export default function AutoListScreen() {
   const autoActions = useAutoActions(autoListHook.refreshAutoList, autoListHook.invalidateCache);
   const { resetViewedCount } = useNotification();
 
+  // On the very first focus (= initial mount) loadData() below already
+  // owns the userData refresh — it issues a full /get-auto-list which
+  // updates userData via the success path. Calling updateUserData()
+  // here on top of that issues a second concurrent /get-auto-list
+  // (limit=0) racing the first, doubling backend load for the same
+  // session and competing for the same DB lock. On subsequent focuses
+  // (user returned from another screen) loadData isn't re-run, so we
+  // do want the lightweight refresh for profile/notifications/onboarding.
+  // See ADR-024.
+  const firstFocusRef = useRef(true);
+
   useFocusEffect(
     useCallback(() => {
       const viewedCount = resetViewedCount();
       if (viewedCount > 0) autoListHook.decrementNotificationCount(viewedCount);
-      autoListHook.updateUserData();
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+      } else {
+        autoListHook.updateUserData();
+      }
       autoListHook.startPulseAnimation();
       return () => autoListHook.stopPulseAnimation();
     }, [])
@@ -67,9 +83,20 @@ export default function AutoListScreen() {
     <SafeAreaView className="flex-1 bg-white dark:bg-dark-bg" edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" translucent={false} />
 
-      {/* Header */}
-      {!!(autoListHook.userData && autoListHook.userData.firm) && (
-        <View className="flex-row items-center justify-between px-[15px] py-2 bg-white">
+      {/* Header.
+       *
+       * Always rendered while authenticated — the user must be able to
+       * open the left-menu drawer (which carries logout & org switch)
+       * and the filter button even when /get-auto-list hasn't returned
+       * usable userData yet. Earlier this view was gated on
+       * `userData.firm`, which silently hid the entire chrome whenever
+       * the backend timed out, trapping the user in a screen with no
+       * way out (see plan 2026-05-20-auto-list-resilient-bootstrap).
+       *
+       * Data-dependent inner elements (notification badge, debt
+       * indicator) stay condition-rendered on their own fields.
+       */}
+      <View className="flex-row items-center justify-between px-[15px] py-2 bg-white">
           <TouchableHighlight
             className="p-1 justify-center items-center min-w-10 h-10"
             activeOpacity={1}
@@ -132,8 +159,7 @@ export default function AutoListScreen() {
           ) : (
             <View className="p-1 justify-center items-center min-w-10 h-10" />
           )}
-        </View>
-      )}
+      </View>
 
       {autoListHook.hasActiveFilters() && (
         <AutoListFilterChips
@@ -184,14 +210,25 @@ export default function AutoListScreen() {
           renderItem={renderItem}
           keyExtractor={(item, index) => item.id || index.toString()}
           ListEmptyComponent={() => (
-            // Show a spinner while a sort-mode / filter switch is in flight
-            // (isSearching) or the initial load is still resolving — without
-            // this, FlatList shows the "Список авто пуст" empty state in the
-            // gap between `setAutoList([])` and the new response.
+            // Resolution order matters:
+            //   1. In-flight (initial load / sort-mode / filter switch) →
+            //      spinner. Without this, FlatList briefly shows the
+            //      empty state in the gap between `setAutoList([])` and
+            //      the new response.
+            //   2. Last fetch failed (timeout / network / 5xx) →
+            //      AutoListLoadError with Retry. Otherwise the user
+            //      would see "Список авто пуст" with no signal that
+            //      anything went wrong and no way to retry.
+            //   3. Genuine empty list.
             (autoListHook.isSearching || autoListHook.isLoading) ? (
               <View style={{ paddingVertical: 40, alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#313131" />
               </View>
+            ) : autoListHook.loadError ? (
+              <AutoListLoadError
+                kind={autoListHook.loadError.kind}
+                onRetry={autoListHook.refreshAutoList}
+              />
             ) : (
               <AutoListEmptyState hasActiveFilters={autoListHook.hasActiveFilters()} />
             )
@@ -212,12 +249,17 @@ export default function AutoListScreen() {
         />
       )}
 
-      {/* Bottom menu */}
-      {!!(autoListHook.userData && autoListHook.userData.firm) && (
-        <View
-          className="absolute bottom-0 left-0 right-0 bg-white"
-          style={{ paddingBottom: Math.max(bottomInset, 10) }}
-        >
+      {/* Bottom menu.
+       *
+       * Always visible while authenticated — same reasoning as the
+       * header above. The action buttons themselves remain functional
+       * regardless of whether userData has hydrated yet (add-auto,
+       * navigate-to-profile, invite-user, contacts).
+       */}
+      <View
+        className="absolute bottom-0 left-0 right-0 bg-white"
+        style={{ paddingBottom: Math.max(bottomInset, 10) }}
+      >
           {autoListHook.markedCnt === 0 ? (
             <View className="flex-row rounded-[25px] border border-border-primary h-20 bg-bg-secondary">
               <View className="flex-1 h-20 items-center justify-center">
@@ -274,8 +316,7 @@ export default function AutoListScreen() {
               </View>
             </View>
           )}
-        </View>
-      )}
+      </View>
 
       {/* Modals */}
       <AddAutoModal

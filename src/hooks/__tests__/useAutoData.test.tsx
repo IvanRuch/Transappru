@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { http, HttpResponse } from 'msw';
 
 import { useAutoData } from '../useAutoData';
+import api from '../../services/api';
 import {
   server,
   makeGetAutoListResponse,
@@ -26,6 +27,30 @@ import {
 } from '../../test-utils';
 
 const GET_AUTO_LIST = 'https://transapp.ru/api/get-auto-list';
+
+// Synthetic axios-shaped errors. classifyLoadError checks specific
+// fields (`code === 'ECONNABORTED'`, `response`, `request`), so we
+// reproduce them rather than relying on MSW (real timeouts are too
+// slow for unit tests).
+function makeTimeoutError() {
+  return Object.assign(new Error('timeout of 60000ms exceeded'), {
+    code: 'ECONNABORTED',
+    isAxiosError: true,
+  });
+}
+function makeNetworkError() {
+  return Object.assign(new Error('Network Error'), {
+    isAxiosError: true,
+    request: {},
+  });
+}
+function makeServerError(status = 500) {
+  return Object.assign(new Error(`Request failed with status code ${status}`), {
+    isAxiosError: true,
+    response: { status, data: {} },
+    request: {},
+  });
+}
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -378,5 +403,127 @@ describe('useAutoData', () => {
 
     await act(async () => { await result.current.loadMore(); });
     await waitFor(() => expect(result.current.autoList).toHaveLength(12));
+  });
+
+  // ───────── loadError classification + persisted userData (2026-05-20) ─────────
+
+  it('timeout error sets loadError.kind = timeout and does not blank userData', async () => {
+    // Seed a successful first load so userData is populated, then make
+    // the next call time out — userData must survive the failure so
+    // the chrome (drawer toggle, filter button) stays usable.
+    const { result } = renderHook(() => useAutoData());
+    await act(async () => { await result.current.loadData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeTimeoutError());
+
+    await act(async () => { await result.current.refreshData(); });
+    await waitFor(() => expect(result.current.loadError).not.toBeNull());
+
+    expect(result.current.loadError?.kind).toBe('timeout');
+    expect(result.current.userData.firm).toBe('ООО Тест');
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isRefreshing).toBe(false);
+
+    spy.mockRestore();
+  });
+
+  it('network error sets loadError.kind = network', async () => {
+    const { result } = renderHook(() => useAutoData());
+    await act(async () => { await result.current.loadData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeNetworkError());
+
+    await act(async () => { await result.current.refreshData(); });
+    await waitFor(() => expect(result.current.loadError?.kind).toBe('network'));
+
+    spy.mockRestore();
+  });
+
+  it('5xx error sets loadError.kind = server with status', async () => {
+    const { result } = renderHook(() => useAutoData());
+    await act(async () => { await result.current.loadData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeServerError(503));
+
+    await act(async () => { await result.current.refreshData(); });
+    await waitFor(() => expect(result.current.loadError?.kind).toBe('server'));
+
+    expect(result.current.loadError?.status).toBe(503);
+    spy.mockRestore();
+  });
+
+  it('successful refetch clears a previous loadError', async () => {
+    const { result } = renderHook(() => useAutoData());
+    await act(async () => { await result.current.loadData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeTimeoutError());
+    await act(async () => { await result.current.refreshData(); });
+    await waitFor(() => expect(result.current.loadError?.kind).toBe('timeout'));
+    spy.mockRestore();
+
+    // Default MSW handler responds with the normal payload — retry succeeds.
+    await act(async () => { await result.current.refreshData(); });
+    await waitFor(() => expect(result.current.loadError).toBeNull());
+  });
+
+  it('restores cached userData from AsyncStorage on mount when local state is empty', async () => {
+    // Seed cache BEFORE the hook mounts. The restore effect reads it
+    // and applies it as the initial paint so the screen has chrome
+    // before /get-auto-list returns.
+    const cached = {
+      id: '42',
+      firm: 'CachedFirm',
+      inn: '7700099999',
+      phone: '+71112223344',
+    };
+    await AsyncStorage.setItem('ta_user_data_cache_v1', JSON.stringify(cached));
+
+    const { result } = renderHook(() => useAutoData());
+
+    await waitFor(() => expect(result.current.userData.firm).toBe('CachedFirm'));
+    expect(result.current.userData.inn).toBe('7700099999');
+  });
+
+  it('successful /get-auto-list persists userData to AsyncStorage', async () => {
+    const { result } = renderHook(() => useAutoData());
+    await act(async () => { await result.current.loadData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+
+    const raw = await AsyncStorage.getItem('ta_user_data_cache_v1');
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!);
+    expect(parsed.firm).toBe('ООО Тест');
+  });
+
+  // ───────── ADR-024: native updateUserDataOnly in-flight dedup ─────────
+
+  it('updateUserDataOnly dedupes concurrent callers via module-level promise (native)', async () => {
+    // Symmetric to the web-side test in UserDataContext.test.tsx
+    // ('updateUserData dedupes concurrent callers via in-flight promise').
+    // Two parallel calls while the request is still in flight must
+    // share the same axios call — no double load on the backend.
+    let callCount = 0;
+    server.use(
+      http.post(GET_AUTO_LIST, async () => {
+        callCount += 1;
+        await new Promise(r => setTimeout(r, 20));
+        return HttpResponse.json(makeGetAutoListResponse());
+      }),
+    );
+
+    const { result } = renderHook(() => useAutoData());
+
+    await act(async () => {
+      await Promise.all([
+        result.current.updateUserDataOnly(),
+        result.current.updateUserDataOnly(),
+      ]);
+    });
+
+    expect(callCount).toBe(1);
   });
 });

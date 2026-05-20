@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import { clearCachedUserData } from '../utils/userDataCache';
 import { ContactData, UserData, EMPTY_CONTACT } from '../types/user';
 
 /**
@@ -189,6 +190,7 @@ export function useUserProfile() {
     const current = await AsyncStorage.getItem('token');
     if (current) await AsyncStorage.setItem('saved_token_for_return', current);
     await AsyncStorage.removeItem('token');
+    await clearCachedUserData();
     if (Platform.OS === 'web') {
       try { localStorage.removeItem('ta_onboarding_done'); } catch { /* ignore */ }
     }
@@ -203,6 +205,7 @@ export function useUserProfile() {
     try {
       await api.post('/del-user', { token });
       await AsyncStorage.removeItem('token');
+      await clearCachedUserData();
       if (Platform.OS === 'web') {
         try { localStorage.removeItem('ta_onboarding_done'); } catch { /* ignore */ }
         router.replace('/' as any);

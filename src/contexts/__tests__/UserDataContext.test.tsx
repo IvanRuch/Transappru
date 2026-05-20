@@ -20,6 +20,7 @@ import {
   useUserData,
   useOptionalUserData,
 } from '../UserDataContext';
+import api from '../../services/api';
 import {
   server,
   makeGetAutoListResponse,
@@ -27,6 +28,13 @@ import {
 } from '../../test-utils';
 
 const GET_AUTO_LIST = 'https://transapp.ru/api/get-auto-list';
+
+function makeTimeoutError() {
+  return Object.assign(new Error('timeout of 60000ms exceeded'), {
+    code: 'ECONNABORTED',
+    isAxiosError: true,
+  });
+}
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <UserDataProvider>{children}</UserDataProvider>
@@ -226,5 +234,68 @@ describe('UserDataContext', () => {
     await waitFor(() => expect(result.current.autoListCount).toBe(157));
     // Strictly number, not "157".
     expect(typeof result.current.autoListCount).toBe('number');
+  });
+
+  // ───────── loadError + persisted userData (2026-05-20) ─────────
+
+  it('timeout on updateUserData sets loadError but preserves userData', async () => {
+    const { result } = renderHook(() => useUserData(), { wrapper });
+
+    // Seed a known-good snapshot first.
+    await act(async () => { await result.current.updateUserData(); });
+    await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
+    expect(result.current.loadError).toBeNull();
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeTimeoutError());
+    await act(async () => { await result.current.updateUserData(); });
+    await waitFor(() => expect(result.current.loadError?.kind).toBe('timeout'));
+
+    // Critical: previous snapshot must survive the failure. Otherwise
+    // sidebar / chrome on AutoListScreen.web would blank out.
+    expect(result.current.userData.firm).toBe('ООО Тест');
+    spy.mockRestore();
+  });
+
+  it('successful updateUserData clears a previous loadError', async () => {
+    const { result } = renderHook(() => useUserData(), { wrapper });
+
+    const spy = jest.spyOn(api, 'post').mockRejectedValueOnce(makeTimeoutError());
+    await act(async () => { await result.current.updateUserData(); });
+    await waitFor(() => expect(result.current.loadError?.kind).toBe('timeout'));
+    spy.mockRestore();
+
+    await act(async () => { await result.current.updateUserData(); });
+    await waitFor(() => expect(result.current.loadError).toBeNull());
+  });
+
+  it('restores cached userData from AsyncStorage on Provider mount', async () => {
+    const cached = {
+      id: '7',
+      firm: 'CachedWebFirm',
+      inn: '7700088888',
+      phone: '+79991234567',
+    };
+    await AsyncStorage.setItem('ta_user_data_cache_v1', JSON.stringify(cached));
+
+    const { result } = renderHook(() => useUserData(), { wrapper });
+    await waitFor(() => expect(result.current.userData.firm).toBe('CachedWebFirm'));
+  });
+
+  it('syncFromAutoList persists userData to AsyncStorage', async () => {
+    const { result } = renderHook(() => useUserData(), { wrapper });
+    act(() => {
+      result.current.syncFromAutoList({
+        user_data: makeUserData({ firm: 'Persisted Firm', inn: '7700011111' }),
+      });
+    });
+
+    await waitFor(async () => {
+      const raw = await AsyncStorage.getItem('ta_user_data_cache_v1');
+      expect(raw).not.toBeNull();
+    });
+    const raw = await AsyncStorage.getItem('ta_user_data_cache_v1');
+    const parsed = JSON.parse(raw!);
+    expect(parsed.firm).toBe('Persisted Firm');
+    expect(parsed.inn).toBe('7700011111');
   });
 });

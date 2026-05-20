@@ -1,6 +1,9 @@
 # TransApp — Tasks
 
 ## Открытые
+- [ ] `[transapp • resilience]` Cross-call dedup `fetchAutoList` / `updateUserDataOnly` (когда тяжёлый запрос в полёте, лёгкий ждёт его и берёт `user_data` из общего ответа) — архитектурно правильно, отложено до переписывания backend на современный стек — RFC `Writerside/topics/decision-log.md` (ADR-024, Alternatives considered) 🔼 #project/transapp #epic/resilience #waiting/deferred
+- [ ] `[transapp • dev-quality]` `/system-notice` dev-URL для физического Android device — сейчас стучится в `10.0.2.2:8001` который на physical device не резолвится, даёт 30s `ERR_NETWORK` на каждый poll и засоряет logcat. Либо отключить poll в dev на native, либо переключить URL через `adb reverse tcp:8001 tcp:8001` + `127.0.0.1` 🔽 #project/transapp #epic/dev-quality
+- [ ] `[transapp • resilience]` Диагностика тяжёлого cold-aggregate `/get-auto-list` на backend (cold-call наблюдался 21s на prod-аккаунте) — передано владельцу (Иван), ждём переписывания backend с perl на современный стек. Клиентская сторона сделана максимум (ADR-023 + ADR-024) 🔼 #project/transapp #epic/resilience #waiting/external-dependency
 - [ ] `[transapp • dev-quality]` Smoke test ⏫ #project/transapp #epic/dev-quality
 - [ ] `[transapp • auto-list-ux]` Редизайн AutoListScreen — [[plans/2026-04-23-auto-list-redesign]] ⏫ #project/transapp #epic/auto-list-ux
 - [ ] `[transapp • dev-quality]` Улучшение test coverage — [[plans/2026-04-30-test-coverage-improvement]] ⏫ #project/transapp #epic/dev-quality
@@ -9,6 +12,8 @@
 
 
 ## Выполнено
+- [x] `[transapp • resilience]` Устранение двойного `/get-auto-list` на mount + правильная классификация native timeout + per-request timeout 60s→90s + debug-логи под `__DEV__` (ADR-024) — [[plans/2026-05-20-auto-list-native-parity]] 🔺 #project/transapp #epic/resilience ✅ 2026-05-20
+- [x] `[transapp • resilience]` Resilient bootstrap главного экрана авто при медленном `/get-auto-list` (ADR-023): убран `userData.firm` gate с chrome, loadError UI с retry, per-request timeout 60s, persisted userData — [[plans/2026-05-20-auto-list-resilient-bootstrap]] 🔺 #project/transapp #epic/resilience ✅ 2026-05-20
 - [x] `[transapp • auto-list-ux]` Дедуп `/get-auto-list` через UserDataContext (web, ADR-020) — [[plans/2026-05-14-user-data-context]] ⏫ #project/transapp #epic/auto-list-ux ✅ 2026-05-14
 - [x] `[transapp • web-infra]` Cutover legacy `lk.transapp.ru` → Expo Web (cohabitation) — [[plans/2026-05-06-lk-transapp-cutover]] ⏫ #project/transapp #epic/web-infra ✅ 2026-05-14
 - [x] `[transapp • data-quality]` Telegram через StrongSwan IPsec sidecar (ADR-015) — [[plans/2026-05-04-tg-vpn-sidecar]] ⏫ #project/transapp #epic/data-quality ✅ 2026-05-05

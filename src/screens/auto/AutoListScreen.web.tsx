@@ -11,7 +11,7 @@
  * Does NOT wrap in WebAppLayout — authenticated layout (`_layout.web.tsx`)
  * already provides it.
  */
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableHighlight, TouchableOpacity, Pressable,
   ActivityIndicator, Image,
@@ -26,6 +26,7 @@ import { AutoListItem }   from '../../components/auto/AutoListItem';
 import AutoListFilterChips from '../../components/auto/AutoListFilterChips';
 import AutoCountToolbar    from '../../components/auto/AutoCountToolbar';
 import AutoListEmptyState  from '../../components/auto/AutoListEmptyState';
+import AutoListLoadError   from '../../components/auto/AutoListLoadError';
 import { SortBanner }      from '../../components/auto/SortBanner';
 import {
   AddAutoModal, DeleteAutoModal, ContactsModal, DebtInfoModal,
@@ -57,14 +58,26 @@ export default function AutoListScreen() {
     return () => { _openAddAutoModal = null; };
   }, [autoActions]);
 
+  // On the very first focus (= initial mount) loadData() below already
+  // issues a full /get-auto-list which populates Context via
+  // syncFromAutoList — there is no need for a parallel
+  // userDataCtx.updateUserData() (limit=0). Calling both back-to-back
+  // doubled the load on the backend for a single mount. On subsequent
+  // focuses loadData isn't re-run, so the lightweight Context refresh
+  // is appropriate. See ADR-024 (follow-up to ADR-020 / ADR-023).
+  const firstFocusRef = useRef(true);
+
   useFocusEffect(
     useCallback(() => {
       const viewedCount = resetViewedCount();
       if (viewedCount > 0) autoListHook.decrementNotificationCount(viewedCount);
-      // Refresh user-data through the shared Context (ADR-020). Dedupes
-      // against the WebSidebar's own mount/pathname/visibility triggers
-      // so each route focus = at most one /get-auto-list, not two.
-      void userDataCtx.updateUserData();
+      if (firstFocusRef.current) {
+        firstFocusRef.current = false;
+      } else {
+        // Dedupes against the WebSidebar's own triggers via Context
+        // in-flight Promise (ADR-020).
+        void userDataCtx.updateUserData();
+      }
       autoListHook.startPulseAnimation();
       return () => autoListHook.stopPulseAnimation();
     }, [])
@@ -252,14 +265,21 @@ export default function AutoListScreen() {
           renderItem={renderItem}
           keyExtractor={(item, idx) => item.id || String(idx)}
           ListEmptyComponent={() => (
-            // Show a spinner while a sort-mode / filter switch is in flight
-            // (isSearching) or the initial load is still resolving — without
-            // this, FlatList shows the "Список авто пуст" empty state in the
-            // gap between `setAutoList([])` and the new response.
+            // Resolution order: in-flight → spinner; last fetch failed →
+            // AutoListLoadError with Retry; otherwise the genuine empty
+            // state. `loadError` here is sourced from useAutoData via
+            // useAutoList (which spreads dataHook); the parallel
+            // UserDataContext.loadError covers the sidebar refresh path
+            // and is cleared on the same successful `syncFromAutoList`.
             (autoListHook.isSearching || autoListHook.isLoading) ? (
               <View style={{ paddingVertical: 60, alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#313131" />
               </View>
+            ) : autoListHook.loadError ? (
+              <AutoListLoadError
+                kind={autoListHook.loadError.kind}
+                onRetry={autoListHook.refreshAutoList}
+              />
             ) : (
               <AutoListEmptyState hasActiveFilters={autoListHook.hasActiveFilters()} />
             )
