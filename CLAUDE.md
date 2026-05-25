@@ -33,6 +33,28 @@ When implementing any write operation (INSERT/UPDATE/DELETE against payment_db):
 - Include documentation files in the same commit as code
 - After completing a task, proactively suggest committing
 - Do NOT push without explicit user approval
+- **ALL changes to `master` go through a feature-branch + Pull Request + squash-merge.**
+  No direct commits to `master`, even for one-line doc fixes, even during
+  incident response, even when the user says «коммить и пуш». Direct
+  pushes get flagged red by `master-push-guard.yml` (ADR-014) and pollute
+  the audit trail. The correct flow is always:
+
+  ```bash
+  git checkout -b <type>/<short-name>
+  git add <files by name>
+  git commit -m "..."
+  git push -u origin <branch>
+  gh pr create --base master --title "..." --body "..."
+  # wait for CI green, then (with user approval):
+  gh pr merge --squash --delete-branch
+  ```
+
+  «Коммить и пуш» from the user means «commit on the current branch +
+  push that branch + open PR» — NOT «push to master». If you find
+  yourself on `master` with uncommitted changes, switch to a branch
+  FIRST. Emergency bypass via `--no-verify` to local pre-push hook is
+  allowed ONLY on explicit «эмердженси, минуй guardrail» instruction —
+  silence is not consent.
 
 ## Compaction
 
