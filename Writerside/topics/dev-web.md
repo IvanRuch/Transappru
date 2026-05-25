@@ -667,14 +667,65 @@ Yandex Cloud COI VM (2 core, 4GB, ru-central1-d)
 | File | Purpose |
 |------|---------|
 | `nginx/Dockerfile.prod` | Multi-stage: Node builds Expo Web → nginx serves static |
-| `nginx/nginx.prod.conf` | HTTP fallback nginx config |
-| `nginx/docker/entrypoint.sh` | Fetches SSL cert from Yandex Certificate Manager at startup |
+| `nginx/nginx.prod.conf` | **HTTP fallback only** — used when `YC_CERT_ID` is empty (never in prod). See § Nginx config sources |
+| `nginx/docker/entrypoint.sh` | **Authoritative production nginx config** — fetches SSL cert from Yandex Certificate Manager AND renders the full HTTPS nginx config via heredoc at container startup. See § Nginx config sources |
 | `payment-service/Dockerfile.prod` | Multi-stage: builds deps → slim runtime with gunicorn |
 | `payment-service/docker/start.sh` | Gunicorn with uvicorn workers |
 | `yandex-cloud/docker-compose.yc.yaml` | Production compose (nginx + payment-service + payment-db) |
 | `yandex-cloud/user-data.yaml` | Cloud-init for VM user setup |
 | `.github/workflows/deploy-web.yml` | GitHub Actions workflow |
 | `.env.production.example` | Documents all required GitHub Secrets |
+
+### Nginx config sources (ADR-026)
+
+There are **two** files describing nginx routing in this repo, and
+the relationship between them is not obvious from the filenames
+alone. Pre-2026-05-25 we learned this the hard way: ADR-025's
+`/api/` proxy fix was deployed into `nginx.prod.conf`, the deploy
+succeeded, but the bug remained because `entrypoint.sh` was the
+file actually used in production. ADR-026 codifies the rule.
+
+| File | Active when | Role |
+|------|-------------|------|
+| `nginx/docker/entrypoint.sh` heredoc (`NGINX_CONF`) | `YC_CERT_ID` is set (production: always) | **Authoritative.** Overwrites `/etc/nginx/nginx.conf` at container startup with a complete HTTPS+HTTP config. This is what `docker exec <nginx> nginx -T` shows in prod. |
+| `nginx/nginx.prod.conf` | `YC_CERT_ID` is empty (local HTTP-only experiments) | **Fallback.** Copied by `Dockerfile.prod` into the image, then overwritten by entrypoint in production. Never read in HTTPS mode. |
+
+Mechanics:
+
+1. `nginx/Dockerfile.prod:72` runs `COPY nginx/nginx.prod.conf
+   /etc/nginx/nginx.conf` — this is what `nginx.prod.conf`
+   ostensibly controls.
+2. The container's `ENTRYPOINT` is `/docker-entrypoint-yc.sh`.
+   When `YC_CERT_ID` is set, the script fetches the cert from
+   Yandex Certificate Manager AND runs
+   `cat > /etc/nginx/nginx.conf <<'NGINX_CONF' ... NGINX_CONF` —
+   completely overwriting the file from step 1.
+3. nginx is launched via `exec nginx -g "daemon off;"`. Whatever
+   the heredoc wrote is what nginx loads.
+
+Rule for editors:
+
+- **Routing change (e.g. new `location`, change `proxy_pass`,
+  tweak `upstream`)** — must be applied to **both** files. The
+  authoritative one (`entrypoint.sh`) is what changes prod
+  behaviour. The fallback (`nginx.prod.conf`) is kept in sync to
+  avoid grep-discovery confusion and to make future audits
+  consistent.
+- **Header comments at the top of each file state this contract**:
+  `*** AUTHORITATIVE PRODUCTION NGINX CONFIG ***` in
+  `entrypoint.sh`, `*** HTTP FALLBACK ONLY ***` in
+  `nginx.prod.conf`. Open either file → see the rule.
+- **Verifying a deploy** — never trust source-file inspection
+  alone. Run `ssh deploy@<vm> 'docker exec $(docker ps --filter
+  name=nginx -q) nginx -T 2>/dev/null | grep <directive>'` to
+  confirm the active config inside the container.
+
+Tech debt (out of scope of ADR-026, recorded in `tasks.md`):
+extract the heredoc into a standalone nginx-template file (e.g.
+`nginx/nginx.https.conf.template`) that both server contexts can
+include / envsubst, eliminating the dual-source surface entirely.
+That refactor touches container lifecycle and production-traffic
+routing; not bundled with the ADR-026 emergency fix.
 
 ### Trigger
 
@@ -693,7 +744,7 @@ See `.env.production.example` for the full list. Key secrets:
 | 1 | **SPA fallback** — nginx `try_files $uri /index.html` | ✅ Done (`nginx.prod.conf`) |
 | 2 | **Build script** — `npx expo export --platform web` in Docker | ✅ Done (`nginx/Dockerfile.prod`) |
 | 3 | **Payment API URL** — dynamic via `getPaymentApiUrl()` in `api.web.ts` | ✅ Done |
-| 4 | **Same-domain deployment** — nginx proxies `/api/` to trans-konsalt.ru | ✅ Done (`nginx.prod.conf`) |
+| 4 | **Same-domain deployment** — nginx proxies `/api/` to prod-apex `transapp.ru` | ✅ Done (`nginx/docker/entrypoint.sh` heredoc; ADR-025 → ADR-026) |
 | 5 | **Test production build** — run `expo export --platform web`, serve `dist/` locally | Pending |
 | 6 | **SSL certificate** — create cert in Yandex Certificate Manager, set `YC_CERT_ID` | Pending |
 | 7 | **GitHub Secrets** — configure all secrets listed in `.env.production.example` | Pending |

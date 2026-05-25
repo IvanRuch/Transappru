@@ -2289,4 +2289,193 @@ cache so the new nginx container is actually picked up by
 
 **Files.** `nginx/nginx.prod.conf`.
 
+> **Post-implementation note (2026-05-25, see ADR-026).** The patch
+> above was applied to `nginx/nginx.prod.conf`, but that file is the
+> **HTTP fallback** only — production runs the heredoc-rendered config
+> from `nginx/docker/entrypoint.sh`, which still pointed at
+> `ivan.trans-konsalt.ru`. ADR-025's behavioural goal was therefore
+> **not** achieved at the 2026-05-20 deploy; verified by `docker exec
+> <nginx> nginx -T`. The fix is moved to the correct location in
+> ADR-026.
+
+### ADR-026: Move ADR-025 fix into `entrypoint.sh` (the real production nginx config); sync `nginx.prod.conf` as anti-drift; mark both authoritative/fallback (2026-05-25)
+
+**Context.** ADR-025 was deployed on 2026-05-25 via
+`.github/workflows/deploy-web.yml` (workflow_dispatch). The deploy
+itself succeeded — image SHA in the running `transapp_nginx`
+container matched master HEAD `c7f2c05`, and the COI metadata-diff
+buster (`BUILD_ID`, ADR-016) forced container recreation
+(`docker ps --format ... → 26 minutes`). Despite this, post-deploy
+verification showed the fix had **no effect**:
+
+- `curl https://lk.transapp.ru/api/get-auto-list → size=130887`
+- `curl https://transapp.ru/api/get-auto-list   → size=130931`
+- The 44-byte delta is not noise: `diff <(jq . lk.json) <(jq . direct.json)`
+  showed 22 occurrences of `check_diagnostic_card_date_to_left`
+  serialised as **integer** through `lk` and as **string** through
+  `transapp.ru` direct (`166` vs `"166"`). Same key, same row,
+  different type → two **different backend instances**.
+- `ssh deploy@81.26.191.68 'docker exec <nginx> nginx -T | grep -A3
+  "location /api/"'` returned `proxy_pass
+  https://ivan.trans-konsalt.ru/api/;` — i.e. the staging vhost was
+  still active, ADR-025's `upstream main_api` block was not even
+  loaded.
+
+Root cause: `nginx/docker/entrypoint.sh` at startup, whenever
+`YC_CERT_ID` is set (always-true in production), runs a
+`cat > /etc/nginx/nginx.conf <<'NGINX_CONF' ... NGINX_CONF`
+heredoc that **overwrites** whatever the Dockerfile copied. The
+`location /api/` block inside that heredoc was the dev-config
+leftover; `nginx/nginx.prod.conf` (the file ADR-025 patched) is only
+used as an HTTP fallback when `YC_CERT_ID` is empty — which never
+happens in production. `Dockerfile.prod:71` comments this explicitly
+(*«Copy nginx config (HTTP fallback, overwritten by entrypoint for
+HTTPS)»*), and ADR-017 + the cutover plan
+(`.claude/plans/2026-05-06-lk-transapp-cutover.md`) both reference
+the entrypoint as the cert-fetching and config-rendering point. The
+gap was at review time: ADR-025 looked at the obvious file and
+missed the runtime override.
+
+The diagnosis path also exposed a structural risk: **two files
+describe the same nginx routing**, and there is no enforcement
+keeping them aligned. Any future routing change is one careless
+patch away from repeating this incident.
+
+**Decision.** Three coordinated edits.
+
+1. **Move the ADR-025 fix into `nginx/docker/entrypoint.sh`** — inside
+   the heredoc, add `upstream main_api { server transapp.ru:443;
+   keepalive 16; }` to the `http {}` block, and replace the
+   `location /api/` body with the same `proxy_pass
+   https://main_api/api/` / `proxy_http_version 1.1` / empty
+   `Connection` / `proxy_ssl_name transapp.ru` / `Host transapp.ru`
+   set that ADR-025 specified. This is the *only* edit that changes
+   production behaviour.
+
+2. **Sync `nginx/nginx.prod.conf`** with the entrypoint heredoc.
+   Content was already correct after ADR-025; not touching the body.
+   This file stays as the documented HTTP fallback and as a literal
+   "second-copy" reference for grep-discovery — keeping it in sync
+   reduces the surface area where a future editor might patch one
+   place and miss the other.
+
+3. **Mark each file with a header comment** stating its role:
+   - `entrypoint.sh` — `*** AUTHORITATIVE PRODUCTION NGINX CONFIG
+     ***`, explaining that the heredoc wins in HTTPS mode.
+   - `nginx.prod.conf` — `*** HTTP FALLBACK ONLY ***`, pointing back
+     to the entrypoint as the production source and demanding both
+     stay in sync.
+
+   These two markers are the lightweight, in-file equivalent of an
+   ADR — anyone opening either file sees the architectural caveat
+   immediately, without needing to read the Dockerfile or the
+   decision log.
+
+**Alternatives considered.**
+
+- *Patch only `entrypoint.sh`; leave `nginx.prod.conf` alone.*
+  Rejected — `nginx.prod.conf` would silently keep the
+  ADR-025-correct routing while `entrypoint.sh` carried the truth,
+  inviting confusion. Cheaper now to keep them aligned than to
+  unwind a future ambiguity.
+- *Refactor: extract the heredoc into an external file (e.g.
+  `nginx/nginx.https.conf.template`) and have entrypoint do
+  envsubst-style fill-in.* Architecturally cleaner — single source,
+  no heredoc-in-shell-script edit pain, easier diffs, lintable. Out
+  of scope for this ADR because the change touches container
+  lifecycle, requires reasoning about template variables (cert
+  paths are fixed but everything else is currently in scope), and
+  carries non-trivial regression risk on a production-traffic
+  critical path. Recorded as tech debt for a separate plan after
+  this incident is fully closed.
+- *Add `resolver` + periodic DNS re-resolution* (so the upstream
+  keepalive pool isn't pinned to whichever A-record `transapp.ru`
+  returned at container start). Useful, but not the root cause
+  here — only relevant if post-deploy verification still shows
+  staging-vhost responses (indicating Ivan's apex is itself a
+  load-balancer between vhosts). Deferred until verification
+  reveals the need.
+
+**Consequences.**
+
+- After the next `workflow_dispatch`, `nginx -T` inside the
+  container will show `upstream main_api` and `proxy_pass
+  https://main_api/api/`. The `check_diagnostic_card_date_to_left`
+  type drift will collapse, response sizes through `lk.transapp.ru`
+  and direct `transapp.ru` will match.
+- Two-file redundancy is now *intentional*. The header comments are
+  the contract; any future routing change must edit both. Until the
+  tech-debt refactor lands, this is the cost of having a
+  shell-rendered config.
+- ADR-025 remains as the historical record of *what* needed to
+  change; ADR-026 records *where* the change has to live. They are
+  not mutually exclusive — ADR-025 stays "Implemented (corrected by
+  ADR-026)".
+
+**Verification.**
+
+- After fix-deploy, on the VM:
+  ```bash
+  ssh deploy@81.26.191.68 \
+    'docker exec $(docker ps --filter name=nginx -q) \
+      nginx -T 2>/dev/null | grep -A4 -E "upstream main_api|location /api/"'
+  ```
+  Expect `upstream main_api { server transapp.ru:443; keepalive
+  16; }` and `proxy_pass https://main_api/api/` with `proxy_ssl_name
+  transapp.ru` and `Host transapp.ru`.
+
+- Payload-size symmetry:
+  ```bash
+  TOKEN=$(cat ~/transapp-monitor/token.txt)
+  for u in lk.transapp.ru transapp.ru; do
+    curl -s -o /tmp/"$u".json -w "$u size=%{size_download}\n" \
+      -X POST "https://$u/api/get-auto-list" \
+      -H 'Content-Type: application/x-www-form-urlencoded' \
+      --data-urlencode "token=$TOKEN" --data 'auto_list_limit=0'
+  done
+  diff <(python3 -m json.tool /tmp/lk.transapp.ru.json) \
+       <(python3 -m json.tool /tmp/transapp.ru.json)
+  ```
+  Expect identical sizes and an empty diff.
+
+- Restart `~/transapp-monitor/probe.sh`, let it run ≥ 30 min, then
+  `~/transapp-monitor/summary.sh --since 1h` — `lk.transapp.ru`
+  should match `transapp.ru` on mean TTFB and `size_dl`, and the
+  staging-only spike pattern should disappear.
+
+- If verification still fails: investigate DNS resolution inside
+  the nginx container (`getent hosts transapp.ru` plus `nslookup`
+  through the host) — the apex may itself be load-balancing
+  between vhosts, in which case the deferred `resolver` directive
+  becomes the next step.
+
+**Lessons learned.**
+
+- When the routing target is a hostname resolved by an external
+  party (Ivan's apex), response size alone is not enough to verify
+  a proxy change — confirm the **active config** in the running
+  container (`docker exec ... nginx -T`) and compare full JSON
+  payloads, not just sizes.
+- Multi-source configuration (Dockerfile `COPY` + entrypoint
+  heredoc) is a quiet trap. Whenever a heredoc renders a config at
+  startup, the source file in the repo is only a hint — header
+  comments in both files are the cheapest defence until a real
+  template extraction lands.
+- The COI metadata buster (`BUILD_ID`, ADR-016) was working as
+  designed and is not at fault: it correctly recreated the
+  container, but the container's entrypoint kept reapplying the
+  same stale heredoc.
+
+**Deploy notes.** Same as ADR-025 — `workflow_dispatch` on
+`.github/workflows/deploy-web.yml`. `BUILD_ID` triggers
+`yc-container-daemon` to pick up the new image. Manual trigger
+only, per project rule.
+
+**Files.** `nginx/docker/entrypoint.sh`, `nginx/nginx.prod.conf`,
+`Writerside/topics/decision-log.md` (this entry),
+`Writerside/topics/project-dashboard.md`,
+`Writerside/topics/dev-web.md`, `.claude/tasks.md`,
+`.claude/session-state.md`,
+`.claude/plans/2026-05-25-adr-026-entrypoint-config-correction.md`.
+
 

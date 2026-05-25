@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
 
+# *** AUTHORITATIVE PRODUCTION NGINX CONFIG ***
+# In HTTPS mode (YC_CERT_ID set — always-true in production), the heredoc
+# NGINX_CONF below overwrites /etc/nginx/nginx.conf at container startup.
+# The sibling file nginx/nginx.prod.conf is used ONLY as HTTP fallback
+# when YC_CERT_ID is empty (never in prod). Keep both files in sync when
+# editing nginx routing. See ADR-026.
+
 # If YC_CERT_ID is set, fetch certificate from Yandex Certificate Manager
 if [ -n "$YC_CERT_ID" ]; then
   echo "=== Fetching SSL certificate from Yandex Certificate Manager ==="
@@ -73,6 +80,19 @@ http {
         application/json
         application/xml
         image/svg+xml;
+
+    # Upstream for the external TransApp API (legacy perl backend).
+    # transapp.ru is the production-apex vhost (185.76.253.6). Named by
+    # hostname rather than IP so backend vhost selection by Host header
+    # (used by Ivan's nginx) stays consistent with proxy_set_header below.
+    # keepalive 16 pools TLS connections — requires proxy_http_version
+    # 1.1 + empty Connection header in the location block. See ADR-025
+    # (fix) and ADR-026 (correction: this block must live HERE, not in
+    # nginx.prod.conf which is HTTP-fallback only).
+    upstream main_api {
+        server transapp.ru:443;
+        keepalive 16;
+    }
 
     # HTTP — redirect to HTTPS (except health check)
     server {
@@ -148,11 +168,22 @@ http {
             include /etc/nginx/security-headers.partial.conf;
         }
 
-        # Main TransApp API proxy
+        # Main TransApp API proxy — targets the production-apex vhost
+        # (transapp.ru → 185.76.253.6) via the main_api upstream. Before
+        # ADR-025 this pointed at ivan.trans-konsalt.ru (staging vhost,
+        # 185.76.253.4) — a dev-config leftover from the lk.transapp.ru
+        # cutover (2026-05-14, ADR-017) that silently served prod web
+        # users from staging until 2026-05-20. ADR-026 corrects ADR-025's
+        # location: this heredoc — not nginx.prod.conf — is what runs in
+        # prod. proxy_http_version 1.1 + empty Connection header activate
+        # the keepalive pool on `upstream main_api`.
         location /api/ {
-            proxy_pass https://ivan.trans-konsalt.ru/api/;
+            proxy_pass https://main_api/api/;
+            proxy_http_version 1.1;
+            proxy_set_header Connection "";
             proxy_ssl_server_name on;
-            proxy_set_header Host ivan.trans-konsalt.ru;
+            proxy_ssl_name transapp.ru;
+            proxy_set_header Host transapp.ru;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
