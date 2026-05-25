@@ -1,0 +1,598 @@
+CREATE TABLE `user_notification_granted` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `notification_type` varchar(255) NOT NULL DEFAULT '' COMMENT 'тип уведомления',
+  `granted` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение отправлено',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `notification_type` (`notification_type`),
+  KEY `granted` (`granted`),
+  CONSTRAINT `user_notification_granted_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_invite` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `firm` varchar(255) DEFAULT '',
+  `inn` char(12) NOT NULL DEFAULT '' COMMENT 'инн',
+  `fio` varchar(70) NOT NULL DEFAULT '',
+  `email` varchar(150) NOT NULL DEFAULT '',
+  `phone` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `user_invite_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_driver` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `vu` varchar(50) NOT NULL DEFAULT '' COMMENT 'В/У',
+  `vu_reg` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата выдачи В/У',
+  `name_f` varchar(60) DEFAULT NULL COMMENT 'Фамилия',
+  `name_i` varchar(60) DEFAULT NULL COMMENT 'Имя',
+  `name_o` varchar(60) DEFAULT NULL COMMENT 'Отчество',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `user_driver_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_contact` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `fio` varchar(70) NOT NULL DEFAULT '',
+  `email` varchar(150) NOT NULL DEFAULT '',
+  `phone` varchar(255) NOT NULL DEFAULT '',
+  `position` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `user_contact_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=1683 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_rnis_log` (
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `is_exists` tinyint(1) DEFAULT '0' COMMENT 'ТС зарегистрировано в РНИС',
+  `time_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время последней передачи телематики',
+  `checked_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время последней проверки у parkmon',
+  `i_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_rnis_log_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_rnis` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `is_exists` tinyint(1) DEFAULT '0' COMMENT 'ТС зарегистрировано в РНИС',
+  `time_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время последней передачи телематики',
+  `checked_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время последней проверки у parkmon',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  PRIMARY KEY (`id`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_rnis_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=9374 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_pass` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `seriya` varchar(255) NOT NULL DEFAULT '' COMMENT 'Серия пропуска',
+  `type_of_pass` tinyint(3) unsigned NOT NULL DEFAULT '0' COMMENT 'тип годового: 1 - дневной, 2- ночной',
+  `propusktype` varchar(255) NOT NULL DEFAULT '' COMMENT 'тип пропуска (МКАД/ТТК/...)',
+  `dat_issue_year` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата выдачи годового',
+  `dat_cancel_year` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата аннулирования годового',
+  `pass_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'Дата окончания годового',
+  `dat_issue_one` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата выдачи разового',
+  `dat_cancel_one` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата аннулирования  разового',
+  `pass_one_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'Дата окончания разового',
+  `year_cancelled_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение об аннулировании просмотрено',
+  `year_ending_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение об окончании просмотрено',
+  `year_ending_notification` tinyint(4) DEFAULT '0' COMMENT '1 - push-уведомление сненерено',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `seriya` (`seriya`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_pass_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=389818 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_osago` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `series` varchar(255) NOT NULL DEFAULT '' COMMENT 'серия полиса осаго',
+  `number` varchar(255) NOT NULL DEFAULT '' COMMENT 'уникальный номер полиса осаго',
+  `date_from` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'начало действия полиса осаго',
+  `date_to` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'окончание действия полиса осаго',
+  `insurer` varchar(255) NOT NULL DEFAULT '' COMMENT 'страховая компания',
+  `restrictions` varchar(255) NOT NULL DEFAULT '' COMMENT 'ограничения',
+  `ending_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение об окончании просмотрено',
+  `ending_notification` tinyint(4) DEFAULT '0' COMMENT '1 - push-уведомление сненерено',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `number` (`number`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_osago_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=19410 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_notification_granted` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `notification_type` varchar(255) NOT NULL DEFAULT '' COMMENT 'тип уведомления',
+  `granted` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение отправлено',
+  PRIMARY KEY (`id`),
+  KEY `user_auto` (`user_auto`),
+  KEY `notification_type` (`notification_type`),
+  KEY `granted` (`granted`),
+  CONSTRAINT `user_auto_notification_granted_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=328 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_fine_new` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `uin` varchar(255) NOT NULL DEFAULT '' COMMENT 'уин (уникальный идентификатор наказания)',
+  `dat` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата штрафа',
+  `code` varchar(255) NOT NULL DEFAULT '' COMMENT 'статья',
+  `description` text NOT NULL COMMENT 'описание',
+  `comment` text NOT NULL COMMENT 'комментарий',
+  `sum` decimal(11,2) DEFAULT '0.00' COMMENT 'сумма штрафа',
+  `vendor` varchar(255) NOT NULL DEFAULT '' COMMENT 'взыскатель',
+  `discount_percent` decimal(11,2) DEFAULT '50.00' COMMENT 'процент скидки на оплату',
+  `discount_date_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата окончания скидки на оплату',
+  `offense_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время нарушения',
+  `offence_place` text NOT NULL COMMENT 'Место нарушения',
+  `is_to_fssp` tinyint(1) DEFAULT '0' COMMENT 'Передано в ФСПП',
+  `to_fssp_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время передачи в ФСПП',
+  `is_platon` tinyint(1) DEFAULT '0' COMMENT 'Штраф относится к системе Платон',
+  `is_paid` tinyint(1) DEFAULT '0' COMMENT 'оплачено',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uin` (`uin`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_fine_ibfk_new_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=249 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_fine_20251224` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) DEFAULT NULL,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `uin` varchar(255) NOT NULL DEFAULT '' COMMENT 'уин (уникальный идентификатор наказания)',
+  `dat` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата штрафа',
+  `code` varchar(255) NOT NULL DEFAULT '' COMMENT 'статья',
+  `description` text NOT NULL COMMENT 'описание',
+  `comment` text NOT NULL COMMENT 'комментарий',
+  `sum` decimal(11,2) DEFAULT '0.00' COMMENT 'сумма штрафа',
+  `vendor` varchar(255) NOT NULL DEFAULT '' COMMENT 'взыскатель',
+  `discount_percent` decimal(11,2) DEFAULT '50.00' COMMENT 'процент скидки на оплату',
+  `discount_date_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата окончания скидки на оплату',
+  `offense_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время нарушения',
+  `offence_place` text NOT NULL COMMENT 'Место нарушения',
+  `is_to_fssp` tinyint(1) DEFAULT '0' COMMENT 'Передано в ФСПП',
+  `to_fssp_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время передачи в ФСПП',
+  `is_platon` tinyint(1) DEFAULT '0' COMMENT 'Штраф относится к системе Платон',
+  `is_paid` tinyint(1) DEFAULT '0' COMMENT 'оплачено',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uin` (`uin`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_fine_20251224_ibfk_2` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_fine_20251223` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `uin` varchar(255) NOT NULL DEFAULT '' COMMENT 'уин (уникальный идентификатор наказания)',
+  `dat` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата штрафа',
+  `code` varchar(255) NOT NULL DEFAULT '' COMMENT 'статья',
+  `description` text NOT NULL COMMENT 'описание',
+  `comment` text NOT NULL COMMENT 'комментарий',
+  `sum` decimal(11,2) DEFAULT '0.00' COMMENT 'сумма штрафа',
+  `vendor` varchar(255) NOT NULL DEFAULT '' COMMENT 'взыскатель',
+  `discount_percent` decimal(11,2) DEFAULT '50.00' COMMENT 'процент скидки на оплату',
+  `discount_date_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата окончания скидки на оплату',
+  `offense_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время нарушения',
+  `offence_place` text NOT NULL COMMENT 'Место нарушения',
+  `is_to_fssp` tinyint(1) DEFAULT '0' COMMENT 'Передано в ФСПП',
+  `to_fssp_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время передачи в ФСПП',
+  `is_platon` tinyint(1) DEFAULT '0' COMMENT 'Штраф относится к системе Платон',
+  `is_paid` tinyint(1) DEFAULT '0' COMMENT 'оплачено',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  `dump` text,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uin` (`uin`),
+  KEY `user_auto` (`user_auto`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_fine` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) DEFAULT NULL,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `uin` varchar(255) NOT NULL DEFAULT '' COMMENT 'уин (уникальный идентификатор наказания)',
+  `dat` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата штрафа',
+  `code` varchar(255) NOT NULL DEFAULT '' COMMENT 'статья',
+  `description` text NOT NULL COMMENT 'описание',
+  `comment` text NOT NULL COMMENT 'комментарий',
+  `sum` decimal(11,2) DEFAULT '0.00' COMMENT 'сумма штрафа',
+  `vendor` varchar(255) NOT NULL DEFAULT '' COMMENT 'взыскатель',
+  `discount_percent` decimal(11,2) DEFAULT '50.00' COMMENT 'процент скидки на оплату',
+  `discount_date_end` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата окончания скидки на оплату',
+  `offense_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время нарушения',
+  `offence_place` text NOT NULL COMMENT 'Место нарушения',
+  `is_to_fssp` tinyint(1) DEFAULT '0' COMMENT 'Передано в ФСПП',
+  `to_fssp_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время передачи в ФСПП',
+  `is_platon` tinyint(1) DEFAULT '0' COMMENT 'Штраф относится к системе Платон',
+  `is_paid` tinyint(1) DEFAULT '0' COMMENT 'оплачено',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uin` (`uin`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_fine_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=486598 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_file_group` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `description` text COMMENT 'Описание файла',
+  PRIMARY KEY (`id`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_file_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user_auto_file` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto_file_group` int(11) NOT NULL DEFAULT '0',
+  `filename` varchar(512) DEFAULT NULL COMMENT 'Имя залитого файла',
+  `file` varchar(255) DEFAULT NULL COMMENT 'Имя файла в базе',
+  `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Время заливки файла',
+  PRIMARY KEY (`id`),
+  KEY `user_auto_file_group` (`user_auto_file_group`),
+  KEY `file` (`file`),
+  CONSTRAINT `user_auto_file_group_ibfk_1` FOREIGN KEY (`user_auto_file_group`) REFERENCES `user_auto_file_group` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_diagnostic_card` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `number` varchar(255) NOT NULL DEFAULT '' COMMENT 'уникальный номер ДК',
+  `date_from` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'начало действия ДК',
+  `date_to` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'окончание действия ДК',
+  `type` varchar(255) NOT NULL DEFAULT '' COMMENT 'название услуги',
+  `place` varchar(255) NOT NULL DEFAULT '' COMMENT 'мето выдачи',
+  `ending_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение об окончании просмотрено',
+  `ending_notification` tinyint(4) DEFAULT '0' COMMENT '1 - push-уведомление сненерено',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `number` (`number`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_diagnostic_card_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=67247 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto_avtodor` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `operator` varchar(255) NOT NULL DEFAULT '' COMMENT 'Оператор дороги',
+  `operator_description` varchar(255) NOT NULL DEFAULT '' COMMENT 'Оператор дороги ( расшифровка )',
+  `road_name` varchar(255) NOT NULL DEFAULT '' COMMENT 'Название дороги',
+  `pass_number` varchar(255) NOT NULL DEFAULT '' COMMENT 'Номер проезда',
+  `pass_at` datetime NOT NULL DEFAULT '0000-00-00 00:00:00' COMMENT 'Дата и время проезда (МСК)',
+  `pass_place` varchar(255) NOT NULL DEFAULT '' COMMENT 'Место проезда',
+  `price` decimal(11,2) DEFAULT '0.00' COMMENT 'Стоимость проезда',
+  `is_paid` tinyint(1) DEFAULT '0' COMMENT 'Проезд оплачен?',
+  `uin` varchar(255) NOT NULL DEFAULT '' COMMENT 'УИН проезда в ГИС ГМП',
+  `bill` varchar(255) NOT NULL DEFAULT '' COMMENT 'УИН штрафа за неоплату проезда в ГИС ГМП',
+  `iou_dt` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'Дата время обновления',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_auto_operator_pass_number` (`user_auto`,`operator`,`pass_number`),
+  KEY `user_auto` (`user_auto`),
+  CONSTRAINT `user_auto_avtodor_ibfk_1` FOREIGN KEY (`user_auto`) REFERENCES `user_auto` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=1458192 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_auto` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `auto_number` varchar(20) NOT NULL DEFAULT '' COMMENT 'гос. номер машины',
+  `sts` varchar(50) NOT NULL DEFAULT '' COMMENT 'номер СТС',
+  `car_type` enum('cargo','passenger') DEFAULT 'cargo' COMMENT 'тип транспортного средства - грузовой/легковой',
+  `check_services` tinyint(4) DEFAULT '1' COMMENT '1 - тс проверяется по всем сервисам',
+  `check_passes_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_fines_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_diagnostic_card_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_osago_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_avtodor_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_rnis_last_time` datetime DEFAULT '0000-00-00 00:00:00',
+  `check_fines_report_desc` varchar(512) NOT NULL DEFAULT '' COMMENT 'штрафы, uid отчета avtocod',
+  `check_diagnostic_card_report_desc` varchar(512) NOT NULL DEFAULT '' COMMENT 'дк, uid отчета avtocod',
+  `check_osago_report_desc` varchar(512) NOT NULL DEFAULT '' COMMENT 'осаго, uid отчета avtocod',
+  `trade_tpl_card_id` int(11) DEFAULT NULL COMMENT 'id карты в rosexport.tpl_card',
+  `registered` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'дата и время регистрации авто',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `check_passes_last_time` (`check_passes_last_time`),
+  KEY `auto_number` (`auto_number`),
+  KEY `trade_tpl_card_id` (`trade_tpl_card_id`),
+  CONSTRAINT `user_auto_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=19072 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `user_address` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `mos_ru_address` int(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `mos_ru_address` (`mos_ru_address`),
+  CONSTRAINT `user_address_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `firm` varchar(255) DEFAULT '',
+  `inn` char(12) NOT NULL DEFAULT '' COMMENT 'инн',
+  `trade_user_id` int(11) DEFAULT NULL COMMENT 'id компании в rosexport.users',
+  `confirmed` tinyint(4) DEFAULT '0' COMMENT '1 - пользователь подтвержден',
+  `registered` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'дата и время регистрации пользователя',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `inn` (`inn`),
+  KEY `idx_trade_user_id` (`trade_user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2153 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `test` (
+  `id` int(1) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=cp1251
+
+
+CREATE TABLE `session_daily` (
+  `token` varchar(64) NOT NULL DEFAULT '' COMMENT 'ключ сессии',
+  `dat` date NOT NULL DEFAULT '0000-00-00' COMMENT 'дата посещения приложения',
+  UNIQUE KEY `token_dat` (`token`,`dat`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `session` (
+  `time` int(11) unsigned NOT NULL DEFAULT '0' COMMENT 'Время, начала сессии',
+  `token` varchar(64) NOT NULL DEFAULT '' COMMENT 'ключ сессии',
+  `fcmtoken` varchar(255) NOT NULL DEFAULT '' COMMENT 'fcm (firebase) token',
+  `device_info` varchar(512) NOT NULL DEFAULT '' COMMENT 'информация об устройстве',
+  `phone` char(11) NOT NULL DEFAULT '' COMMENT 'номер телефона',
+  `code` char(4) NOT NULL DEFAULT '' COMMENT 'код проверки',
+  `current_inn` char(12) NOT NULL DEFAULT '' COMMENT 'текущий инн',
+  `onboarding_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - адаптация просмотрена',
+  `announce_our_services_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - анонс наших услуг просмотрен',
+  `add_notification_viewed` tinyint(4) DEFAULT '0' COMMENT '1 - информация об уведомлениях просмотрена',
+  `confirmed` tinyint(4) DEFAULT '0' COMMENT '1 - подтвержден',
+  `last_time` datetime DEFAULT NULL COMMENT 'Последнийй вхо',
+  UNIQUE KEY `token` (`token`),
+  KEY `time` (`time`),
+  KEY `phone` (`phone`),
+  KEY `code` (`code`),
+  KEY `confirmed` (`confirmed`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `phone_inn` (
+  `phone` char(11) NOT NULL DEFAULT '' COMMENT 'номер телефона',
+  `inn` char(12) NOT NULL DEFAULT '' COMMENT 'инн',
+  `confirmed` tinyint(4) DEFAULT '0' COMMENT '1 - связка подтверждена',
+  `last_time` datetime DEFAULT NULL COMMENT 'Последний вход',
+  UNIQUE KEY `phone_inn` (`phone`,`inn`),
+  KEY `phone` (`phone`),
+  KEY `inn` (`inn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `our_services` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL DEFAULT '',
+  `header` varchar(255) NOT NULL DEFAULT '',
+  `description` longtext,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8
+
+
+
+
+CREATE TABLE `old_mos_ru_address` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `l1_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l1_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l2_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l2_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l3_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l3_value` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `l_concat` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '',
+  `mos_ru_street` int(11) NOT NULL DEFAULT '0',
+  `p2` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `p3` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `p4` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `p5` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `p6` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `p7` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `nreg` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `n_fias` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `elc` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `nlc` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `address` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `mos_ru_street` (`mos_ru_street`)
+) ENGINE=InnoDB AUTO_INCREMENT=5745963 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `notification_type` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `notification_type` varchar(255) NOT NULL DEFAULT '' COMMENT 'тип уведомления',
+  `header` varchar(255) NOT NULL DEFAULT '' COMMENT 'описание',
+  PRIMARY KEY (`id`),
+  KEY `notification_type` (`notification_type`),
+  KEY `header` (`header`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `notification` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `fcmtoken` varchar(255) NOT NULL DEFAULT '' COMMENT 'fcm (firebase) token',
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `user_auto` int(11) NOT NULL DEFAULT '0',
+  `notification_type` varchar(255) NOT NULL DEFAULT '' COMMENT 'тип уведомления',
+  `title` varchar(255) NOT NULL DEFAULT '' COMMENT 'заголовок оповещения',
+  `body` longtext COMMENT 'текст оповещения',
+  `ts` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'время создания оповещения',
+  `sent` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение отправлено',
+  `sent_time` datetime DEFAULT NULL COMMENT 'дата-время отправки',
+  `viewed` tinyint(4) DEFAULT '0' COMMENT '1 - оповещение просмотрено в приложении',
+  `viewed_time` datetime DEFAULT NULL COMMENT 'дата-время просмотра в приложении',
+  PRIMARY KEY (`id`),
+  KEY `fcmtoken` (`fcmtoken`),
+  KEY `user_id` (`user_id`),
+  KEY `user_auto` (`user_auto`),
+  KEY `notification_type` (`notification_type`),
+  KEY `sent` (`sent`),
+  KEY `viewed` (`viewed`)
+) ENGINE=InnoDB AUTO_INCREMENT=909700 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `mos_ru_street_tmp` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `p2` varchar(1000) DEFAULT NULL,
+  `p3` varchar(1000) DEFAULT NULL,
+  `p4` varchar(1000) DEFAULT NULL,
+  `p5` varchar(1000) DEFAULT NULL,
+  `p6` varchar(1000) DEFAULT NULL,
+  `p7` varchar(1000) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10057 DEFAULT CHARSET=utf8 COMMENT='РЈР»РёС†С‹ mos.ru'
+
+
+
+CREATE TABLE `mos_ru_street_new` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `p2` varchar(1000) DEFAULT NULL,
+  `p3` varchar(1000) DEFAULT NULL,
+  `p4` varchar(1000) DEFAULT NULL,
+  `p5` varchar(1000) DEFAULT NULL,
+  `p6` varchar(1000) DEFAULT NULL,
+  `p7` varchar(1000) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3510 DEFAULT CHARSET=utf8 COMMENT='РЈР»РёС†С‹ mos.ru'
+
+
+
+CREATE TABLE `mos_ru_street_location_type` (
+  `mos_ru_street` int(11) NOT NULL DEFAULT '0',
+  `location_type` enum('outer','mkad','ttk','sk') DEFAULT 'outer' COMMENT 'тип локализации',
+  UNIQUE KEY `mos_ru_street_location_type` (`mos_ru_street`,`location_type`),
+  KEY `mos_ru_street` (`mos_ru_street`),
+  KEY `location_type` (`location_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='улицы mos.ru в типах локализации'
+
+
+
+CREATE TABLE `mos_ru_street` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `p2` varchar(1000) DEFAULT NULL,
+  `p3` varchar(1000) DEFAULT NULL,
+  `p4` varchar(1000) DEFAULT NULL,
+  `p5` varchar(1000) DEFAULT NULL,
+  `p6` varchar(1000) DEFAULT NULL,
+  `p7` varchar(1000) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10293 DEFAULT CHARSET=utf8 COMMENT='улицы mos.ru'
+
+
+CREATE TABLE `mos_ru_address_new` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `l1_type` varchar(100) DEFAULT NULL,
+  `l1_value` varchar(100) DEFAULT NULL,
+  `l2_type` varchar(100) DEFAULT NULL,
+  `l2_value` varchar(100) DEFAULT NULL,
+  `l3_type` varchar(100) DEFAULT NULL,
+  `l3_value` varchar(100) DEFAULT NULL,
+  `mos_ru_street` int(11) NOT NULL DEFAULT '0',
+  `p2` varchar(1000) DEFAULT NULL,
+  `p3` varchar(1000) DEFAULT NULL,
+  `p4` varchar(1000) DEFAULT NULL,
+  `p5` varchar(1000) DEFAULT NULL,
+  `p6` varchar(1000) DEFAULT NULL,
+  `p7` varchar(1000) DEFAULT NULL,
+  `nreg` varchar(1000) DEFAULT NULL,
+  `n_fias` varchar(1000) DEFAULT NULL,
+  `elc` varchar(1000) DEFAULT NULL,
+  `nlc` varchar(1000) DEFAULT NULL,
+  `address` varchar(1000) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `mos_ru_street` (`mos_ru_street`)
+) ENGINE=InnoDB AUTO_INCREMENT=2831501 DEFAULT CHARSET=utf8
+
+
+
+CREATE TABLE `mos_ru_address` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `l1_type` varchar(100) DEFAULT NULL,
+  `l1_value` varchar(100) DEFAULT NULL,
+  `l2_type` varchar(100) DEFAULT NULL,
+  `l2_value` varchar(100) DEFAULT NULL,
+  `l3_type` varchar(100) DEFAULT NULL,
+  `l3_value` varchar(100) DEFAULT NULL,
+  `l_concat` varchar(100) DEFAULT '',
+  `mos_ru_street` int(11) NOT NULL DEFAULT '0',
+  `p2` varchar(1000) DEFAULT NULL,
+  `p3` varchar(1000) DEFAULT NULL,
+  `p4` varchar(1000) DEFAULT NULL,
+  `p5` varchar(1000) DEFAULT NULL,
+  `p6` varchar(1000) DEFAULT NULL,
+  `p7` varchar(1000) DEFAULT NULL,
+  `nreg` varchar(1000) DEFAULT NULL,
+  `n_fias` varchar(1000) DEFAULT NULL,
+  `lon` decimal(16,13) DEFAULT NULL COMMENT 'долгот',
+  `lat` decimal(16,13) DEFAULT NULL COMMENT 'широт',
+  `address` varchar(1000) DEFAULT NULL,
+  `location_type` enum('outer','mkad','ttk','sk') DEFAULT 'outer' COMMENT 'тип локализации',
+  `new_moscow` tinyint(1) DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `mos_ru_street` (`mos_ru_street`),
+  KEY `lon` (`lon`),
+  KEY `lat` (`lat`),
+  KEY `location_type` (`location_type`)
+) ENGINE=InnoDB AUTO_INCREMENT=878511 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `content` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL DEFAULT '',
+  `text` longtext,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8
+
+
+CREATE TABLE `avtocod_bad_response` (
+  `ts` datetime DEFAULT NULL COMMENT 'Дата-время',
+  `report_desc` varchar(512) NOT NULL DEFAULT '' COMMENT 'uid отчета',
+  `response_content` text,
+  KEY `ts` (`ts`),
+  KEY `report_desc` (`report_desc`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
