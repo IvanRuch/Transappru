@@ -84,3 +84,9 @@ inn-screen-web.png
 backend_reference
 /Transappru/
 /transappweb/
+
+# Mirror of Ivan's legacy backend (tplnew / base13.trade.su) pulled for
+# incident diagnosis + migration prep. Third-party perl code that likely
+# embeds credentials (DB password, external API keys) — MUST never reach
+# the remote. Curated/sanitized findings go into .claude/plans + Writerside.
+legacy/ivan-backend/

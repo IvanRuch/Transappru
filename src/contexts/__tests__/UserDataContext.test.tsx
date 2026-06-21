@@ -107,6 +107,58 @@ describe('UserDataContext', () => {
     expect(callCount).toBe(1);
   });
 
+  it('updateUserData defers to a registered in-flight HEAVY fetch (ADR-028, no duplicate request)', async () => {
+    let callCount = 0;
+    server.use(
+      http.post(GET_AUTO_LIST, async () => {
+        callCount += 1;
+        await new Promise(r => setTimeout(r, 20));
+        return HttpResponse.json(makeGetAutoListResponse());
+      }),
+    );
+
+    const { result } = renderHook(() => useUserData(), { wrapper });
+
+    // Simulate useAutoData's HEAVY fetch claiming the shared in-flight
+    // slot. A concurrent LIGHT updateUserData() must defer to it and fire
+    // NO second /get-auto-list.
+    let resolveHeavy: () => void = () => {};
+    const heavy = new Promise<void>(r => { resolveHeavy = r; });
+
+    await act(async () => {
+      result.current.registerAutoListFetch(heavy);
+      const light = result.current.updateUserData();
+      resolveHeavy();
+      await light;
+    });
+
+    expect(callCount).toBe(0);
+  });
+
+  it('registerAutoListFetch releases the slot on settle, so a later updateUserData fetches (ADR-028)', async () => {
+    let callCount = 0;
+    server.use(
+      http.post(GET_AUTO_LIST, async () => {
+        callCount += 1;
+        return HttpResponse.json(makeGetAutoListResponse());
+      }),
+    );
+
+    const { result } = renderHook(() => useUserData(), { wrapper });
+
+    // Register + settle a HEAVY marker; registration itself fires nothing.
+    await act(async () => {
+      await result.current.registerAutoListFetch(Promise.resolve());
+    });
+    expect(callCount).toBe(0);
+
+    // Slot is free again → LIGHT actually performs its own fetch.
+    await act(async () => {
+      await result.current.updateUserData();
+    });
+    expect(callCount).toBe(1);
+  });
+
   it('syncFromAutoList applies an externally-fetched response (partial OK)', async () => {
     const { result } = renderHook(() => useUserData(), { wrapper });
 

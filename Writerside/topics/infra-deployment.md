@@ -218,7 +218,7 @@ What `tradesu-moderator` does **worse** and we should not copy:
 
 | Domain / record | Resolves to | Authoritative NS | Owner / control |
 |-----------------|-------------|-------------------|-----------------|
-| `transapp.ru` (A) | `185.76.253.6` (legacy nginx, marketing site, 302 → `/transport`) | `dns{,2,3,4}.fastdns24.{com,org,eu,link}` | colleague Иван (legacy server admin) — also runs the `transapp.ru/api` backend used by mobile prod |
+| `transapp.ru` (A) | `185.76.253.6` (legacy nginx, marketing site, 302 → `/transport`; `/api` → внутр. `base13`, `/` → docker — см. § "Old prod servers") | `dns{,2,3,4}.fastdns24.{com,org,eu,link}` | colleague Иван (legacy server admin) — also runs the `transapp.ru/api` backend used by mobile prod |
 | `www.transapp.ru` (A) | `185.76.253.6` | same | same colleague |
 | `lk.transapp.ru` (A) | **`81.26.191.68`** (our YC VM, new Expo Web) | same | **A-record cutover done 2026-05-14**; record managed by us via FastVPS panel |
 | `_acme-challenge.lk.transapp.ru` (CNAME) | `fpqhlo3n4968ul5jnosr.cm.yandexcloud.net.` | same | us — Let's Encrypt validation for current SAN cert (renewed automatically by YC) |
@@ -650,6 +650,25 @@ infra moves. Status updated 2026-04-26.
    Confirmed (2026-04-26): owner is the same colleague who maintains the
    legacy mobile app, web, and DNS. Single point of contact for all
    coordination.
+
+   **Internal topology behind `185.76.253.6`** (раскрыто сисадмином
+   2026-06-18, см. `.claude/plans/2026-06-18-legacy-backend-takeover.md`).
+   Публичный фронт-nginx на `185.76.253.6` маршрутизирует `transapp.ru` по
+   location, а не отдаёт всё одним backend'ом:
+   - `location /api` → `proxy_pass http://base13` — **`base13`** это
+     внутренний хост с perl `/api/*`, MySQL и cron-воркерами
+     (`check_avtodor` ~10:00, `check_rnis` ~15:00). Именно сюда в итоге
+     попадает `/api/get-auto-list` (mobile напрямую; web — через наш YC
+     nginx как upstream на `transapp.ru:443`). `base13` = реальное ядро
+     backend и источник latency-инцидентов на `/get-auto-list`.
+   - `location /` → `proxy_pass http://192.168.0.33:23001` — веб-SPA на
+     docker (`docker.trade.su`, «всего два» docker-хоста), за allow-list
+     IP (`91.200.29.122`, `109.94.2.150`).
+   - Внутренняя сеть `192.168.0.0/24`; экосистема `trade.su`. Вход на
+     `base13` — пароль «common» (тот же что у `web01`, держит сисадмин).
+   - Мы пока доступа к `base13` / docker / фронт-nginx не имеем — только
+     HTTP через `/api/*`. План захвата и миграции под наш контроль —
+     `.claude/plans/2026-06-18-legacy-backend-takeover.md`.
 5. **Terraform now or later?** Recommendation: provision once manually for
    speed, codify in Terraform afterwards using `yc-cli terraform import`. This
    defers IaC complexity until the resources actually exist.

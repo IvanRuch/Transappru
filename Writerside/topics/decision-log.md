@@ -2478,4 +2478,144 @@ only, per project rule.
 `.claude/session-state.md`,
 `.claude/plans/2026-05-25-adr-026-entrypoint-config-correction.md`.
 
+### ADR-027: `/get-auto-list` latency — pre-existing N+1 in legacy perl handler as the amplifier; regression trigger is the environment (shared-MySQL contention / data growth), not cron lock-wait; fix via migration (2026-06-20)
+
+**Context.** Recurrent incident: `/get-auto-list` times out (client 90 s
+ceiling, ADR-024) on mobile + web; switching company shows endless load +
+«Список авто пуст». Direct SSH access to Ivan's backend was obtained during
+this incident, enabling first-hand diagnosis instead of black-box guessing.
+
+**Backend topology (confirmed).** Front nginx `185.76.253.6` (`transapp.ru`)
+routes `location /api` → internal upstream **`base13`** (`base13.trade.su`,
+`185.76.253.253`, ssh `7023`, Debian 7 / OpenSSH 6.6 — EOL), `location /` →
+docker SPA (`192.168.0.33:23001`). `base13` runs Apache (prefork,
+`MaxClients 500`) + mod_fcgid/mod_perl serving perl app `/www/tplnew/`
+(under SVN). Handler: `/www/tplnew/htdocs/api/TPLApiController.pm`
+(`sub get_auto_list`, line 442). MySQL is **remote** on `192.168.0.121`
+(schema `trans_konsal`, descriptor user `rosexport`), a shared instance
+hosting dozens of trade.su databases (`max_connections=4048`; observed 363
+live threads and a sibling 766 s query). See
+`.claude/plans/2026-06-18-legacy-backend-takeover.md` for full inventory.
+
+**Mechanism (evidence-based).**
+1. `tplnew-access.log` (`%T` seconds) shows `/api/get-auto-list` genuinely
+   running 129 s, 144 s, up to **1444 s**; warm repeat = 0 s.
+2. Only `get-auto-list` appears in the top-30 slowest requests — not a
+   generic Apache worker shortage, and not the scraping endpoints
+   (`get-auto-check-*`, which carry `sleep(10)` retry loops).
+3. `get_auto_list` is a textbook **N+1**: one list query
+   (`user_auto WHERE user_id=?`) then, per auto, three sub-queries
+   (`user_auto_pass`, `COUNT/SUM user_auto_fine`, `user_auto_diagnostic_card`)
+   plus `time_left` per pass.
+4. All those queries are **indexed** (`KEY user_auto`, `KEY user_id` —
+   `legacy/SHOW CREATE TABLE.txt`), individually fast; `ex_SQL_ar` reuses a
+   persistent handle; no external HTTP, no `sleep` in this handler.
+
+**Amplifier, not trigger.** The handler code is **unchanged since end-2025**
+and worked fine then; firms with large fleets are rare (test account: 6 / 14
+/ 74 / 50 autos). So the N+1 is not the regression trigger — it is an
+*amplifier* that makes `get-auto-list` the endpoint most sensitive to DB
+latency (it issues the most round-trips), hence the canary while other
+endpoints survive. Even 74 autos (~370 round-trips) reach 130–1444 s once
+per-round-trip latency inflates.
+
+**Regression trigger — intermittent shared-MySQL contention (measured 2026-06-20).**
+Baseline measurements from base13 in a normal window: 500× `SELECT 1` on a
+persistent connection = **0.136 s** (~0.27 ms/round-trip); `COUNT/SUM` over
+the whole `user_auto_fine` (487k rows) = **83 ms**. So the DB and network are
+fast at baseline; for 74 autos (~370 round-trips) `get_auto_list` is sub-second
+in a normal window (= the «warm = 0 s» observation). Therefore 130–1444 s occur
+**only during intermittent contention episodes** on the shared instance from
+*other* trade.su tenants (observed sibling 766 s query, 363 live threads —
+unrelated to any TransApp change). The **data-growth** hypothesis is
+**disproven by measurement** (487k aggregates in 83 ms; indexes present).
+Our-side contribution: the web client fires `get-auto-list` in concurrent
+pairs (slow log entries come in same-second pairs: 418+1444, 246+334, 129+144),
+so two heavy N+1 requests contend with each other during a contention window —
+addressable by the cross-call dedup (`tasks.md`) without touching legacy.
+Empty `SHOW PROCESSLIST` during a hang is consistent with the contention model
+(time lost while neighbours saturate the shared instance, not inside our fast
+queries). Aggravator: leftover debug in the handler
+(`open >/tmp/dump_15_09_001` + ~8 `Data::Dumper->Dump` writes per auto).
+
+**Disproven.** Earlier hypothesis (cron `check_avtodor`/`check_rnis`
+lock-wait) — incident occurs outside cron windows, processlist clean,
+queries indexed.
+
+**Decision.** Do **not** patch Ivan's legacy perl (third-party, EOL OS,
+risk). The correct fix (set-based aggregation replacing the N+1) lands in
+our own Litestar backend during the takeover/migration (Phases 1–4 of the
+plan). Client side is already maxed (ADR-023/024/026). Until migration the
+degradation is a documented known issue.
+
+**Consequences.** Incident triage closed; the latency item moves from the
+`resilience` epic (where it was framed as «ask Ivan to fix cron») into the
+`backend-takeover` epic as a migration driver. Legacy backend source mirror
+kept locally git-ignored at `legacy/ivan-backend/` for migration work.
+
+**Files.** `Writerside/topics/decision-log.md` (this entry),
+`Writerside/topics/infra-deployment.md` (base13 topology),
+`.claude/plans/2026-06-18-legacy-backend-takeover.md`, `.claude/tasks.md`.
+
+### ADR-028: Web cross-call dedup of `/get-auto-list` — LIGHT `updateUserData` defers to an in-flight HEAVY `fetchAutoList` via a shared in-flight slot (2026-06-20)
+
+**Context.** First our-side mitigation lever from the ADR-027 RCA. On web, two
+callers POST `/get-auto-list` and fire concurrently on auto-list load and on
+company switch: the HEAVY `useAutoData.fetchAutoList` (full list) and the LIGHT
+`UserDataContext.updateUserData` (`auto_list_limit: 0`). Backend logs show them
+as same-second pairs that each take 130–1444 s in a shared-MySQL contention
+window (two parallel N+1 that contend with each other and with sibling
+trade.su load). The legacy handler ignores `auto_list_limit`, so the "light"
+call is equally heavy on the backend — collapsing the pair to one request
+roughly halves backend load per page-load. ADR-024 already removed the
+*screen's* own duplicate via `firstFocusRef`; the remaining pair is
+sidebar-LIGHT vs screen-HEAVY, which had no cross-call dedup (each had only
+its own in-flight guard).
+
+**Decision.** Share ONE in-flight slot (`inFlightRef`) in `UserDataContext`
+between both callers:
+- New `registerAutoListFetch(promise)` stores a normalized (rejection-swallowed)
+  marker into `inFlightRef`, cleared on settle via an identity guard.
+- `useAutoData.fetchAutoList` registers a marker **synchronously at its top**
+  (before any await) on web (`userDataCtx` present), resolved in `finally`.
+- `updateUserData` defers to an in-flight HEAVY: pre-await guard, then a
+  one-microtask yield + re-check after the token `await`. The yield makes the
+  dedup **ordering-independent** — when both the screen's `loadData` and the
+  sidebar's `updateUserData` await `getItem` in the same commit, the HEAVY
+  registers its marker right after its own `getItem` resolves, and the LIGHT
+  re-check catches it regardless of which effect fired first. HEAVY never
+  defers to LIGHT (the screen needs the full list).
+
+The HEAVY response is a superset of the LIGHT's needs and already drives
+`syncFromAutoList`, so the deferring LIGHT loses nothing. Native is unchanged
+(`userDataCtx === null`): the module-level `_inFlightUpdateUserData` dedup
+(ADR-024) stands.
+
+**Why the existing concurrent-dedup test stays green.** The prior
+`updateUserData` dedup relied on the latest-wins AbortController (the second
+caller aborted the first). With the post-await re-check the second caller now
+*defers* to the first's `inFlightRef` instead — still exactly one request
+(`callCount === 1`). Verified: `npx jest` → 21 suites / 167 tests green;
+`tsc --noEmit` clean.
+
+**Edge cases.** HEAVY aborted (latest-wins) before `syncFromAutoList` → its
+`finally` still resolves the marker; a superseding HEAVY re-registers and
+syncs, so the deferred LIGHT gets fresh data via the reflection effect — no
+fallback needed. HEAVY throws → marker resolves (rejection swallowed), LIGHT
+doesn't set `loadError` (it never fired); HEAVY sets it.
+
+**Consequences.** ~2× fewer `/get-auto-list` per web page-load / company
+switch under contention; closes the deferred cross-call-dedup task. Does not
+fix the root cause (shared-MySQL contention) — that remains the migration
+(ADR-027 / backend-takeover). The new `inFlightRef`-sharing contract is the
+single coordination point; any future caller must go through
+`updateUserData` or `registerAutoListFetch`.
+
+**Files.** `src/contexts/UserDataContext.tsx`, `src/hooks/useAutoData.ts`,
+`src/contexts/__tests__/UserDataContext.test.tsx`,
+`src/hooks/__tests__/useAutoData.test.tsx`,
+`Writerside/topics/decision-log.md` (this entry),
+`Writerside/topics/dev-web.md`, `Writerside/topics/project-dashboard.md`,
+`.claude/tasks.md`.
+
 

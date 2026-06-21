@@ -2,12 +2,18 @@ import axios, { AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 
-// На localhost используем dev-сервер с настроенными CORS заголовками.
-// В продакшене веб-приложение деплоится на тот же домен что и API — CORS не нужен.
+// На localhost ходим на prod-apex `transapp.ru/api` — он отдаёт
+// `Access-Control-Allow-Origin: *` (CORS для cross-origin dev работает) и это
+// тот же backend, что и в проде. Раньше тут стоял staging-vhost Ивана
+// `ivan.trans-konsalt.ru`, но он заметно медленнее prod-apex (мониторинг: ~87%
+// запросов >5s) и был лишним частным случаем — нативный dev (`api.ts`
+// MAIN_API_URL) и так всегда бьёт в `transapp.ru/api`, теперь web с ним
+// консистентен. В проде web и API — один origin (`<host>/api/` проксируется
+// нашим nginx на prod-apex, ADR-026), CORS не нужен.
 const getMainApiUrl = (): string => {
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'https://ivan.trans-konsalt.ru/api/';
+    return 'https://transapp.ru/api/';
   }
   return `https://${hostname}/api/`;
 };

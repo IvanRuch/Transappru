@@ -1,3 +1,4 @@
 {
-  "min_acceptable_nice_value": 10
+  "min_acceptable_nice_value": 10,
+  "ignore_dirs": ["legacy", "node_modules/.cache"]
 }

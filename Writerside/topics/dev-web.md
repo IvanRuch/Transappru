@@ -541,6 +541,23 @@ the same `Promise<void>` without firing a new fetch. AbortController is
 managed centrally; component unmount or Provider teardown cancels the
 in-flight request without `setState` on a dead component.
 
+**Cross-call dedup (ADR-028).** The `inFlightRef` slot is shared with the
+HEAVY `useAutoData.fetchAutoList` too, not just with other LIGHT
+`updateUserData` callers. On the auto-list route both fire concurrently
+(sidebar LIGHT `auto_list_limit: 0` + screen HEAVY full list); the legacy
+backend ignores `auto_list_limit`, so both are equally expensive N+1.
+`fetchAutoList` registers a marker into the slot via
+`context.registerAutoListFetch(promise)` **synchronously at its top**
+(web only), resolved in its `finally`. `updateUserData` defers to an
+in-flight HEAVY: pre-await guard, then a one-microtask yield + re-check
+after the token `await` — this makes the dedup **ordering-independent**
+(works whether the sidebar or the screen effect fires first, since both
+await `getItem` before the HEAVY can register). HEAVY never defers to
+LIGHT (the screen needs the list). Result: one `/get-auto-list` per
+page-load / company switch instead of a concurrent pair. The HEAVY
+response is a superset and already drives `syncFromAutoList`, so the
+deferring LIGHT loses nothing.
+
 `useAutoData` is Context-aware:
 
 - A reflection `useEffect` mirrors Context → local state so consumers

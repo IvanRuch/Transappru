@@ -245,6 +245,18 @@ export function useAutoData() {
     requestOffset = stateRef.current.offset,
     isBackground = false
   ) => {
+    // Web cross-call dedup (ADR-028): publish an in-flight marker into the
+    // shared UserDataContext slot SYNCHRONOUSLY — before any await — so a
+    // concurrent LIGHT updateUserData() in the same render commit defers to
+    // this HEAVY fetch instead of firing a duplicate /get-auto-list. The
+    // HEAVY response is a superset and already feeds syncFromAutoList below.
+    // Native (userDataCtx === null) skips this. Resolved in `finally`.
+    let settleMarker: (() => void) | undefined;
+    if (userDataCtx) {
+      const marker = new Promise<void>(res => { settleMarker = res; });
+      userDataCtx.registerAutoListFetch(marker);
+    }
+
     if (!isBackground) {
       if (requestOffset === 0) {
         if (stateRef.current.autoListLength === 0) setIsLoading(true);
@@ -439,13 +451,17 @@ export function useAutoData() {
         }));
       }
     } finally {
+      // Release the cross-call dedup slot (ADR-028). A deferring LIGHT
+      // caller resolves here; if this fetch was aborted/failed before
+      // syncFromAutoList, a superseding HEAVY has already re-registered.
+      settleMarker?.();
       if (fetchAbortRef.current === controller) fetchAbortRef.current = null;
       setIsLoading(false);
       setIsRefreshing(false);
       setIsSearching(false);
       setIsLoadingMore(false);
     }
-  }, [router]);
+  }, [router, userDataCtx]);
 
   // Загрузка деталей (вынесена для чистоты)
   const loadDetailsForItems = (token: string, items: AutoItem[]) => {

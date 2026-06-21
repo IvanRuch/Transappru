@@ -13,11 +13,13 @@
  *   - Org switch (lives in switchOrganization util, already covered
  *     by switchOrganization.test.ts).
  */
+import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { http, HttpResponse } from 'msw';
 
 import { useAutoData } from '../useAutoData';
+import { UserDataProvider, useUserData } from '../../contexts/UserDataContext';
 import api from '../../services/api';
 import {
   server,
@@ -525,5 +527,65 @@ describe('useAutoData', () => {
     });
 
     expect(callCount).toBe(1);
+  });
+
+  // ───────── ADR-028: web cross-call dedup (HEAVY fetchAutoList ↔ LIGHT updateUserData) ─────────
+
+  describe('cross-call dedup under UserDataProvider (web)', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <UserDataProvider>{children}</UserDataProvider>
+    );
+
+    it('HEAVY loadData + LIGHT updateUserData concurrently → single /get-auto-list', async () => {
+      let callCount = 0;
+      server.use(
+        http.post(GET_AUTO_LIST, async () => {
+          callCount += 1;
+          // Overlap window so both callers are "in flight" together.
+          await new Promise(r => setTimeout(r, 20));
+          return HttpResponse.json(makeGetAutoListResponse());
+        }),
+      );
+
+      const { result } = renderHook(
+        () => ({ auto: useAutoData(), user: useUserData() }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await Promise.all([
+          result.current.auto.loadData(),       // HEAVY → registers in-flight marker
+          result.current.user.updateUserData(), // LIGHT → must defer to HEAVY
+        ]);
+      });
+
+      expect(callCount).toBe(1);
+      await waitFor(() => expect(result.current.user.userData.firm).toBe('ООО Тест'));
+    });
+
+    it('order-independent: LIGHT fired before HEAVY still collapses to one request', async () => {
+      let callCount = 0;
+      server.use(
+        http.post(GET_AUTO_LIST, async () => {
+          callCount += 1;
+          await new Promise(r => setTimeout(r, 20));
+          return HttpResponse.json(makeGetAutoListResponse());
+        }),
+      );
+
+      const { result } = renderHook(
+        () => ({ auto: useAutoData(), user: useUserData() }),
+        { wrapper },
+      );
+
+      await act(async () => {
+        await Promise.all([
+          result.current.user.updateUserData(), // LIGHT first
+          result.current.auto.loadData(),        // HEAVY registers synchronously after
+        ]);
+      });
+
+      expect(callCount).toBe(1);
+    });
   });
 });

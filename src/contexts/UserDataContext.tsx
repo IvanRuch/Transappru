@@ -45,6 +45,19 @@ export interface UserDataContextValue {
   updateUserData: () => Promise<void>;
 
   /**
+   * Register an externally-owned in-flight `/get-auto-list` (the HEAVY
+   * fetch in `useAutoData.fetchAutoList` on web) into the SAME slot that
+   * `updateUserData` uses. A concurrent LIGHT `updateUserData()` then
+   * defers to it instead of firing a duplicate request — the HEAVY
+   * response is a superset and already drives `syncFromAutoList`. The
+   * passed promise's rejection is swallowed (HEAVY owns its own
+   * error→loadError handling); the slot is cleared on settle via an
+   * identity guard so a stale settle never clears a newer fetch. See
+   * ADR-028 (cross-call dedup), building on ADR-020/024.
+   */
+  registerAutoListFetch: (promise: Promise<unknown>) => Promise<void>;
+
+  /**
    * Apply a `/get-auto-list` response received elsewhere (e.g. from
    * useAutoData's main `fetchAutoList`) without firing a new request.
    * Lets useAutoData drive the shared snapshot when it already has
@@ -168,6 +181,23 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
     const token = await AsyncStorage.getItem('token');
     if (!token) return;
 
+    // Ordering-independent cross-call dedup (ADR-028). Defer to an
+    // in-flight HEAVY fetch (useAutoData.fetchAutoList) so we don't fire a
+    // duplicate /get-auto-list — the HEAVY response is a superset and
+    // already drives syncFromAutoList.
+    //   • First check: HEAVY's effect ran first → its marker is already
+    //     in the slot.
+    //   • If not, yield one microtask: when the SCREEN's loadData and the
+    //     SIDEBAR's updateUserData both await `getItem` in the same commit,
+    //     HEAVY registers its marker synchronously right after its own
+    //     getItem resolves. The extra microtask lets that registration
+    //     win regardless of which effect fired first.
+    // Two concurrent LIGHT callers still collapse to one request: the
+    // second re-check sees the first's inFlightRef and defers.
+    if (inFlightRef.current) return inFlightRef.current;
+    await Promise.resolve();
+    if (inFlightRef.current) return inFlightRef.current;
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -208,6 +238,19 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
     return fetchPromise;
   }, [syncFromAutoList]);
 
+  const registerAutoListFetch = useCallback((promise: Promise<unknown>): Promise<void> => {
+    // Normalize to Promise<void> and swallow rejection so a deferring
+    // LIGHT caller's await never throws — HEAVY owns its error handling.
+    const marker = promise.then(() => undefined, () => undefined);
+    inFlightRef.current = marker;
+    // Identity guard: only clear if this marker still owns the slot, so a
+    // newer fetch that overwrote inFlightRef isn't cleared by our settle.
+    void marker.finally(() => {
+      if (inFlightRef.current === marker) inFlightRef.current = null;
+    });
+    return marker;
+  }, []);
+
   const optimisticOrgSwap = useCallback((targetInn: string) => {
     // Find the target org in otherUserList. If missing — no-op (the
     // background refresh will reconcile anyway).
@@ -246,6 +289,7 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
     ourServicesList,
     onboardingExpired,
     updateUserData,
+    registerAutoListFetch,
     syncFromAutoList,
     optimisticOrgSwap,
     setUserData,
