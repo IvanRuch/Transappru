@@ -2557,6 +2557,15 @@ kept locally git-ignored at `legacy/ivan-backend/` for migration work.
 `Writerside/topics/infra-deployment.md` (base13 topology),
 `.claude/plans/2026-06-18-legacy-backend-takeover.md`, `.claude/tasks.md`.
 
+> **Correction (2026-06-21, see ADR-029).** Direct measurement with a live
+> session token showed the shared MySQL is fast *during* the user-facing
+> slowness, and the legacy `get_auto_list` handler is intrinsically ~7–18 s
+> even **isolated** (single request, 14-auto account). The "intermittent
+> shared-MySQL contention / noisy neighbour" framing above is **superseded**:
+> the dominant factor is the legacy handler's per-request overhead, amplified
+> by concurrency — not DB contention. Policy hardened: **never patch Ivan's
+> production legacy**; the only fix is the migration. See ADR-029.
+
 ### ADR-028: Web cross-call dedup of `/get-auto-list` — LIGHT `updateUserData` defers to an in-flight HEAVY `fetchAutoList` via a shared in-flight slot (2026-06-20)
 
 **Context.** First our-side mitigation lever from the ADR-027 RCA. On web, two
@@ -2616,6 +2625,71 @@ single coordination point; any future caller must go through
 `src/hooks/__tests__/useAutoData.test.tsx`,
 `Writerside/topics/decision-log.md` (this entry),
 `Writerside/topics/dev-web.md`, `Writerside/topics/project-dashboard.md`,
+`.claude/tasks.md`.
+
+### ADR-029: Correction of ADR-027 — `/get-auto-list` slowness is the legacy handler's intrinsic per-request cost (~7–18 s isolated for 14 autos), amplified by concurrency, NOT shared-MySQL contention; policy: never patch Ivan's prod, fix only via migration (2026-06-21)
+
+**Context.** ADR-027 attributed the 130–1444 s `/get-auto-list` latency to
+*intermittent shared-MySQL contention* (a 766 s sibling query from another
+trade.su DB was observed). A 2026-06-21 incident window with a valid session
+token let us measure the request path directly, end-to-end, and the contention
+model did not hold.
+
+**Measurements (2026-06-21, during user-facing slowness).**
+- **DB is fast**: 500× `SELECT 1` on a persistent connection = **0.111 s**
+  (~0.22 ms/round-trip); `Threads_running = 7`; base13 `load 0.71`. The only
+  >5 s query on the instance was a 17 s sibling on `semc_kru_new` — not enough
+  to explain 100+ s, and not on `trans_konsalt`.
+- **Isolated handler is intrinsically slow**: a single `get_auto_list` for a
+  14-auto account, hit directly at `https://transapp.ru/api/get-auto-list`
+  (bypassing the browser and our nginx) returned HTTP 200 (~46 KB) in
+  **6.9 s / 7.5 s / 17.7 s** ttfb across three samples. The pure indexed SQL
+  for this is ≈15 ms, so **>99 % of the time is NOT SQL execution**.
+- **It scales with the account, and bootstrap is NOT the cause**: a mobile
+  (iOS) session log shows every other endpoint fast through the SAME perl
+  bootstrap — `/get-session-data` 299 ms, `/confirm-token` 292 ms,
+  `/auth-by-phone` 289 ms, `/system-notice` 21–34 ms — while only
+  `/get-auto-list` hit the client's 90 s timeout (`ECONNABORTED` at 90013 ms).
+  Combined with the isolated 14-auto sample (7.5 s), the cost clearly **scales
+  with the account's data** (small account ≈ 7 s, this account ≥ 90 s).
+- **Concurrency amplifies it further**: under real load (browser reloads +
+  retries + mobile), the endpoint shows **124–279 s** in `tplnew-access.log`.
+
+**Revised conclusion.** The DB instance is **not** the bottleneck and neither
+is the request **bootstrap** (the mobile log proves auth/session endpoints are
+sub-second through the same perl app). The dominant cost is **inside the
+`get_auto_list` body — the N+1 that scales with the account's data**: per auto
+it runs `_get_check_passes_string` / `_get_check_fines_string`
+(`COUNT/SUM user_auto_fine`) / `_get_check_diagnostic_card_string` plus
+`time_left` per pass, so the total grows with `autos × per-auto rows`
+(fines/passes). Each point query is ms, but the aggregate over a heavy account
+crosses the 90 s client ceiling. (Earlier "DB contention" — ADR-027 — and the
+secondary "intrinsic bootstrap overhead" guess are both demoted; exact
+per-auto unit cost is unprovable without root/strace, but the scaling is
+clear.) Aggravators: per-request `` `date` `` shell-fork and `Data::Dumper`
+debug writes to a single `/tmp/dump_15_09_001`. This is precisely what a
+**set-based rewrite** (one `GROUP BY` per metric over all autos) eliminates.
+
+**What from ADR-027 still stands.** Cron-lock-wait disproven; data-growth
+disproven (487k aggregate in 83 ms); client side maxed (ADR-023/024); the
+N+1 pattern is real and is part of the intrinsic cost. **What changes:** the
+contention/noisy-neighbour framing is demoted from "trigger" to a minor,
+non-dominant factor.
+
+**Decision / policy.** **Never patch Ivan's production legacy** (explicit user
+decision, 2026-06-21) — not the perl, not the cron, not the DB. The only fix
+is the **migration** (rewrite `get_auto_list` in our Litestar backend: one
+pooled connection, set-based aggregation, no per-request shell-forks/debug
+writes). The deployed cross-call dedup (ADR-028) remains the correct interim
+lever — it removes the *amplifier* (concurrency), not the baseline. Immediate
+operational relief during a bad window: **don't hammer** the endpoint
+(reloads/retries) so the pile-up drains and it settles to its ~10 s baseline.
+
+**Consequences.** RCA re-pinned; `backend-takeover` migration becomes the sole
+real fix path. No legacy change will be made regardless of incident pressure.
+
+**Files.** `Writerside/topics/decision-log.md` (this entry + ADR-027
+correction note), `.claude/plans/2026-06-18-legacy-backend-takeover.md`,
 `.claude/tasks.md`.
 
 
