@@ -2565,6 +2565,16 @@ kept locally git-ignored at `legacy/ivan-backend/` for migration work.
 > the dominant factor is the legacy handler's per-request overhead, amplified
 > by concurrency — not DB contention. Policy hardened: **never patch Ivan's
 > production legacy**; the only fix is the migration. See ADR-029.
+>
+> **Second correction (2026-06-21, see ADR-030).** The handler analysed in
+> this ADR — `htdocs/api/TPLApiController.pm:442` — is **not the production
+> one**. It returns only `{ token, auto_list }` with three strings per auto
+> and no `LIMIT`; the app could not run on it. The live handler matching the
+> frontend contract is `htdocs/digitrans/api/TPLApiController.pm:739`, which
+> honours `LIMIT ?, ?` but with an `|| 1000` fallback (`"0" || 1000 = 1000`)
+> and runs ~8–11 sub-queries **per auto** plus an external OSAGO-parser HTTP
+> call for autos without a policy. The "three sub-queries, no external HTTP"
+> description above is wrong for production. See ADR-030.
 
 ### ADR-028: Web cross-call dedup of `/get-auto-list` — LIGHT `updateUserData` defers to an in-flight HEAVY `fetchAutoList` via a shared in-flight slot (2026-06-20)
 
@@ -2692,4 +2702,108 @@ real fix path. No legacy change will be made regardless of incident pressure.
 correction note), `.claude/plans/2026-06-18-legacy-backend-takeover.md`,
 `.claude/tasks.md`.
 
+> **Correction (2026-06-21, see ADR-030).** This ADR still measured and cited
+> the wrong handler file (`htdocs/api/TPLApiController.pm:442`). Assembling the
+> full response contract for the migration showed production is
+> `htdocs/digitrans/api/TPLApiController.pm:739`. The "intrinsic per-request
+> overhead" is real but is now **explained**: ~8–11 sub-queries per auto +
+> an external OSAGO-parser call, multiplied by the fleet size — and the fleet
+> size is driven by the client, because the handler expands `auto_list_limit:0`
+> to `1000` (`"0" || 1000`). The dominant trigger is our `updateUserData`
+> "light" call sending `auto_list_limit:0`, not an account-specific data size.
+> See ADR-030.
 
+### ADR-030: Production `get_auto_list` is `digitrans/api/TPLApiController.pm:739` (not `api/442`); the latency trigger is the client sending `auto_list_limit:0`, which the handler expands to a full-fleet (≤1000) scan of ~8–11 sub-queries per auto + an external OSAGO-parser call; corrects the handler attribution and per-request cost of ADR-027/029 (2026-06-21)
+
+**Context.** While assembling the full `/get-auto-list` response contract as a
+prerequisite for the migration (Phase 3 of the takeover plan), the producer
+side stopped matching the consumer side. The handler cited by ADR-027/029,
+`htdocs/api/TPLApiController.pm:442`, encodes only
+`{ token, auto_list }` and, per auto, just three strings
+(`check_passes_string`, `check_fines_string`, `check_diagnostic_card_string`)
+with **no `LIMIT`** clause. The frontend, however, reads `user_data`,
+`auto_list_count`, `other_user_list`, `our_services_list`, `onboarding_*`,
+`manager_data`, and ~60 per-auto fields across six tabs (passes / fines /
+diagnostic-card / osago / avtodor / rnis / status). The app cannot run on the
+`api/442` payload — so that is not the production handler.
+
+**Evidence (the real handler is `digitrans/api/TPLApiController.pm:739`).**
+1. Its top-level assembly (`:1020-1032`) emits exactly the consumed contract:
+   `token`, `auto_list`, `auto_list_count`, `user_data`, `our_services_list`,
+   `other_user_list`, `onboarding_viewed`, `onboarding_expired`,
+   `announce_our_services_viewed`, `manager_data`. The top-level identity
+   fields come from `session_data` (an auth/session middleware), **not** from
+   `get_auto_list` itself.
+2. It **honours** pagination — `SELECT SQL_CALC_FOUND_ROWS ... LIMIT ?, ?`
+   (`:786-823`), `auto_list_count` via `FOUND_ROWS()` (`:826`) — but with
+   `my $auto_list_limit = $params->{POSTHASH}->{auto_list_limit} || 1000`
+   (`:778`). In Perl, `"0" || 1000 == 1000`, so **`auto_list_limit:0` becomes
+   a full-fleet scan (capped at 1000)**.
+3. Per auto inside the loop it runs ~8–11 queries: in-work status on
+   `rosexport.tpl_card` (`:836`), `debt_sum` on `rosexport` (`:869`), then six
+   helpers (`:903-1008`) — `_get_check_passes_data` (`user_auto_pass`),
+   `_get_check_fines_data` (`COUNT/SUM user_auto_fine`, **+2** ФССП/Платон
+   counts when there is debt), `_get_check_diagnostic_card_data`,
+   `_get_check_osago_data`, `_get_check_avtodor_data`, `_get_check_rnis_data`.
+4. `_get_check_osago_data` (`:5431`) makes an **external HTTP call**
+   `TPLApiUtils::get_parser_api_osago` (`:5468`) for every auto **without** a
+   current OSAGO row — synchronous, inside the request loop. (The "no external
+   HTTP in this handler" claim of ADR-027 was about the wrong file.)
+
+So one request costs `~8–11 SQL × autos` + up to `autos` external OSAGO calls.
+For `auto_list_limit:0 → 1000` autos that is ~8000–11000 queries plus up to
+1000 external calls — directly explaining the 90 s+ ceiling hits and the
+124–279 s access-log entries under load.
+
+**Corrected root cause.** Neither DB contention (ADR-027) nor a vague
+"intrinsic overhead on a 3-sub-query N+1" (ADR-029, based on `api/442`). The
+dominant, reproducible trigger is **client-side**: `UserDataContext.updateUserData`
+(web sidebar) and `useAutoData.updateUserDataOnly` (native) send
+`auto_list_limit:0` as a deliberately "lightweight, profile-only" refresh —
+but the handler turns that into the **heaviest possible** call (full-fleet
+× ~8–11 sub-queries + external OSAGO). It fires on every page-load and every
+company switch. The legacy frontends (`Transappru/`, `transappweb/`) always
+sent `auto_list_limit:10` (one bounded page) and **never** `0`, so they never
+triggered a full-fleet scan — which matches the field observation that the
+slowdown is independent of the account (any account's full fleet is scanned)
+and reproduces on arbitrary company switching, while legacy was fine.
+
+**What from ADR-027/029 still stands.** Cron-lock-wait disproven; DB fast at
+baseline (RT ~0.22 ms; 487k aggregate in 83 ms); concurrency amplifies; client
+side otherwise maxed (ADR-023/024/026/028); **never patch Ivan's production
+legacy**; the migration is the only real fix. **What changes:** the production
+handler is `digitrans/739`, the per-auto cost is ~8–11 queries + an external
+OSAGO call (not three queries), and the prime trigger is now pinned to the
+client `auto_list_limit:0 → 1000` expansion.
+
+**New our-side lever (not implemented here).** The "light" profile-refresh
+call should send `auto_list_limit:1` (any truthy small value) instead of `0`.
+`user_data` comes from `session_data` and `auto_list_count` from `FOUND_ROWS()`
+regardless of `LIMIT`, so the sidebar gets identical profile/notification/count
+data at ~1000× less backend cost. This is stronger than the ADR-028 dedup,
+which only removes the concurrent duplicate — the surviving call (on company
+switch, and on native) is still `limit:0 → full-fleet`. Needs a check that no
+consumer relies on a full `auto_list` from the light call (it should not — the
+HEAVY `fetchAutoList` drives the list). Recorded in `.claude/tasks.md`.
+
+**Migration implications (Phase 3).** Our Litestar `/get-auto-list` must
+(a) honour `limit`/`offset` literally (no `|| 1000`); (b) replace the per-auto
+N+1 with set-based aggregation — one `GROUP BY` per metric over the page of
+autos (`user_auto_fine`, `user_auto_avtodor`, `user_auto_pass`,
+`user_auto_diagnostic_card`, `user_auto_osago`, `user_auto_rnis`); (c) move the
+OSAGO parser out of the request path (async refresh / cache, never inline);
+(d) reproduce the `session_data`-assembled top-level fields. The full
+field-by-field contract (top-level provenance, per-auto fields per tab, helper
+value/colour semantics) is captured in
+`.claude/plans/2026-06-18-legacy-backend-takeover.md`.
+
+**Open verification (Phase 1).** The mirror ships both `htdocs/api/` and
+`htdocs/digitrans/api/` controllers. The contract match is decisive that
+production serves the `digitrans` one for `/api/get-auto-list`, but confirm
+on `base13` which `TPLApiController` Apache actually loads for `location /api`
+(vhost / `PerlRequire` / `@INC`).
+
+**Files.** `Writerside/topics/decision-log.md` (this entry + ADR-027/029
+correction notes), `.claude/plans/2026-06-18-legacy-backend-takeover.md`
+(Phase 0 RCA correction + Phase 3 response contract), `.claude/tasks.md`,
+`Writerside/topics/project-dashboard.md`.

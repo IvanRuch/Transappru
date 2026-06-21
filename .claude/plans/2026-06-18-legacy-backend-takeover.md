@@ -1,15 +1,25 @@
 # Захват и миграция legacy backend (`base13`) в нашу инфраструктуру
 
-Status: RCA скорректирован 2026-06-21 (ADR-029) — БД быстрая ВО ВРЕМЯ
-тормозов (RT 0.22мс, Threads_running=7); изолированный `get_auto_list` для
-14 авто = **7–18с** (чистый SQL ≈15мс) → доминанта = **интрисивный
-per-request оверхед legacy-хендлера**, не контеншн БД. Под конкуренцией
-раздувается до 124–279с. «Контеншн общего MySQL» (ADR-027) демотирован до
-второстепенного фактора. **Политика: прод Ивана НИКОГДА не трогаем**
-(perl/cron/БД) — единственный фикс это миграция. Дедуп (ADR-028) убирает
-амплификатор (конкуренцию), не базу.
-(Прежний статус 2026-06-20 — контеншн-модель — см. ADR-027 + correction-note.)
-Date: 2026-06-18 (RCA 2026-06-20)
+Status: RCA скорректирован 2026-06-21 (ADR-030) — найден **реальный**
+production-хендлер `htdocs/digitrans/api/TPLApiController.pm:739` (ADR-027/029
+анализировали мёртвый `htdocs/api/TPLApiController.pm:442`, который отдаёт лишь
+`{token, auto_list}` и не может обслуживать фронт). Хендлер УВАЖАЕТ `LIMIT ?, ?`,
+но `auto_list_limit || 1000` → в Perl `"0" || 1000 = 1000`, поэтому
+`auto_list_limit:0` раскрывается в **полный парк (≤1000)**. На КАЖДОЕ авто —
+~8–11 подзапросов (in-work статус + `debt_sum` на `rosexport`, passes/fines/
+diagnostic/osago/avtodor/rnis) + **внешний HTTP-вызов OSAGO-парсера**
+(`get_parser_api_osago`) на авто без полиса, синхронно в цикле. Доминирующий
+**триггер — клиентский**: «лёгкий» `updateUserData(auto_list_limit:0)`
+(web-сайдбар + native) на каждом page-load и переключении компании раздувается
+в полный скан; легаси-фронты всегда слали `limit:10` и никогда `0` → не
+триггерили. БД быстрая (RT 0.22мс). **Политика: прод Ивана НИКОГДА не трогаем**
+— фикс это миграция. Дешёвый клиентский рычаг (не трогая legacy): слать в
+«лёгком» вызове `limit:1` вместо `0` (профиль/счётчик приходят независимо от
+LIMIT) — сильнее дедупа ADR-028.
+(Прежние статусы: 2026-06-20 контеншн-модель — ADR-027; 2026-06-21 «интрисивный
+оверхед на 3-подзапросном N+1» — ADR-029; оба построены на неверном файле, см.
+correction-notes.)
+Date: 2026-06-18 (RCA 2026-06-20, скорр. 2026-06-21 ADR-030)
 Trigger: инцидент 2026-06-18 — `/get-auto-list` отдаёт `AxiosError: timeout
 of 90000ms exceeded` на mobile и web (`lk.transapp.ru`); при переключении
 компании — бесконечная загрузка и «Список авто пуст». В ходе инцидента
@@ -143,6 +153,42 @@ Litestar-бэкенде при миграции (Phases 1–4). Клиентск
 максимум (ADR-023/024/026). До миграции деградация остаётся как known
 issue.
 
+### 2.1. Correction Phase 0 (2026-06-21, ADR-030) — реальный хендлер и триггер
+
+При сборке полного контракта ответа для Phase 3 producer перестал совпадать
+с consumer'ом. Пункты 3 и 5 выше построены на **неверном файле**
+`htdocs/api/TPLApiController.pm:442` — он кодирует только `{token, auto_list}`
+и три строки на авто, без `LIMIT`; фронт на нём не заработал бы. Поправки:
+
+- **Production-хендлер** — `htdocs/digitrans/api/TPLApiController.pm:739`. Его
+  верхнеуровневая сборка (`:1020-1032`) отдаёт ровно потребляемый контракт
+  (`user_data`, `auto_list_count`, `other_user_list`, `our_services_list`,
+  `onboarding_*`, `manager_data`), причём identity-поля приходят из
+  `session_data` (auth-middleware), а не из самого `get_auto_list`.
+- **Лимит УВАЖАЕТСЯ**, но `auto_list_limit || 1000` (`:778`); в Perl
+  `"0" || 1000 = 1000` → `auto_list_limit:0` = полный парк (≤1000).
+- **~8–11 подзапросов на авто** (не три): in-work статус `rosexport.tpl_card`
+  (`:836`), `debt_sum` `rosexport` (`:869`), и шесть хелперов (`:903-1008`) —
+  passes (`user_auto_pass`), fines (`COUNT/SUM user_auto_fine`, +2 ФССП/Платон
+  при долге), diagnostic-card, osago, avtodor, rnis.
+- **Внешний HTTP есть**: `_get_check_osago_data` (`:5431`) при отсутствии
+  полиса зовёт `TPLApiUtils::get_parser_api_osago` (`:5468`) — синхронно,
+  на каждое авто без ОСАГО, прямо в цикле. (Утверждение п.5 «внешних HTTP
+  нет» относилось к другому файлу.)
+- **Доминирующий триггер — клиентский**: «лёгкий» `updateUserData(auto_list_limit:0)`
+  (web-сайдбар + native `updateUserDataOnly`) раздувается в полный скан
+  ×~8–11 подзапросов + внешние OSAGO-вызовы, на каждом page-load и
+  переключении компании. Легаси-фронты всегда слали `limit:10` и никогда
+  `0`. Это объясняет field-наблюдение: тормозит независимо от аккаунта
+  (сканируется весь парк любого) и воспроизводится на произвольном
+  переключении компаний.
+- **Корректный фактор-картинг**: триггер не «контеншн БД» и не «account data
+  size», а раскрытие `limit:0 → 1000` клиентом поверх хендлера со стоимостью
+  `~8–11 SQL × autos + внешний OSAGO × autos`.
+- **Открытая верификация (Phase 1)**: в зеркале есть оба контроллера
+  (`htdocs/api/` и `htdocs/digitrans/api/`); подтвердить на `base13`, какой
+  `TPLApiController` Apache грузит для `location /api` (vhost / `PerlRequire`).
+
 ## 3. Phase 1 — Доступ и инвентаризация
 
 - Получить и зафиксировать (в наш секрет-стор, НЕ в репо): SSH/доступ к
@@ -173,6 +219,81 @@ issue.
   webhook `/kazna-api-update-fines`.
 - Перенести cron-воркеры (avtodor/rnis/push) с устранением lock-wait
   by-design (чанки/очередь).
+
+### 5.1. Контракт ответа `/get-auto-list` (spec для реализации)
+
+Сведён из producer (`digitrans/.../TPLApiController.pm:739` + хелперы
+`:5232-5546`) и consumer (`src/types/auto.ts`, `useAutoData.ts`,
+`UserDataContext.tsx`). Наш Litestar-эндпоинт обязан воспроизвести эту форму.
+
+**Принципы реализации (из ADR-030):** `limit`/`offset` — буквально, без
+`||1000`; per-auto N+1 → set-based `GROUP BY` по странице авто; OSAGO-парсер
+вынести из request-path (async/cache); top-level identity-поля собрать из
+сессии.
+
+**Верхний уровень.** `token` (эхо); `auto_list` (`AutoItem[]`, страница по
+LIMIT); `auto_list_count` (строка-число, всего по фильтру — у legacy
+`SQL_CALC_FOUND_ROWS`/`FOUND_ROWS()`, минус отфильтрованные в цикле); из
+сессии — `user_data`, `other_user_list` (`UserData[]`), `our_services_list`
+(`OurService[]`), `manager_data` (`ManagerData`, может прийти и внутри
+`user_data` — фронт: `user_data.manager_data || manager_data`),
+`onboarding_expired` / `onboarding_viewed` / `announce_our_services_viewed`
+(0/1 или "0"/"1"); при отсутствии сессии — `auth_required:1`.
+
+**`UserData`** (`src/types/auto.ts:13-26`): `id`, `firm`, `inn`, `phone`
+(обязательные); `user_confirmed`, `phone_inn_confirmed` (0/1 — при 0 фронт
+редиректит на auth); `user_auto_count` (строка; есть на элементах
+`other_user_list`, на активном `user_data` обычно нет); `notification_unviewed_count`
+(number); `other_user_notification_unviewed_count`; `manager_data`,
+`tech_support_data` (`ManagerData`, читается только `.name`); `debt_sum`
+(строка, "0.00" = нет долга).
+
+**`ManagerData`** (`:3-11`): `id`, `mobile_phone`, `email`, `email_subject`,
+`email_body`, `whatapp_greetings`, `name` — все опциональны.
+
+**`OurService`** (`:103-108`): `id`, `name`, `header`, `description?`.
+
+**`AutoItem`** (`src/types/auto.ts:28-101`). База: `id`, `auto_number`,
+`car_type`, `sts`, `check_services`, `auto_number_base`,
+`auto_number_region_code` (парсинг ГРЗ: `^(.*?)(\d{2,3})$`, иначе base=весь
+номер, region=''), `debt_sum`. Флаги «пора обновить» (legacy: `IF(last_time<…)`)
+— `check_passes_expared` (1ч), `check_fines_expared` (1д),
+`check_diagnostic_card_expared` (30д) + `_before_finished_expared` (3д),
+`check_osago_expared` (30д) + `_before_finished`, `check_avtodor_expared` /
+`check_rnis_expared` (0); при `!check_services` диагкарта и ОСАГО гасятся.
+
+Поля по вкладкам (у legacy — в самом ответе списка; семантика хелперов):
+- **passes** (`_get_check_passes_data`): `check_passes_string` (дефолт
+  «пропуска не обнаружены»); `..._year_period_color` (`red` <2 нед до
+  `pass_end`, `yellow` <75 дн, `green`, иначе `white`); `..._year_cancelled`
+  (0/1); `..._year_propusktype`, `..._year_type_of_pass_string` (1→Дневной,
+  2→Ночной), `..._pass_end_str` (дд.мм.гггг), `..._pass_end_left` (DATEDIFF),
+  `..._pass_end`, `..._dat_cancel_year_str`, `..._year_cancelled_viewed`,
+  `..._year_ending_viewed`; второй активный пропуск — `..._another_*`.
+- **fines** (`_get_check_fines_data`): `check_fines_string`, `check_fines_cnt`,
+  `check_fines_sum` (`SUM` со скидкой если `discount_date_end>=CURDATE()`),
+  `check_fines_color` (green/red), `check_fines_tab_show`. Строка склоняет
+  «неоплаченный/ых» + дописывает ФССП/Платон counts.
+  ⚠ producer = `check_fines_cnt`; сверить с TS-чтением (`check_fines_count`?).
+- **diagnostic-card** (`_get_check_diagnostic_card_data`):
+  `check_diagnostic_card_string` («действует, до …» / «действующие карты не
+  обнаружены»), `..._period_color` (red <1 мес), `..._date_to_str`,
+  `..._date_to_left`, `..._ending_viewed`, `..._tab_show`.
+- **osago** (`_get_check_osago_data`): симметрично диагкарте по
+  `user_auto_osago`; при отсутствии — внешний парсер (в миграции: async).
+- **avtodor** (`_get_check_avtodor_data`): `check_avtodor_string`,
+  `..._cnt`, `..._sum`, `..._color`, `..._tab_show`.
+- **rnis** (`_get_check_rnis_data`): `check_rnis_color`, `..._reestr_string`
+  («зарегистрирован в РНИС» / «не найдены»), `..._reestr_color`,
+  `..._telematics_string`, `..._telematics_color`, `..._tab_show`.
+- **status/заявка** (in-work SELECT `:836`): `status_header`, `stage_header`,
+  `status_type_of_pass_string`, `status_propusktype`, `status_dat_year_str`,
+  `status_dat_issuance_str`, `status_tab_show`.
+
+Producer-side extras, которые фронт может не читать (можно не тащить):
+`onboarding_viewed`, `*_viewed`, `check_passes_pass_end`, `stage_header`,
+`*_before_finished_expared`. Сверить по фактическому чтению в
+`AutoListItem.tsx` перед фиксацией DTO.
 
 ## 6. Phase 4 — Cutover
 
