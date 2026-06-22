@@ -26,7 +26,10 @@
         "CFBundleAllowMixedLocalizations": true,
         "NSLocationWhenInUseUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
         "NSLocationAlwaysUsageDescription": "Приложение использует вашу геолокацию для отображения на карте",
-        "LSApplicationQueriesSchemes": ["tg", "whatsapp"]
+        "LSApplicationQueriesSchemes": [
+          "tg",
+          "whatsapp"
+        ]
       },
       "googleServicesFile": "./GoogleService-Info.plist"
     },
@@ -88,7 +91,8 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
