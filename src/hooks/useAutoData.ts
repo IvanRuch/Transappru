@@ -794,7 +794,9 @@ export function useAutoData() {
       try {
         const res = await api.post(
           '/get-auto-list',
-          { token, auto_list_limit: 0 },
+          // `1` (not `0`): legacy `auto_list_limit || 1000` turns `0` into a
+          // full-fleet scan; we only read user_data/other_user_list here (ADR-030).
+          { token, auto_list_limit: 1 },
           { signal: controller.signal, timeout: GET_AUTO_LIST_TIMEOUT_MS },
         );
         if (controller.signal.aborted) return;

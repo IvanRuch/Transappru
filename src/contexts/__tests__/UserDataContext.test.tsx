@@ -75,7 +75,7 @@ describe('UserDataContext', () => {
       await result.current.updateUserData();
     });
 
-    expect(lastBody.auto_list_limit).toBe(0);
+    expect(lastBody.auto_list_limit).toBe(1); // ADR-030: `0` would expand to full-fleet scan on legacy
     await waitFor(() => expect(result.current.userData.firm).toBe('ООО Тест'));
     expect(result.current.otherUserList).toHaveLength(1);
     expect(result.current.otherUserList[0].firm).toBe('Org B');

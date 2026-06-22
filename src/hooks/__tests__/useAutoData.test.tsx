@@ -509,9 +509,11 @@ describe('useAutoData', () => {
     // Two parallel calls while the request is still in flight must
     // share the same axios call — no double load on the backend.
     let callCount = 0;
+    let lastBody: any = null;
     server.use(
-      http.post(GET_AUTO_LIST, async () => {
+      http.post(GET_AUTO_LIST, async ({ request }) => {
         callCount += 1;
+        lastBody = await request.json();
         await new Promise(r => setTimeout(r, 20));
         return HttpResponse.json(makeGetAutoListResponse());
       }),
@@ -527,6 +529,9 @@ describe('useAutoData', () => {
     });
 
     expect(callCount).toBe(1);
+    // ADR-030: light refresh sends `1`, not `0` (which legacy expands to
+    // a full-fleet scan via `auto_list_limit || 1000`).
+    expect(lastBody.auto_list_limit).toBe(1);
   });
 
   // ───────── ADR-028: web cross-call dedup (HEAVY fetchAutoList ↔ LIGHT updateUserData) ─────────

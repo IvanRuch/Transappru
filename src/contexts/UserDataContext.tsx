@@ -34,9 +34,15 @@ export interface UserDataContextValue {
   onboardingExpired: number | string;
 
   /**
-   * Fetch `/get-auto-list` with `auto_list_limit: 0` and apply the
-   * shared snapshot. Concurrent callers share the same in-flight
-   * Promise — no duplicate request.
+   * Fetch `/get-auto-list` with `auto_list_limit: 1` (profile-only refresh)
+   * and apply the shared snapshot. Concurrent callers share the same
+   * in-flight Promise — no duplicate request.
+   *
+   * Why `1` and not `0`: the legacy handler does `auto_list_limit || 1000`,
+   * so `0` (falsy in Perl) expands to a full-fleet scan (≤1000 autos) with
+   * ~8–11 sub-queries each. `1` caps it at one auto. `user_data` comes from
+   * the session and `auto_list_count` from `FOUND_ROWS()`, both independent
+   * of LIMIT, and `syncFromAutoList` never reads `auto_list` here (ADR-030).
    *
    * Used by:
    *   - WebSidebar: mount, pathname change, visibilitychange, post-switchOrg
@@ -206,7 +212,9 @@ export function UserDataProvider({ children }: UserDataProviderProps) {
       try {
         const res = await api.post(
           '/get-auto-list',
-          { token, auto_list_limit: 0 },
+          // `1` (not `0`): legacy `auto_list_limit || 1000` turns `0` into a
+          // full-fleet scan; profile/count come regardless of LIMIT (ADR-030).
+          { token, auto_list_limit: 1 },
           { signal: controller.signal, timeout: GET_AUTO_LIST_TIMEOUT_MS },
         );
         if (controller.signal.aborted) return;

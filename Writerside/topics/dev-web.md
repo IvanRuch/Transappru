@@ -518,7 +518,9 @@ Shared snapshot for `userData`, `otherUserList`, `autoListCount`,
 `src/contexts/UserDataContext.tsx` and is mounted by
 `app/(authenticated)/_layout.web.tsx`. Both `WebSidebar` and
 `AutoListScreen.web` consume it — one in-flight `/get-auto-list` with
-`auto_list_limit: 0` at any moment, one snapshot.
+`auto_list_limit: 1` (profile-only refresh) at any moment, one snapshot.
+See ADR-031 for why `1` and not `0` (legacy `auto_list_limit || 1000`
+expands `0` to a full-fleet scan).
 
 `UserDataContext.updateUserData()` triggers a refresh. The component
 owns *when* to call it; the Context owns *how* (in-flight Promise
@@ -544,8 +546,10 @@ in-flight request without `setState` on a dead component.
 **Cross-call dedup (ADR-028).** The `inFlightRef` slot is shared with the
 HEAVY `useAutoData.fetchAutoList` too, not just with other LIGHT
 `updateUserData` callers. On the auto-list route both fire concurrently
-(sidebar LIGHT `auto_list_limit: 0` + screen HEAVY full list); the legacy
-backend ignores `auto_list_limit`, so both are equally expensive N+1.
+(sidebar LIGHT `auto_list_limit: 1` + screen HEAVY full list). NB the legacy
+handler does `auto_list_limit || 1000` (ADR-030), so the historical `0` was
+**not** "ignored" but expanded to a full-fleet N+1 — ADR-031 caps the light
+call at `1`. The dedup still matters because HEAVY is genuinely a full list.
 `fetchAutoList` registers a marker into the slot via
 `context.registerAutoListFetch(promise)` **synchronously at its top**
 (web only), resolved in its `finally`. `updateUserData` defers to an

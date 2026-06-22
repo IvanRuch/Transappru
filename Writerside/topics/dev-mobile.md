@@ -439,7 +439,9 @@ the backend cold-call problem. All addressed in ADR-024:
   because `loadData()` will refresh userData anyway via the
   `fetchAutoList` success path. On subsequent route focuses (user
   returning from another screen) the lightweight call still fires —
-  that's the legitimate use case.
+  that's the legitimate use case. (As of ADR-031 the lightweight call
+  sends `auto_list_limit=1`, not `0`: the legacy handler does
+  `auto_list_limit || 1000`, so `0` expanded to a full-fleet scan.)
 - **Native `updateUserDataOnly` dedup.** A module-level
   `_inFlightUpdateUserData: Promise<void> | null` mirrors the
   existing `UserDataContext.inFlightRef` (web, ADR-020). Concurrent

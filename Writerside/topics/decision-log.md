@@ -2807,3 +2807,50 @@ on `base13` which `TPLApiController` Apache actually loads for `location /api`
 correction notes), `.claude/plans/2026-06-18-legacy-backend-takeover.md`
 (Phase 0 RCA correction + Phase 3 response contract), `.claude/tasks.md`,
 `Writerside/topics/project-dashboard.md`.
+
+### ADR-031: Client `/get-auto-list` light-refresh sends `auto_list_limit:1` instead of `0` — avoids the legacy `|| 1000` full-fleet expansion (ADR-030 follow-up, client-side, no backend change) (2026-06-21)
+
+**Context.** ADR-030 established that the production handler does
+`auto_list_limit || 1000`, so the "lightweight" profile refresh —
+`UserDataContext.updateUserData` (web sidebar / `AutoListScreen.web` focus) and
+`useAutoData.updateUserDataOnly` (native) — sending `auto_list_limit:0` expands
+on the backend into a full-fleet (≤1000) scan of ~8–11 sub-queries per auto plus
+an external OSAGO-parser HTTP call per auto without a policy. It is the single
+most expensive call in the app while looking like the cheapest, and it fires on
+every page-load and every company switch.
+
+**Decision.** Send `auto_list_limit:1` in both light call sites. The change is
+safe (verified by reading the consumers):
+- `syncFromAutoList` (web) reads only `user_data`, `other_user_list`,
+  `our_services_list`, `auto_list_count`, `onboarding_expired`; native
+  `updateUserDataOnly` reads only `user_data` / `other_user_list`. **Neither
+  reads `auto_list`**, so capping the page to one auto loses nothing.
+- `user_data` comes from the session and `auto_list_count` from `FOUND_ROWS()`
+  — both independent of `LIMIT`. The light call sends **no filters**, so the
+  handler's per-page count decrement never triggers and the count stays exact.
+
+HEAVY `fetchAutoList` (the screen) is untouched — it owns the list and paginates
+per `sortMode`. `useCharges.ts` (`auto_list_limit:1000`, deliberate full list
+for the charges screen) is left as-is.
+
+**Relation to ADR-028.** The cross-call dedup removed the concurrent *duplicate*
+(web sidebar ↔ screen). This lever attacks the *surviving* call's cost: on
+company switch and on native the light call still fires alone, and `0 → 1000`
+made even that single call a full-fleet scan. Together: ~1 request per
+page-load, and that request is now cheap.
+
+**Scope / non-goals.** Client-only; no backend change; legacy never touched.
+Does **not** fix the cost of HEAVY full-list loads on large fleets — that
+remains the migration (ADR-030 / backend-takeover).
+
+**Verified.** `npx tsc --noEmit` clean; `npx jest` on `UserDataContext` +
+`useAutoData` suites — **41 tests green** (web light-call asserts
+`auto_list_limit:1`; native dedup test asserts `auto_list_limit:1`).
+
+**Files.** `src/contexts/UserDataContext.tsx`, `src/hooks/useAutoData.ts`,
+`src/contexts/__tests__/UserDataContext.test.tsx`,
+`src/hooks/__tests__/useAutoData.test.tsx`,
+`Writerside/topics/decision-log.md` (this entry), `Writerside/topics/dev-web.md`,
+`Writerside/topics/dev-mobile.md`, `Writerside/topics/project-dashboard.md`,
+`.claude/plans/2026-06-21-get-auto-list-light-limit-lever.md`,
+`.claude/tasks.md`.
